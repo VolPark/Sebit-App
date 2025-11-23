@@ -33,7 +33,7 @@ export default function RootLayout({
                 F
               </div>
               <span className="text-lg font-bold tracking-tight text-gray-900 hidden sm:block">
-                Moje Firma
+                SEBIT Solutions
               </span>
             </div>
 
