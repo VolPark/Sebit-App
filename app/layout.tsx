@@ -6,7 +6,7 @@ import { Inter } from 'next/font/google' // Import moderního fontu
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Firemní Evidence',
+  title: 'SEBIT Solutions',
   description: 'Moderní správa firmy',
 }
 
