@@ -23,12 +23,6 @@ export default function VykazyPage() {
   const [statusMessage, setStatusMessage] = useState('')
 
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [editDatum, setEditDatum] = useState('')
-  const [editPracovnikId, setEditPracovnikId] = useState('')
-
-  const [editKlientId, setEditKlientId] = useState('')
-  const [editPopis, setEditPopis] = useState('')
-  const [editHodiny, setEditHodiny] = useState('')
 
   useEffect(() => {
     fetchData()
@@ -92,9 +86,9 @@ export default function VykazyPage() {
       pracovnik_id: pracovnikId,
       klient_id: klientId || null,
       pocet_hodin: parseFloat(hodiny),
-      popis: popis
+      popis: popis,
+      akce_id: selectedAkceId
     }
-    if (selectedAkceId) payload.akce_id = selectedAkceId
 
     const { error } = await supabase.from('prace').insert(payload)
 
@@ -111,25 +105,32 @@ export default function VykazyPage() {
 
   function startEdit(v: any) {
     setEditingId(v.id)
-    setEditDatum(v.datum)
-    setEditPracovnikId(String(v.pracovnik_id || ''))
-    setEditKlientId(String(v.klient_id || ''))
-    setEditPopis(v.popis || '')
-    setEditHodiny(String(v.pocet_hodin || ''))
+    setDatum(v.datum)
+    setPracovnikId(String(v.pracovnik_id || ''))
+    setKlientId(String(v.klient_id || ''))
+    setSelectedAkceId(String(v.akce_id || ''))
+    setPopis(v.popis || '')
+    setHodiny(String(v.pocet_hodin || ''))
   }
   function cancelEdit() {
     setEditingId(null)
-    setEditDatum(''); setEditPracovnikId(''); setEditKlientId(''); setEditPopis(''); setEditHodiny('')
+    setDatum(new Date().toISOString().split('T')[0])
+    setPracovnikId('')
+    setKlientId('')
+    setSelectedAkceId('')
+    setPopis('')
+    setHodiny('')
   }
   async function saveEdit() {
     if (!editingId) return
     setLoading(true)
     const { error } = await supabase.from('prace').update({
-      datum: editDatum,
-      pracovnik_id: editPracovnikId,
-      klient_id: editKlientId,
-      popis: editPopis,
-      pocet_hodin: parseFloat(editHodiny || '0')
+      datum: datum,
+      pracovnik_id: pracovnikId,
+      klient_id: klientId,
+      akce_id: selectedAkceId,
+      popis: popis,
+      pocet_hodin: parseFloat(hodiny || '0')
     }).eq('id', editingId)
     if (!error) {
       setStatusMessage('Výkaz upraven')
@@ -153,14 +154,21 @@ export default function VykazyPage() {
   const [expandedYears, setExpandedYears] = useState(new Set<string>());
   const [expandedMonths, setExpandedMonths] = useState(new Set<string>());
 
+  const [pracovnikFilter, setPracovnikFilter] = useState('');
+  const [klientFilter, setKlientFilter] = useState('');
+  const [akceFilter, setAkceFilter] = useState('');
+
   const groupedVykazy = useMemo(() => {
     const grouped: { [year: string]: { [month: string]: any[] } } = {};
-    const vykazyWithCalc = vykazy.map(v => {
-      // const hod = Number(v.pocet_hodin) || 0
-      // const sazba = Number(v.klienti?.sazba) || 0
-      // const mzda = Number(v.pracovnici?.hodinova_mzda) || 0
-      // const prijem = hod * sazba
-      // const naklad = hod * mzda
+    
+    const filteredVykazy = vykazy.filter(v => {
+      const pracovnikMatch = !pracovnikFilter || String(v.pracovnik_id) === pracovnikFilter;
+      const klientMatch = !klientFilter || String(v.klient_id) === klientFilter;
+      const akceMatch = !akceFilter || String(v.akce_id) === akceFilter;
+      return pracovnikMatch && klientMatch && akceMatch;
+    });
+
+    const vykazyWithCalc = filteredVykazy.map(v => {
       return { ...v }
     });
 
@@ -177,7 +185,7 @@ export default function VykazyPage() {
       grouped[year][month].push(vykaz);
     }
     return grouped;
-  }, [vykazy]);
+  }, [vykazy, pracovnikFilter, klientFilter, akceFilter]);
 
   useEffect(() => {
     if (Object.keys(groupedVykazy).length > 0) {
@@ -222,7 +230,7 @@ export default function VykazyPage() {
 
       {/* Formulář - Google 2025 style (mobile‑first) */}
       <div className="mb-6">
-        <div className="bg-white/90 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className={`bg-white/90 ring-1 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 transition-all ${editingId ? 'ring-blue-500' : 'ring-slate-200'}`}>
           
           <div className="w-full">
             <label className="block text-sm font-medium text-gray-600 mb-1">Pracovník</label>
@@ -279,15 +287,46 @@ export default function VykazyPage() {
             <input id="popis" type="text" placeholder="Co bylo uděláno?" className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition" value={popis} onChange={e => setPopis(e.target.value)} />
           </div>
 
-          <div className="md:col-span-3 flex justify-end">
-            <button type="button" onClick={ulozitVykaz}
+          <div className="md:col-span-3 flex justify-end gap-4">
+            {editingId && (
+              <button type="button" onClick={cancelEdit}
+                className="inline-flex items-center justify-center bg-gray-200 text-gray-700 rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
+                Zrušit
+              </button>
+            )}
+            <button type="button" onClick={editingId ? saveEdit : ulozitVykaz}
               className="inline-flex items-center justify-center bg-blue-700 text-white rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
-              Uložit výkaz
+              {editingId ? 'Aktualizovat' : 'Uložit výkaz'}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Filtry tabulky */}
+      <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-600 mb-1">Filtr: Pracovník</label>
+          <select onChange={e => setPracovnikFilter(e.target.value)} value={pracovnikFilter} className="w-full rounded-lg bg-white border border-slate-300 p-2 transition">
+            <option value="">Všichni</option>
+            {pracovnici.map(p => <option key={p.id} value={p.id}>{p.jmeno}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-600 mb-1">Filtr: Klient</label>
+          <select onChange={e => setKlientFilter(e.target.value)} value={klientFilter} className="w-full rounded-lg bg-white border border-slate-300 p-2 transition">
+            <option value="">Všichni</option>
+            {klienti.map(k => <option key={k.id} value={k.id}>{k.nazev}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-600 mb-1">Filtr: Akce</label>
+          <select onChange={e => setAkceFilter(e.target.value)} value={akceFilter} className="w-full rounded-lg bg-white border border-slate-300 p-2 transition">
+            <option value="">Všechny</option>
+            {allAkce.map(a => <option key={a.id} value={a.id}>{a.nazev}</option>)}
+          </select>
+        </div>
+      </div>
+      
       {/* Mobile: stacked cards */}
       <div className="space-y-2 md:hidden mb-6">
         {loading && <div className="p-4 bg-white rounded-lg shadow animate-pulse">Načítám...</div>}
