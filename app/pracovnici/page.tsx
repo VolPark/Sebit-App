@@ -9,6 +9,10 @@ export default function PracovniciPage() {
   const [loading, setLoading] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
 
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editJmeno, setEditJmeno] = useState('')
+  const [editMzda, setEditMzda] = useState('')
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -35,6 +39,43 @@ export default function PracovniciPage() {
       fetchData()
     } else {
       alert(error.message)
+    }
+    setLoading(false)
+  }
+
+  function startEdit(p: any) {
+    setEditingId(p.id)
+    setEditJmeno(p.jmeno)
+    setEditMzda(String(p.hodinova_mzda))
+  }
+  function cancelEdit() {
+    setEditingId(null)
+    setEditJmeno('')
+    setEditMzda('')
+  }
+  async function saveEdit() {
+    if (!editingId) return
+    setLoading(true)
+    const { error } = await supabase.from('pracovnici').update({ jmeno: editJmeno, hodinova_mzda: parseFloat(editMzda || '0') }).eq('id', editingId)
+    if (!error) {
+      setStatusMessage('Dodavatel upraven')
+      cancelEdit()
+      fetchData()
+    } else {
+      alert(error.message)
+    }
+    setLoading(false)
+  }
+  async function deleteSupplier(id: number) {
+    if (!confirm('Opravdu smazat?')) return
+    setLoading(true)
+    const { data, error } = await supabase.from('pracovnici').delete().eq('id', Number(id))
+    if (error) {
+      console.error('Chyba při mazání dodavatele', error)
+      alert('Nepodařilo se smazat dodavatele: ' + error.message)
+    } else {
+      setStatusMessage('Dodavatel smazán')
+      fetchData()
     }
     setLoading(false)
   }
@@ -75,25 +116,28 @@ export default function PracovniciPage() {
         {loading && <div className="p-4 bg-white rounded shadow animate-pulse">Načítám...</div>}
         {!loading && pracovnici.length === 0 && <div className="text-gray-500 p-3">Žádní dodavatelé.</div>}
         {pracovnici.map((p) => (
-          <div key={p.id} className="p-4 bg-white rounded shadow-sm flex items-center justify-between">
-            <div>
-              <div className="font-medium">{p.jmeno}</div>
-              <div className="text-sm text-gray-500">{p.hodinova_mzda} Kč/h</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                aria-label={`Smazat ${p.jmeno}`}
-                className="text-red-500 text-sm"
-                onClick={async () => {
-                  if (!confirm('Opravdu smazat?')) return
-                  await supabase.from('pracovnici').delete().eq('id', p.id)
-                  fetchData()
-                }}
-              >
-                Smazat
-              </button>
-            </div>
+          <div key={p.id} className="p-4 bg-white rounded shadow-sm">
+            {editingId === p.id ? (
+              <div className="flex flex-col gap-2">
+                <input value={editJmeno} onChange={e => setEditJmeno(e.target.value)} className="border p-2 rounded" />
+                <input value={editMzda} onChange={e => setEditMzda(e.target.value)} className="border p-2 rounded" />
+                <div className="flex gap-2">
+                  <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-2 rounded">Uložit</button>
+                  <button onClick={cancelEdit} className="bg-gray-200 px-3 py-2 rounded">Zrušit</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium">{p.jmeno}</div>
+                  <div className="text-sm text-gray-500">{p.hodinova_mzda} Kč/h</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => startEdit(p)} className="text-sm text-gray-700">Upravit</button>
+                  <button onClick={() => deleteSupplier(p.id)} className="text-sm text-red-500">Smazat</button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -110,22 +154,29 @@ export default function PracovniciPage() {
          <tbody>
            {pracovnici.map((p) => (
              <tr key={p.id} className="border-b hover:bg-gray-50 text-black">
-               <td className="p-3 font-medium">{p.jmeno}</td>
-               <td className="p-3">{p.hodinova_mzda} Kč/h</td>
-               <td className="p-3">
-                 <button 
-                   type="button"
-                   aria-label={`Smazat ${p.jmeno}`}
-                   className="text-red-500 hover:underline"
-                   onClick={async () => {
-                      if (!confirm('Opravdu smazat?')) return
-                      await supabase.from('pracovnici').delete().eq('id', p.id)
-                      fetchData()
-                   }}
-                 >
-                   Smazat
-                 </button>
-               </td>
+               {editingId === p.id ? (
+                 <>
+                   <td className="p-3">
+                     <input className="border p-2 rounded w-full" value={editJmeno} onChange={e => setEditJmeno(e.target.value)} />
+                   </td>
+                   <td className="p-3">
+                     <input className="border p-2 rounded w-32" value={editMzda} onChange={e => setEditMzda(e.target.value)} />
+                   </td>
+                   <td className="p-3">
+                     <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded mr-2">Uložit</button>
+                     <button onClick={cancelEdit} className="bg-gray-200 px-3 py-1 rounded">Zrušit</button>
+                   </td>
+                 </>
+               ) : (
+                 <>
+                   <td className="p-3 font-medium">{p.jmeno}</td>
+                   <td className="p-3">{p.hodinova_mzda} Kč/h</td>
+                   <td className="p-3">
+                     <button onClick={() => startEdit(p)} className="text-red-500 mr-4">Upravit</button>
+                     <button onClick={() => deleteSupplier(p.id)} className="text-red-500">Smazat</button>
+                   </td>
+                 </>
+               )}
              </tr>
            ))}
          </tbody>

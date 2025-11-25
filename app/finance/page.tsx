@@ -17,6 +17,12 @@ export default function FinancePage() {
   const [loading, setLoading] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
 
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editDatum, setEditDatum] = useState('')
+  const [editTyp, setEditTyp] = useState('Příjem')
+  const [editCastka, setEditCastka] = useState('')
+  const [editPopis, setEditPopis] = useState('')
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -69,8 +75,37 @@ export default function FinancePage() {
     setLoading(false)
   }
 
-  async function smazat(id: number) {
-    if(!confirm('Opravdu smazat?')) return
+  function startEdit(t: any) {
+    setEditingId(t.id)
+    setEditDatum(t.datum)
+    setEditTyp(t.typ)
+    setEditCastka(String(t.castka))
+    setEditPopis(t.popis)
+  }
+  function cancelEdit() {
+    setEditingId(null)
+    setEditDatum(''); setEditTyp('Příjem'); setEditCastka(''); setEditPopis('')
+  }
+  async function saveEdit() {
+    if (!editingId) return
+    setLoading(true)
+    const { error } = await supabase.from('finance').update({
+      datum: editDatum,
+      typ: editTyp,
+      castka: parseFloat(editCastka || '0'),
+      popis: editPopis
+    }).eq('id', editingId)
+    if (!error) {
+      setStatusMessage('Transakce upravena')
+      cancelEdit()
+      fetchData()
+    } else {
+      alert(error.message)
+    }
+    setLoading(false)
+  }
+  async function deleteTransaction(id: number) {
+    if (!confirm('Opravdu smazat?')) return
     await supabase.from('finance').delete().eq('id', id)
     fetchData()
   }
@@ -134,15 +169,36 @@ export default function FinancePage() {
       <div className="space-y-3 md:hidden mb-6">
         {loading && <div className="p-4 bg-white rounded shadow animate-pulse">Načítám...</div>}
         {transakce.map(t => (
-          <div key={t.id} className="bg-white rounded-lg p-3 shadow-sm flex justify-between items-center">
-            <div>
-              <div className="text-sm font-medium">{t.datum} • {t.popis}</div>
-              <div className="text-xs text-gray-500">{t.typ}</div>
-            </div>
-            <div className="text-right">
-              <div className={`font-bold ${t.typ === 'Příjem' ? 'text-green-600' : 'text-red-600'}`}>{t.typ === 'Příjem' ? '+' : '-'}{currency.format(t.castka)}</div>
-              <button type="button" onClick={() => smazat(t.id)} className="text-xs text-gray-400 hover:text-red-500 mt-1" aria-label={`Smazat transakci ${t.popis}`}>Smazat</button>
-            </div>
+          <div key={t.id} className="bg-white rounded-lg p-3 shadow-sm">
+            {editingId === t.id ? (
+              <div className="flex flex-col gap-2">
+                <input value={editDatum} onChange={e => setEditDatum(e.target.value)} className="border p-2 rounded" type="date" />
+                <select value={editTyp} onChange={e => setEditTyp(e.target.value)} className="border p-2 rounded">
+                  <option value="Příjem">Příjem</option>
+                  <option value="Výdej">Výdej</option>
+                </select>
+                <input value={editPopis} onChange={e => setEditPopis(e.target.value)} className="border p-2 rounded" />
+                <input value={editCastka} onChange={e => setEditCastka(e.target.value)} className="border p-2 rounded" type="number" />
+                <div className="flex gap-2">
+                  <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-2 rounded">Uložit</button>
+                  <button onClick={cancelEdit} className="bg-gray-200 px-3 py-2 rounded">Zrušit</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="text-sm font-medium">{t.datum} • {t.popis}</div>
+                  <div className="text-xs text-gray-500">{t.typ}</div>
+                </div>
+                <div className="text-right">
+                  <div className={`font-bold ${t.typ === 'Příjem' ? 'text-green-600' : 'text-red-600'}`}>{t.typ === 'Příjem' ? '+' : '-'}{currency.format(t.castka)}</div>
+                  <div className="flex gap-2 mt-2 justify-end">
+                    <button onClick={() => startEdit(t)} className="text-sm text-gray-700">Upravit</button>
+                    <button onClick={() => deleteTransaction(t.id)} className="text-sm text-red-500">Smazat</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -159,18 +215,39 @@ export default function FinancePage() {
         </thead>
         <tbody className="divide-y">
           {transakce.map((t) => (
-            <tr key={t.id} className="hover:bg-gray-50 text-black">
-              <td className="p-3 w-32">{t.datum}</td>
-              <td className="p-3">{t.popis}</td>
-              <td className={`p-3 text-right font-bold w-40 ${t.typ === 'Příjem' ? 'text-green-600' : 'text-red-600'}`}>
-                {t.typ === 'Příjem' ? '+' : '-'}{currency.format(t.castka)}
-              </td>
-              <td className="p-3 text-right w-20">
-                <button type="button" onClick={() => smazat(t.id)} className="text-gray-400 hover:text-red-500 text-sm" aria-label={`Smazat ${t.popis}`}>
-                  ×
-                </button>
-              </td>
-            </tr>
+            editingId === t.id ? (
+              <tr key={t.id} className="bg-white">
+                <td className="p-3 w-32">
+                  <input type="date" value={editDatum} onChange={e => setEditDatum(e.target.value)} className="border p-2 rounded w-full" />
+                </td>
+                <td className="p-3">
+                  <input value={editPopis} onChange={e => setEditPopis(e.target.value)} className="border p-2 rounded w-full" />
+                </td>
+                <td className="p-3 text-right">
+                  <input type="number" value={editCastka} onChange={e => setEditCastka(e.target.value)} className="border p-2 rounded w-32 text-right" />
+                </td>
+                <td className="p-3 text-right">
+                  <select value={editTyp} onChange={e => setEditTyp(e.target.value)} className="border p-2 rounded mr-2">
+                    <option value="Příjem">Příjem</option>
+                    <option value="Výdej">Výdej</option>
+                  </select>
+                  <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded mr-2">Uložit</button>
+                  <button onClick={cancelEdit} className="bg-gray-200 px-3 py-1 rounded">Zrušit</button>
+                </td>
+              </tr>
+            ) : (
+              <tr key={t.id} className="hover:bg-gray-50 text-black">
+                <td className="p-3 w-32">{t.datum}</td>
+                <td className="p-3">{t.popis}</td>
+                <td className={`p-3 text-right font-bold w-40 ${t.typ === 'Příjem' ? 'text-green-600' : 'text-red-600'}`}>
+                  {t.typ === 'Příjem' ? '+' : '-'}{currency.format(t.castka)}
+                </td>
+                <td className="p-3 text-right w-20">
+                  <button onClick={() => startEdit(t)} className="text-gray-700 mr-2">Upravit</button>
+                  <button onClick={() => deleteTransaction(t.id)} className="text-red-500">Smazat</button>
+                </td>
+              </tr>
+            )
           ))}
         </tbody>
       </table>
