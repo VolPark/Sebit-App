@@ -156,12 +156,12 @@ export default function VykazyPage() {
   const groupedVykazy = useMemo(() => {
     const grouped: { [year: string]: { [month: string]: any[] } } = {};
     const vykazyWithCalc = vykazy.map(v => {
-      const hod = Number(v.pocet_hodin) || 0
-      const sazba = Number(v.klienti?.sazba) || 0
-      const mzda = Number(v.pracovnici?.hodinova_mzda) || 0
-      const prijem = hod * sazba
-      const naklad = hod * mzda
-      return { ...v, prijem, naklad, zisk: prijem - naklad }
+      // const hod = Number(v.pocet_hodin) || 0
+      // const sazba = Number(v.klienti?.sazba) || 0
+      // const mzda = Number(v.pracovnici?.hodinova_mzda) || 0
+      // const prijem = hod * sazba
+      // const naklad = hod * mzda
+      return { ...v }
     });
 
     for (const vykaz of vykazyWithCalc) {
@@ -319,16 +319,11 @@ export default function VykazyPage() {
                                 <>
                                   <div className="flex justify-between items-start mb-2">
                                     <div className="text-sm font-medium">{formatDate(v.datum)}</div>
-                                    <div className={`text-sm font-semibold ${v.zisk >= 0 ? 'text-green-600' : 'text-red-600'}`}>{currency.format(v.zisk)}</div>
+                                    <div className="text-sm font-semibold">{v.pocet_hodin} h</div>
                                   </div>
                                   <div className="text-sm text-gray-700">{v.pracovnici?.jmeno} • {v.klienti?.nazev}</div>
                                   <div className="font-bold text-sm text-gray-700">{v.akce?.nazev}</div>
                                   <div className="text-sm text-gray-500 mt-2">{v.popis}</div>
-                                  <div className="flex items-center justify-between mt-3 text-sm">
-                                    <div>{v.pocet_hodin} h</div>
-                                    <div className="text-green-700">{currency.format(v.prijem)}</div>
-                                    <div className="text-red-600">{currency.format(v.naklad)}</div>
-                                  </div>
                                   <div className="flex gap-2 mt-3">
                                     <button onClick={() => startEdit(v)} className="text-sm text-gray-700">Upravit</button>
                                     <button onClick={() => deleteVykaz(v.id)} className="text-sm text-red-500">Smazat</button>
@@ -358,9 +353,6 @@ export default function VykazyPage() {
               <th className="p-3">Klient</th>
               <th className="p-3">Akce</th>
               <th className="p-3 text-right">Hodiny</th>
-              <th className="p-3 text-right text-green-700 bg-green-50">Fakturace (Příjem)</th>
-              <th className="p-3 text-right text-red-700 bg-red-50">Mzda (Náklad)</th>
-              <th className="p-3 text-right font-bold">Zisk</th>
               <th className="p-3"></th>
             </tr>
           </thead>
@@ -368,7 +360,7 @@ export default function VykazyPage() {
           {Object.keys(groupedVykazy).sort((a, b) => Number(b) - Number(a)).map(year => (
               <Fragment key={year}>
                 <tr onClick={() => toggleYear(year)} className="bg-slate-100 hover:bg-slate-200 cursor-pointer">
-                  <td colSpan={9} className="p-2 font-bold text-lg">
+                  <td colSpan={6} className="p-2 font-bold text-lg">
                     <div className="flex items-center">
                       <svg className={`w-5 h-5 mr-2 transform transition-transform ${expandedYears.has(year) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
                       {year}
@@ -381,7 +373,7 @@ export default function VykazyPage() {
                   return (
                     <Fragment key={monthKey}>
                       <tr onClick={() => toggleMonth(monthKey)} className="bg-slate-50 hover:bg-slate-100 cursor-pointer">
-                        <td colSpan={9} className="p-2 font-semibold pl-8">
+                        <td colSpan={6} className="p-2 font-semibold pl-8">
                           <div className="flex items-center">
                             <svg className={`w-4 h-4 mr-2 transform transition-transform ${expandedMonths.has(monthKey) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
                             {monthNames[Number(month)]}
@@ -396,11 +388,6 @@ export default function VykazyPage() {
                             <td className="p-3">{v.klienti?.nazev}</td>
                             <td className="p-3 font-medium">{v.akce?.nazev}</td>
                             <td className="p-3 text-right">{v.pocet_hodin} h</td>
-                            <td className="p-3 text-right bg-green-50">{currency.format(v.prijem)}</td>
-                            <td className="p-3 text-right bg-red-50">{currency.format(v.naklad)}</td>
-                            <td className={`p-3 text-right font-bold ${v.zisk >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {currency.format(v.zisk)}
-                            </td>
                             <td className="p-3 text-right">
                               <button onClick={() => startEdit(v)} className="text-gray-700 mr-2">Upravit</button>
                               <button onClick={() => deleteVykaz(v.id)} className="text-red-500">Smazat</button>
@@ -408,7 +395,7 @@ export default function VykazyPage() {
                           </tr>
                           {v.popis && (
                             <tr className="hover:bg-gray-50 text-black">
-                              <td colSpan={9} className="p-3 pt-0 text-gray-500 pl-10">
+                              <td colSpan={6} className="p-3 pt-0 text-gray-500 pl-10">
                                 {v.popis}
                               </td>
                             </tr>
