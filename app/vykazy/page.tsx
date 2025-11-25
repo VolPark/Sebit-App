@@ -167,20 +167,13 @@ export default function VykazyPage() {
 
       {/* Formulář - Google 2025 style (mobile‑first) */}
       <div className="mb-6">
-        <div className="bg-white/90 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md flex flex-col md:flex-row md:items-end gap-4">
+        <div className="bg-white/90 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4">
           
-          <div className="flex-1 min-w-0">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Datum</label>
-            <input id="datum" type="date"
-              className="w-full rounded-lg bg-white border border-transparent focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
-              value={datum} onChange={e => setDatum(e.target.value)} />
-          </div>
-
-          <div className="w-full md:w-60">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Pracovník</label>
+          <div className="w-full">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Pracovník</label>
             <select
               id="pracovnik"
-              className="w-full rounded-lg bg-white border border-transparent focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
+              className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
               value={pracovnikId} onChange={e => setPracovnikId(e.target.value)}
             >
               <option value="">— Vyberte —</option>
@@ -188,11 +181,11 @@ export default function VykazyPage() {
             </select>
           </div>
 
-          <div className="w-full md:w-60">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Klient</label>
+          <div className="w-full">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Klient</label>
             <select
               id="klient"
-              className="w-full rounded-lg bg-white border border-transparent focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
+              className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
               value={klientId} onChange={e => onKlientChange(e.target.value)}
             >
               <option value="">— Vyberte —</option>
@@ -200,11 +193,11 @@ export default function VykazyPage() {
             </select>
           </div>
 
-          <div className="w-full md:w-72">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Akce</label>
+          <div className="w-full">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Akce</label>
             <select
               id="akce"
-              className="w-full rounded-lg bg-white border border-transparent focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
+              className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
               value={selectedAkceId} onChange={e => onAkceChange(e.target.value)}
             >
               <option value="">— Vyberte akci —</option>
@@ -214,18 +207,29 @@ export default function VykazyPage() {
             </select>
           </div>
 
-          <div className="flex items-center gap-3 md:ml-auto">
+          <div className="">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Datum</label>
+            <input id="datum" type="date"
+              className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
+              value={datum} onChange={e => setDatum(e.target.value)} />
+          </div>
+
+          <div className="">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Hodiny</label>
+            <input id="hodiny" type="number" step="0.5" placeholder="8.5" className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition" value={hodiny} onChange={e => setHodiny(e.target.value)} />
+          </div>
+          
+          <div className="md:col-span-3">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Popis činnosti</label>
+            <input id="popis" type="text" placeholder="Co bylo uděláno?" className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition" value={popis} onChange={e => setPopis(e.target.value)} />
+          </div>
+
+          <div className="md:col-span-3 flex justify-end">
             <button type="button" onClick={ulozitVykaz}
-              className="inline-flex items-center justify-center bg-blue-700 text-white rounded-full px-5 py-3 text-sm shadow-sm hover:shadow-md transition">
+              className="inline-flex items-center justify-center bg-blue-700 text-white rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
               Uložit výkaz
             </button>
           </div>
-        </div>
-        {/* popis + hodiny jako samostatný řádek pro mobile */}
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input id="popis" type="text" placeholder="Popis činnosti" className="rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" value={popis} onChange={e => setPopis(e.target.value)} />
-          <input id="hodiny" type="number" step="0.5" placeholder="Hodiny" className="rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" value={hodiny} onChange={e => setHodiny(e.target.value)} />
-          <div className="hidden md:block"></div>
         </div>
       </div>
 
