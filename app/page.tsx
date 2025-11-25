@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 export default function Home() {
   const [klienti, setKlienti] = useState([])
   const [jmeno, setJmeno] = useState('')
+  const [sazbaInput, setSazbaInput] = useState('') // nové pole pro sazbu
   const [loading, setLoading] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -31,12 +32,15 @@ export default function Home() {
   async function pridatKlienta() {
     if (!jmeno) return
     setLoading(true)
+    // použijeme zadanou sazbu nebo fallback 1000
+    const sazba = parseFloat(sazbaInput || '1000') || 1000
     const { error } = await supabase
       .from('klienti')
-      .insert({ nazev: jmeno, sazba: 1000 }) // Pevná sazba pro test
-      
+      .insert({ nazev: jmeno, sazba: sazba })
+
     if (!error) {
       setJmeno('')
+      setSazbaInput('')
       fetchKlienti() // Znovu načíst seznam
       setStatusMessage('Klient přidán')
     } else {
@@ -125,32 +129,42 @@ export default function Home() {
 
   return (
     <div className="p-4 sm:p-10 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold mb-4">Firemní Evidence</h1>
+      <h1 className="text-3xl font-bold mb-4">Klienti</h1>
 
       <div role="status" aria-live="polite" className="sr-only">{statusMessage}</div>
 
       {/* Formulář */}
-      <div className="flex gap-2 mb-6">
-        <label htmlFor="klient_nazev" className="sr-only">Název nového klienta</label>
+      <div className="flex flex-col md:flex-row gap-2 mb-6">
+        <label htmlFor="klient_nazev" className="sr-only">Název klienta</label>
         <input
           id="klient_nazev"
           type="text"
-          placeholder="Název nového klienta"
-          className="border p-2 rounded w-full text-black"
+          placeholder="Název klienta"
+          className="border p-2 rounded w-full md:flex-1 text-black"
           value={jmeno}
           onChange={(e) => setJmeno(e.target.value)}
         />
-        <button 
+        <label htmlFor="klient_sazba" className="sr-only">Hodinová sazba</label>
+        <input
+          id="klient_sazba"
+          type="number"
+          inputMode="decimal"
+          placeholder="Sazba (Kč/h) — default 1000"
+          className="border p-2 rounded w-full md:w-40 text-black"
+          value={sazbaInput}
+          onChange={(e) => setSazbaInput(e.target.value)}
+        />
+        <button
           type="button"
           onClick={pridatKlienta}
-          className="bg-blue-600 text-white px-4 py-3 rounded hover:bg-blue-700 h-12"
+          className="bg-blue-600 text-white px-4 py-3 rounded hover:bg-blue-700 h-12 w-full md:w-auto"
         >
-          Přidat
+          Přidat klienta
         </button>
       </div>
 
       {/* Seznam */}
-      <h2 className="text-xl font-semibold mb-3">Seznam klientů:</h2>
+      <h2 className="text-xl font-semibold mb-3">Seznam klientů</h2>
       <ul className="space-y-2">
         {loading && <li className="p-4 bg-white rounded shadow animate-pulse">Načítám...</li>}
 
@@ -161,8 +175,8 @@ export default function Home() {
                 <input className="border p-2 rounded w-full md:w-auto md:flex-1 mb-2 md:mb-0" value={editName} onChange={e => setEditName(e.target.value)} />
                 <input className="border p-2 rounded w-full md:w-40 mb-2 md:mb-0" value={editSazba} onChange={e => setEditSazba(e.target.value)} />
                 <div className="flex gap-2 mt-2 md:mt-0">
-                  <button type="button" onClick={saveEdit} className="bg-blue-600 text-white px-3 py-2 rounded">Uložit</button>
-                  <button type="button" onClick={cancelEdit} className="bg-gray-200 px-3 py-2 rounded">Zrušit</button>
+                  <button type="button" onClick={saveEdit} className="bg-blue-600 text-white px-3 py-2 rounded h-10">Uložit</button>
+                  <button type="button" onClick={cancelEdit} className="bg-gray-200 px-3 py-2 rounded h-10">Zrušit</button>
                 </div>
               </div>
             ) : (
