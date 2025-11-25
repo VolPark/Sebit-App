@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { formatDate } from '@/lib/formatDate'
 
 export default function VykazyPage() {
   // Stavy pro data z databáze
@@ -198,7 +199,7 @@ export default function VykazyPage() {
             ) : (
               <>
                 <div className="flex justify-between items-start mb-2">
-                  <div className="text-sm font-medium">{v.datum}</div>
+                  <div className="text-sm font-medium">{formatDate(v.datum)}</div>
                   <div className={`text-sm font-semibold ${v.zisk >= 0 ? 'text-green-600' : 'text-red-600'}`}>{currency.format(v.zisk)}</div>
                 </div>
                 <div className="text-sm text-gray-700">{v.pracovnici?.jmeno} • {v.klienti?.nazev}</div>
@@ -266,7 +267,7 @@ export default function VykazyPage() {
                 </tr>
               ) : (
                 <tr key={v.id} className="hover:bg-gray-50 text-black">
-                  <td className="p-3">{v.datum}</td>
+                  <td className="p-3">{formatDate(v.datum)}</td>
                   <td className="p-3 font-medium">{v.pracovnici?.jmeno}</td>
                   <td className="p-3">{v.klienti?.nazev}</td>
                   <td className="p-3 text-gray-500">{v.popis}</td>

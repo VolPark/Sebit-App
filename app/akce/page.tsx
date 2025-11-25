@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { formatDate } from '@/lib/formatDate'
 
 export default function AkcePage() {
   const [akce, setAkce] = useState<any[]>([])
@@ -12,8 +13,8 @@ export default function AkcePage() {
   // form
   const [nazev, setNazev] = useState('')
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0])
-  const [klientId, setKlientId] = useState('') // vybraný klient id
-  const [novyKlient, setNovyKlient] = useState('') // pokud chcete rovnou založit
+  const [klientId, setKlientId] = useState('')
+  const [novyKlient, setNovyKlient] = useState('')
   const [cenaKlient, setCenaKlient] = useState('')
   const [materialKlient, setMaterialKlient] = useState('')
   const [materialMy, setMaterialMy] = useState('')
@@ -33,20 +34,22 @@ export default function AkcePage() {
   }
 
   async function ensureClient(): Promise<number | null> {
-    // pokud je vybran klientId, vrátíme ho
     if (klientId) return Number(klientId)
-    // pokud je vyplněn nový klient, založíme ho a vrátíme id
     if (novyKlient) {
-      const sazba = 1000
-      const { data, error } = await supabase.from('klienti').insert({ nazev: novyKlient, sazba }).select('id').single()
+      const sazbaDefault = 1000
+      const { data, error } = await supabase
+        .from('klienti')
+        .insert({ nazev: novyKlient, sazba: sazbaDefault })
+        .select('id')
+        .single()
       if (error) {
         console.error('Chyba při vytváření klienta', error)
         alert('Nepodařilo se vytvořit klienta: ' + (error.message || JSON.stringify(error)))
         return null
       }
-      // obnovíme seznam klientů
+      // refresh klienti
       fetchAll()
-      return data.id
+      return (data as any).id
     }
     return null
   }
@@ -55,7 +58,7 @@ export default function AkcePage() {
     if (!nazev || !datum) return alert('Vyplňte název a datum')
     setLoading(true)
     const klient_id = await ensureClient()
-    if (novyKlient && !klient_id) { setLoading(false); return } // chyba při vytváření klienta
+    if (novyKlient && !klient_id) { setLoading(false); return }
     const payload = {
       nazev,
       datum,
@@ -65,13 +68,13 @@ export default function AkcePage() {
       material_my: parseFloat(materialMy || '0') || 0,
       odhad_hodin: parseFloat(odhadHodin || '0') || 0
     }
-    const { data, error } = await supabase.from('akce').insert([payload])
+    const { error } = await supabase.from('akce').insert([payload])
     if (error) {
       console.error('Chyba při ukládání akce', error)
       alert('Nepodařilo se uložit akci: ' + (error.message || JSON.stringify(error)))
     } else {
       setStatus('Akce uložena')
-      // reset form
+      // reset
       setNazev(''); setDatum(new Date().toISOString().split('T')[0]); setKlientId(''); setNovyKlient('')
       setCenaKlient(''); setMaterialKlient(''); setMaterialMy(''); setOdhadHodin('')
       fetchAll()
@@ -79,8 +82,7 @@ export default function AkcePage() {
     setLoading(false)
   }
 
-  // simple currency formatter
-  const currency = (v: number) => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(v)
+  const currency = (v:number) => new Intl.NumberFormat('cs-CZ', { style:'currency', currency:'CZK', maximumFractionDigits:0 }).format(v)
 
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto">
@@ -124,7 +126,7 @@ export default function AkcePage() {
           <div key={a.id} className="bg-white p-4 rounded shadow-sm">
             <div className="flex justify-between">
               <div className="font-medium">{a.nazev}</div>
-              <div className="text-sm text-gray-500">{a.datum}</div>
+              <div className="text-sm text-gray-500">{formatDate(a.datum)}</div>
             </div>
             <div className="mt-2 text-sm text-gray-600">Klient: {a.klienti?.nazev || '—'}</div>
             <div className="mt-2 text-sm">
@@ -155,7 +157,7 @@ export default function AkcePage() {
             {akce.map(a => (
               <tr key={a.id} className="hover:bg-gray-50">
                 <td className="p-3 font-medium">{a.nazev}</td>
-                <td className="p-3">{a.datum}</td>
+                <td className="p-3">{formatDate(a.datum)}</td>
                 <td className="p-3">{a.klienti?.nazev || '—'}</td>
                 <td className="p-3 text-right">{currency(Number(a.cena_klient || 0))}</td>
                 <td className="p-3 text-right">{currency(Number(a.material_klient || 0))}</td>

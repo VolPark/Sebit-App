@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { formatDate } from '@/lib/formatDate'
 
 export default function FinancePage() {
   const [transakce, setTransakce] = useState<any[]>([])
@@ -187,7 +188,7 @@ export default function FinancePage() {
             ) : (
               <div className="flex justify-between items-center">
                 <div>
-                  <div className="text-sm font-medium">{t.datum} • {t.popis}</div>
+                  <div className="text-sm font-medium">{formatDate(t.datum)} • {t.popis}</div>
                   <div className="text-xs text-gray-500">{t.typ}</div>
                 </div>
                 <div className="text-right">
@@ -237,7 +238,7 @@ export default function FinancePage() {
               </tr>
             ) : (
               <tr key={t.id} className="hover:bg-gray-50 text-black">
-                <td className="p-3 w-32">{t.datum}</td>
+                <td className="p-3 w-32">{formatDate(t.datum)}</td>
                 <td className="p-3">{t.popis}</td>
                 <td className={`p-3 text-right font-bold w-40 ${t.typ === 'Příjem' ? 'text-green-600' : 'text-red-600'}`}>
                   {t.typ === 'Příjem' ? '+' : '-'}{currency.format(t.castka)}
