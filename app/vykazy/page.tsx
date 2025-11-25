@@ -48,7 +48,7 @@ export default function VykazyPage() {
     // To 'klienti(nazev, sazba)' říká Supabase: "Sáhni si pro data vedle"
     const { data: vData, error } = await supabase
       .from('prace')
-      .select('*, klienti(nazev, sazba), pracovnici(jmeno, hodinova_mzda)')
+      .select('*, klienti(nazev, sazba), pracovnici(jmeno, hodinova_mzda), akce(nazev)')
       .order('datum', { ascending: false })
     
     if (vData) setVykazy(vData)
@@ -263,6 +263,7 @@ export default function VykazyPage() {
                   <div className={`text-sm font-semibold ${v.zisk >= 0 ? 'text-green-600' : 'text-red-600'}`}>{currency.format(v.zisk)}</div>
                 </div>
                 <div className="text-sm text-gray-700">{v.pracovnici?.jmeno} • {v.klienti?.nazev}</div>
+                <div className="font-bold text-sm text-gray-700">{v.akce?.nazev}</div>
                 <div className="text-sm text-gray-500 mt-2">{v.popis}</div>
                 <div className="flex items-center justify-between mt-3 text-sm">
                   <div>{v.pocet_hodin} h</div>
@@ -288,6 +289,7 @@ export default function VykazyPage() {
               <th className="p-3">Datum</th>
               <th className="p-3">Pracovník</th>
               <th className="p-3">Klient</th>
+              <th className="p-3">Akce</th>
               <th className="p-3">Popis</th>
               <th className="p-3 text-right">Hodiny</th>
               <th className="p-3 text-right text-green-700 bg-green-50">Fakturace (Příjem)</th>
@@ -313,6 +315,9 @@ export default function VykazyPage() {
                     </select>
                   </td>
                   <td className="p-3">
+                    {/* Akce is not editable in-line, so we just show it or leave empty */}
+                  </td>
+                  <td className="p-3">
                     <input value={editPopis} onChange={e => setEditPopis(e.target.value)} className="border p-2 rounded w-full" />
                   </td>
                   <td className="p-3 text-right">
@@ -331,6 +336,7 @@ export default function VykazyPage() {
                   <td className="p-3">{formatDate(v.datum)}</td>
                   <td className="p-3 font-medium">{v.pracovnici?.jmeno}</td>
                   <td className="p-3">{v.klienti?.nazev}</td>
+                  <td className="p-3 font-medium">{v.akce?.nazev}</td>
                   <td className="p-3 text-gray-500">{v.popis}</td>
                   <td className="p-3 text-right">{v.pocet_hodin} h</td>
                   <td className="p-3 text-right bg-green-50">{currency.format(v.prijem)}</td>
