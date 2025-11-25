@@ -135,35 +135,32 @@ export default function FinancePage() {
         </div>
       </div>
 
-      {/* Formulář */}
-      <div className="bg-gray-50 p-4 rounded-lg shadow-sm mb-6 flex flex-col md:flex-row gap-3 items-end border border-gray-200">
-        <div className='flex-1 w-full'>
-          <label htmlFor="f_datum" className="block text-xs font-bold text-gray-500 mb-1">Datum</label>
-          <input id="f_datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} 
-            className="w-full border p-2 rounded text-black" />
+      {/* Formulář — Google 2025 */}
+      <div className="mb-6">
+        <div className="bg-white/95 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md flex flex-col md:flex-row gap-3 items-end">
+          <div className="flex-1">
+            <label className="block text-xs text-gray-500 mb-1">Datum</label>
+            <input id="f_datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} className="w-full rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" />
+          </div>
+          <div className="w-full md:w-40">
+            <label className="block text-xs text-gray-500 mb-1">Typ</label>
+            <select value={typ} onChange={e => setTyp(e.target.value)} className="w-full rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200">
+              <option value="Příjem">Příjem (+)</option>
+              <option value="Výdej">Výdej (-)</option>
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs text-gray-500 mb-1">Popis</label>
+            <input id="f_popis" type="text" value={popis} onChange={e => setPopis(e.target.value)} className="w-full rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" placeholder="Např. Faktura 202301" />
+          </div>
+          <div className="w-full md:w-40">
+            <label className="block text-xs text-gray-500 mb-1">Částka</label>
+            <input id="f_castka" type="number" value={castka} onChange={e => setCastka(e.target.value)} className="w-full rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" />
+          </div>
+          <div className="flex items-center md:ml-auto">
+            <button type="button" onClick={pridatTransakci} className="bg-blue-700 text-white px-5 py-3 rounded-full shadow-sm hover:shadow-md">Přidat transakci</button>
+          </div>
         </div>
-        <div className='w-full md:w-40'>
-          <label htmlFor="f_typ" className="block text-xs font-bold text-gray-500 mb-1">Typ pohybu</label>
-          <select id="f_typ" value={typ} onChange={e => setTyp(e.target.value)} 
-            className="w-full border p-2 rounded text-black font-medium">
-            <option value="Příjem">Příjem (+)</option>
-            <option value="Výdej">Výdej (-)</option>
-          </select>
-        </div>
-        <div className='flex-[2] w-full'>
-          <label htmlFor="f_popis" className="block text-xs font-bold text-gray-500 mb-1">Popis (Faktura č., Výplata...)</label>
-          <input id="f_popis" type="text" value={popis} onChange={e => setPopis(e.target.value)} placeholder="Např. Faktura 202301"
-            className="w-full border p-2 rounded text-black" />
-        </div>
-        <div className='flex-1 w-full'>
-          <label htmlFor="f_castka" className="block text-xs font-bold text-gray-500 mb-1">Částka</label>
-          <input id="f_castka" type="number" value={castka} onChange={e => setCastka(e.target.value)} placeholder="0"
-            className="w-full border p-2 rounded text-black" />
-        </div>
-
-        <button type="button" onClick={pridatTransakci} className="bg-blue-600 text-white px-4 py-3 rounded font-bold hover:bg-blue-700 w-full md:w-auto mt-2 md:mt-0 h-12">
-        Přidat transakci
-        </button>
       </div>
 
       {/* Mobile: cards */}

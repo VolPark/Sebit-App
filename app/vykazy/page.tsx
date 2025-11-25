@@ -8,6 +8,9 @@ export default function VykazyPage() {
   const [vykazy, setVykazy] = useState<any[]>([])
   const [klienti, setKlienti] = useState<any[]>([])
   const [pracovnici, setPracovnici] = useState<any[]>([])
+  const [allAkce, setAllAkce] = useState<any[]>([])        // všechny akce
+  const [actionOptions, setActionOptions] = useState<any[]>([]) // akce filtrované podle klienta
+  const [selectedAkceId, setSelectedAkceId] = useState('') // vybraná akce (povinné)
 
   // Stavy pro formulář
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0])
@@ -15,12 +18,14 @@ export default function VykazyPage() {
   const [klientId, setKlientId] = useState('')
   const [popis, setPopis] = useState('')
   const [hodiny, setHodiny] = useState('')
+
   const [loading, setLoading] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editDatum, setEditDatum] = useState('')
   const [editPracovnikId, setEditPracovnikId] = useState('')
+
   const [editKlientId, setEditKlientId] = useState('')
   const [editPopis, setEditPopis] = useState('')
   const [editHodiny, setEditHodiny] = useState('')
@@ -34,8 +39,10 @@ export default function VykazyPage() {
     // 1. Načteme klienty a pracovníky do výběrových menu
     const { data: kData } = await supabase.from('klienti').select('*')
     const { data: pData } = await supabase.from('pracovnici').select('*')
+    const { data: aData } = await supabase.from('akce').select('*').order('datum', { ascending: false })
     if (kData) setKlienti(kData)
     if (pData) setPracovnici(pData)
+    if (aData) { setAllAkce(aData); setActionOptions(aData) } // inicialně zobrazíme všechny akce
 
     // 2. Načteme výkazy A ZÁROVEŇ data z propojených tabulek
     // To 'klienti(nazev, sazba)' říká Supabase: "Sáhni si pro data vedle"
@@ -49,17 +56,47 @@ export default function VykazyPage() {
     setLoading(false)
   }
 
+  // Pokud uživatel vybere klienta, nastavíme options jen pro tohoto klienta
+  function onKlientChange(val: string) {
+    setKlientId(val)
+    setSelectedAkceId('') // vymazat vybranou akci (pokud patřila jinému klientovi)
+    if (!val) {
+      setActionOptions(allAkce)
+      return
+    }
+    const filtered = allAkce.filter(a => String(a.klient_id) === String(val))
+    setActionOptions(filtered)
+  }
+  
+  // Pokud uživatel vybere akci, předvyplníme klienta a zúžíme options
+  function onAkceChange(val: string) {
+    setSelectedAkceId(val)
+    if (!val) return
+    const akc = allAkce.find(a => String(a.id) === String(val))
+    if (!akc) return
+    if (akc.klient_id) {
+      setKlientId(String(akc.klient_id))
+      // zúžíme options na tento klienta
+      const filtered = allAkce.filter(a => String(a.klient_id) === String(akc.klient_id))
+      setActionOptions(filtered)
+    }
+  }
+
   async function ulozitVykaz() {
-    if (!pracovnikId || !klientId || !hodiny) return alert('Vyplňte povinná pole')
+    if (!pracovnikId || !selectedAkceId || !hodiny) return alert('Vyplňte povinná pole (pracovník, akce, hodiny)')
     setLoading(true)
 
-    const { error } = await supabase.from('prace').insert({
+    // připravíme payload; pokud existuje sloupec akce_id, uložíme ho, pokud ne, DB vrátí chybu (zachytíme)
+    const payload: any = {
       datum: datum,
       pracovnik_id: pracovnikId,
-      klient_id: klientId,
+      klient_id: klientId || null,
       pocet_hodin: parseFloat(hodiny),
       popis: popis
-    })
+    }
+    if (selectedAkceId) payload.akce_id = selectedAkceId
+
+    const { error } = await supabase.from('prace').insert(payload)
 
     if (!error) {
       setPopis('')
@@ -128,48 +165,67 @@ export default function VykazyPage() {
 
       <div role="status" aria-live="polite" className="sr-only">{statusMessage}</div>
 
-      {/* Formulář - horní lišta */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-6 bg-blue-50 p-4 md:p-6 rounded-lg shadow-sm items-end">
-        
-        <div className="md:col-span-1">
-          <label htmlFor="datum" className="block text-xs font-semibold text-gray-700 mb-1">Datum</label>
-          <input id="datum" type="date" className="w-full border p-2 rounded text-black" 
-            value={datum} onChange={e => setDatum(e.target.value)} />
-        </div>
-
-        <div className="md:col-span-1">
-          <label htmlFor="pracovnik" className="block text-xs font-semibold text-gray-700 mb-1">Pracovník</label>
-          <select id="pracovnik" className="w-full border p-2 rounded text-black"
-            value={pracovnikId} onChange={e => setPracovnikId(e.target.value)} aria-required>
-            <option value="">-- Vyberte --</option>
-            {pracovnici.map(p => <option key={p.id} value={p.id}>{p.jmeno}</option>)}
-          </select>
-        </div>
-
-        <div className="md:col-span-1">
-          <label htmlFor="klient" className="block text-xs font-semibold text-gray-700 mb-1">Klient</label>
-          <select id="klient" className="w-full border p-2 rounded text-black"
-            value={klientId} onChange={e => setKlientId(e.target.value)} aria-required>
-            <option value="">-- Vyberte --</option>
-            {klienti.map(k => <option key={k.id} value={k.id}>{k.nazev}</option>)}
-          </select>
-        </div>
-
-        <div className="md:col-span-2">
-          <label htmlFor="popis" className="block text-xs font-semibold text-gray-700 mb-1">Popis činnosti</label>
-          <input id="popis" type="text" placeholder="Co se dělalo..." className="w-full border p-2 rounded text-black"
-            value={popis} onChange={e => setPopis(e.target.value)} />
-        </div>
-
-        <div className="md:col-span-1 flex gap-2">
-          <div className='flex-1'>
-             <label htmlFor="hodiny" className="block text-xs font-semibold text-gray-700 mb-1">Hodiny</label>
-             <input id="hodiny" type="number" step="0.5" inputMode="decimal" className="w-full border p-2 rounded text-black"
-              value={hodiny} onChange={e => setHodiny(e.target.value)} />
+      {/* Formulář - Google 2025 style (mobile‑first) */}
+      <div className="mb-6">
+        <div className="bg-white/90 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md flex flex-col md:flex-row md:items-end gap-4">
+          
+          <div className="flex-1 min-w-0">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Datum</label>
+            <input id="datum" type="date"
+              className="w-full rounded-lg bg-white border border-transparent focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
+              value={datum} onChange={e => setDatum(e.target.value)} />
           </div>
-          <button type="button" onClick={ulozitVykaz} className="bg-blue-600 text-white px-4 py-3 rounded mb-[1px] hover:bg-blue-700 h-12 self-end">
-            OK
-          </button>
+
+          <div className="w-full md:w-60">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Pracovník</label>
+            <select
+              id="pracovnik"
+              className="w-full rounded-lg bg-white border border-transparent focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
+              value={pracovnikId} onChange={e => setPracovnikId(e.target.value)}
+            >
+              <option value="">— Vyberte —</option>
+              {pracovnici.map(p => <option key={p.id} value={p.id}>{p.jmeno}</option>)}
+            </select>
+          </div>
+
+          <div className="w-full md:w-60">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Klient</label>
+            <select
+              id="klient"
+              className="w-full rounded-lg bg-white border border-transparent focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
+              value={klientId} onChange={e => onKlientChange(e.target.value)}
+            >
+              <option value="">— Vyberte —</option>
+              {klienti.map(k => <option key={k.id} value={k.id}>{k.nazev}</option>)}
+            </select>
+          </div>
+
+          <div className="w-full md:w-72">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Akce</label>
+            <select
+              id="akce"
+              className="w-full rounded-lg bg-white border border-transparent focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
+              value={selectedAkceId} onChange={e => onAkceChange(e.target.value)}
+            >
+              <option value="">— Vyberte akci —</option>
+              {actionOptions.map(a => (
+                <option key={a.id} value={a.id}>{a.nazev} {a.datum ? `• ${formatDate(a.datum)}` : ''}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-3 md:ml-auto">
+            <button type="button" onClick={ulozitVykaz}
+              className="inline-flex items-center justify-center bg-blue-700 text-white rounded-full px-5 py-3 text-sm shadow-sm hover:shadow-md transition">
+              Uložit výkaz
+            </button>
+          </div>
+        </div>
+        {/* popis + hodiny jako samostatný řádek pro mobile */}
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <input id="popis" type="text" placeholder="Popis činnosti" className="rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" value={popis} onChange={e => setPopis(e.target.value)} />
+          <input id="hodiny" type="number" step="0.5" placeholder="Hodiny" className="rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" value={hodiny} onChange={e => setHodiny(e.target.value)} />
+          <div className="hidden md:block"></div>
         </div>
       </div>
 
@@ -217,6 +273,7 @@ export default function VykazyPage() {
             )}
           </div>
         ))}
+
       </div>
 
       {/* Desktop: table */}

@@ -94,29 +94,13 @@ export default function PracovniciPage() {
 
       <div role="status" aria-live="polite" className="sr-only">{statusMessage}</div>
       
-      {/* Formulář - mobile-first */}
-      <div className="flex flex-col md:flex-row gap-3 mb-6 bg-gray-50 p-3 rounded shadow-sm">
-        <label htmlFor="jmeno" className="sr-only">Jméno dodavatele</label>
-        <input
-          id="jmeno"
-          placeholder="Jméno dodavatele"
-          className="border p-2 rounded w-full md:flex-1 text-black"
-          value={jmeno}
-          onChange={e => setJmeno(e.target.value)}
-        />
-        <label htmlFor="mzda" className="sr-only">Hodinová sazba</label>
-        <input
-          id="mzda"
-          type="number"
-          inputMode="decimal"
-          placeholder="Sazba (Kč/h)"
-          className="border p-2 rounded w-full md:w-36 text-black"
-          value={mzda}
-          onChange={e => setMzda(e.target.value)}
-        />
-        <button type="button" onClick={pridat} className="bg-green-600 text-white px-4 py-3 rounded hover:bg-green-700 h-12 w-full md:w-auto">
-          Uložit
-        </button>
+      {/* Formulář — material card, Google 2025 */}
+      <div className="mb-6">
+        <div className="bg-white/95 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md flex flex-col md:flex-row gap-3 items-end">
+          <input id="jmeno" placeholder="Jméno dodavatele" className="flex-1 rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" value={jmeno} onChange={e => setJmeno(e.target.value)} />
+          <input id="mzda" type="number" placeholder="Sazba (Kč/h)" className="w-40 rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" value={mzda} onChange={e => setMzda(e.target.value)} />
+          <button type="button" onClick={pridat} className="bg-green-600 text-white px-5 py-3 rounded-full shadow-sm hover:shadow-md">Uložit</button>
+        </div>
       </div>
 
       {/* Mobile: cards (stack) */}

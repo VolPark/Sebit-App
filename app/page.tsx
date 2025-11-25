@@ -133,34 +133,13 @@ export default function Home() {
 
       <div role="status" aria-live="polite" className="sr-only">{statusMessage}</div>
 
-      {/* Formulář */}
-      <div className="flex flex-col md:flex-row gap-2 mb-6">
-        <label htmlFor="klient_nazev" className="sr-only">Název klienta</label>
-        <input
-          id="klient_nazev"
-          type="text"
-          placeholder="Název klienta"
-          className="border p-2 rounded w-full md:flex-1 text-black"
-          value={jmeno}
-          onChange={(e) => setJmeno(e.target.value)}
-        />
-        <label htmlFor="klient_sazba" className="sr-only">Hodinová sazba</label>
-        <input
-          id="klient_sazba"
-          type="number"
-          inputMode="decimal"
-          placeholder="Sazba (Kč/h) — default 1000"
-          className="border p-2 rounded w-full md:w-40 text-black"
-          value={sazbaInput}
-          onChange={(e) => setSazbaInput(e.target.value)}
-        />
-        <button
-          type="button"
-          onClick={pridatKlienta}
-          className="bg-blue-600 text-white px-4 py-3 rounded hover:bg-blue-700 h-12 w-full md:w-auto"
-        >
-          Přidat klienta
-        </button>
+      {/* Formulář — Google 2025 card */}
+      <div className="mb-6">
+        <div className="bg-white/95 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md flex flex-col md:flex-row gap-3 items-end">
+          <input id="klient_nazev" type="text" placeholder="Název klienta" className="flex-1 rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" value={jmeno} onChange={(e) => setJmeno(e.target.value)} />
+          <input id="klient_sazba" type="number" placeholder="Sazba (Kč/h) — default 1000" className="w-40 rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" value={sazbaInput} onChange={(e) => setSazbaInput(e.target.value)} />
+          <button type="button" onClick={pridatKlienta} className="bg-blue-700 text-white px-5 py-3 rounded-full shadow-sm hover:shadow-md">Přidat klienta</button>
+        </div>
       </div>
 
       {/* Seznam */}

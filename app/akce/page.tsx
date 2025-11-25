@@ -91,31 +91,33 @@ export default function AkcePage() {
         <div className="text-sm text-gray-500">{status}</div>
       </div>
 
-      {/* form mobile-first */}
-      <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-        <div className="flex flex-col md:flex-row gap-2">
-          <input className="border p-2 rounded w-full md:flex-1" placeholder="Název akce" value={nazev} onChange={e => setNazev(e.target.value)} />
-          <input className="border p-2 rounded w-full md:w-40" type="date" value={datum} onChange={e => setDatum(e.target.value)} />
-        </div>
+      {/* form — Google 2025 card */}
+      <div className="mb-6">
+        <div className="bg-white/95 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md">
+          <div className="flex flex-col md:flex-row gap-3">
+            <input className="flex-1 rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" placeholder="Název akce" value={nazev} onChange={e => setNazev(e.target.value)} />
+            <input className="w-40 rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" type="date" value={datum} onChange={e => setDatum(e.target.value)} />
+          </div>
 
-        <div className="mt-3 flex flex-col md:flex-row gap-2 items-start">
-          <select className="border p-2 rounded w-full md:w-60" value={klientId} onChange={e => { setKlientId(e.target.value); setNovyKlient('') }}>
-            <option value="">-- Vyberte klienta --</option>
-            {klienti.map((k:any) => <option key={k.id} value={k.id}>{k.nazev}</option>)}
-          </select>
-          <input className="border p-2 rounded w-full md:flex-1" placeholder="Nový klient (pokud zde není)" value={novyKlient} onChange={e => { setNovyKlient(e.target.value); if (e.target.value) setKlientId('') }} />
-        </div>
+          <div className="mt-3 flex flex-col md:flex-row gap-3">
+            <select className="w-full md:w-60 rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" value={klientId} onChange={e => { setKlientId(e.target.value); setNovyKlient('') }}>
+              <option value="">— Vyberte klienta —</option>
+              {klienti.map((k:any) => <option key={k.id} value={k.id}>{k.nazev}</option>)}
+            </select>
+            <input className="flex-1 rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" placeholder="Nový klient (pokud zde není)" value={novyKlient} onChange={e => { setNovyKlient(e.target.value); if (e.target.value) setKlientId('') }} />
+          </div>
 
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
-          <input className="border p-2 rounded" placeholder="Částka pro klienta" value={cenaKlient} onChange={e => setCenaKlient(e.target.value)} type="number" />
-          <input className="border p-2 rounded" placeholder="Materiál (klient)" value={materialKlient} onChange={e => setMaterialKlient(e.target.value)} type="number" />
-          <input className="border p-2 rounded" placeholder="Materiál (my)" value={materialMy} onChange={e => setMaterialMy(e.target.value)} type="number" />
-          <input className="border p-2 rounded" placeholder="Odhad hodin" value={odhadHodin} onChange={e => setOdhadHodin(e.target.value)} type="number" />
-        </div>
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+            <input className="rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" placeholder="Částka pro klienta" value={cenaKlient} onChange={e => setCenaKlient(e.target.value)} type="number" />
+            <input className="rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" placeholder="Materiál (klient)" value={materialKlient} onChange={e => setMaterialKlient(e.target.value)} type="number" />
+            <input className="rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" placeholder="Materiál (my)" value={materialMy} onChange={e => setMaterialMy(e.target.value)} type="number" />
+            <input className="rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" placeholder="Odhad hodin" value={odhadHodin} onChange={e => setOdhadHodin(e.target.value)} type="number" />
+          </div>
 
-        <div className="mt-3 flex gap-2">
-          <button onClick={ulozitAkci} className="bg-blue-600 text-white px-4 py-2 rounded h-10">Uložit akci</button>
-          <Link href="/pracovnici" className="text-sm text-gray-600 px-4 py-2 rounded border">Správa klientů</Link>
+          <div className="mt-4 flex gap-3">
+            <button onClick={ulozitAkci} className="bg-blue-700 text-white px-5 py-3 rounded-full shadow-sm hover:shadow-md">Uložit akci</button>
+            <Link href="/pracovnici" className="text-sm text-gray-600 px-4 py-2 rounded border">Správa klientů</Link>
+          </div>
         </div>
       </div>
 
