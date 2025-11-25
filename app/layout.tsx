@@ -44,6 +44,7 @@ export default function RootLayout({
 
             {/* Odkazy - Pill shape hover efekty */}
             <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-full">
+              <NavLink href="/dashboard">Dashboard</NavLink>
               <NavLink href="/">Klienti</NavLink>
               <NavLink href="/pracovnici">Pracovníci</NavLink>
               <NavLink href="/vykazy">Výkazy</NavLink>
