@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link' // přidáno
 
 export default function PracovniciPage() {
   const [pracovnici, setPracovnici] = useState<any[]>([])
@@ -82,7 +83,14 @@ export default function PracovniciPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-black">Správa dodavatelů</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+        <h2 className="text-2xl font-bold text-black">Správa dodavatelů</h2>
+        <div className="flex gap-2">
+          <Link href="/dodavatele/platby" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm h-10 flex items-center">
+            Platby dodavatelům
+          </Link>
+        </div>
+      </div>
 
       <div role="status" aria-live="polite" className="sr-only">{statusMessage}</div>
       
