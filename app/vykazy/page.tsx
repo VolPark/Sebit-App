@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/formatDate'
 
@@ -146,18 +146,73 @@ export default function VykazyPage() {
     fetchData()
   }
 
-  // Formatter pro měnu
   const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), [])
 
+  const monthNames = useMemo(() => ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"], []);
+
+  const [expandedYears, setExpandedYears] = useState(new Set<string>());
+  const [expandedMonths, setExpandedMonths] = useState(new Set<string>());
+
+  const groupedVykazy = useMemo(() => {
+    const grouped: { [year: string]: { [month: string]: any[] } } = {};
+    const vykazyWithCalc = vykazy.map(v => {
+      const hod = Number(v.pocet_hodin) || 0
+      const sazba = Number(v.klienti?.sazba) || 0
+      const mzda = Number(v.pracovnici?.hodinova_mzda) || 0
+      const prijem = hod * sazba
+      const naklad = hod * mzda
+      return { ...v, prijem, naklad, zisk: prijem - naklad }
+    });
+
+    for (const vykaz of vykazyWithCalc) {
+      const date = new Date(vykaz.datum);
+      const year = date.getFullYear().toString();
+      const month = date.getMonth().toString();
+      if (!grouped[year]) {
+        grouped[year] = {};
+      }
+      if (!grouped[year][month]) {
+        grouped[year][month] = [];
+      }
+      grouped[year][month].push(vykaz);
+    }
+    return grouped;
+  }, [vykazy]);
+
+  useEffect(() => {
+    if (Object.keys(groupedVykazy).length > 0) {
+      const latestYear = Object.keys(groupedVykazy).sort((a, b) => Number(b) - Number(a))[0];
+      const latestMonth = Object.keys(groupedVykazy[latestYear]).sort((a, b) => Number(b) - Number(a))[0];
+      setExpandedYears(prev => new Set(prev).add(latestYear));
+      setExpandedMonths(prev => new Set(prev).add(`${latestYear}-${latestMonth}`));
+    }
+  }, [groupedVykazy]);
+
+  const toggleYear = (year: string) => {
+    setExpandedYears(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(year)) {
+        newSet.delete(year);
+      } else {
+        newSet.add(year);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleMonth = (monthKey: string) => {
+    setExpandedMonths(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(monthKey)) {
+        newSet.delete(monthKey);
+      } else {
+        newSet.add(monthKey);
+      }
+      return newSet;
+    });
+  };
+  
   // Přepočítaná data (odděleně od renderu)
-  const vykazyWithCalc = useMemo(() => vykazy.map(v => {
-    const hod = Number(v.pocet_hodin) || 0
-    const sazba = Number(v.klienti?.sazba) || 0
-    const mzda = Number(v.pracovnici?.hodinova_mzda) || 0
-    const prijem = hod * sazba
-    const naklad = hod * mzda
-    return { ...v, prijem, naklad, zisk: prijem - naklad }
-  }), [vykazy])
 
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto">
@@ -234,51 +289,63 @@ export default function VykazyPage() {
       </div>
 
       {/* Mobile: stacked cards */}
-      <div className="space-y-3 md:hidden mb-6">
-        {loading && <div className="p-4 bg-white rounded shadow animate-pulse">Načítám...</div>}
-        {vykazyWithCalc.map(v => (
-          <div key={v.id} className="bg-white rounded-lg p-4 shadow-sm">
-            {editingId === v.id ? (
-              <div className="flex flex-col gap-2">
-                <input type="date" value={editDatum} onChange={e => setEditDatum(e.target.value)} className="border p-2 rounded" />
-                <select value={editPracovnikId} onChange={e => setEditPracovnikId(e.target.value)} className="border p-2 rounded">
-                  <option value="">-- vyber --</option>
-                  {pracovnici.map(p => <option key={p.id} value={p.id}>{p.jmeno}</option>)}
-                </select>
-                <select value={editKlientId} onChange={e => setEditKlientId(e.target.value)} className="border p-2 rounded">
-                  <option value="">-- vyber --</option>
-                  {klienti.map(k => <option key={k.id} value={k.id}>{k.nazev}</option>)}
-                </select>
-                <input value={editPopis} onChange={e => setEditPopis(e.target.value)} className="border p-2 rounded" />
-                <input type="number" value={editHodiny} onChange={e => setEditHodiny(e.target.value)} className="border p-2 rounded" />
-                <div className="flex gap-2">
-                  <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-2 rounded">Uložit</button>
-                  <button onClick={cancelEdit} className="bg-gray-200 px-3 py-2 rounded">Zrušit</button>
-                </div>
+      <div className="space-y-2 md:hidden mb-6">
+        {loading && <div className="p-4 bg-white rounded-lg shadow animate-pulse">Načítám...</div>}
+        {Object.keys(groupedVykazy).sort((a, b) => Number(b) - Number(a)).map(year => (
+          <div key={year} className="bg-slate-100 rounded-lg">
+            <h3 onClick={() => toggleYear(year)} className="p-4 text-lg font-bold cursor-pointer flex items-center">
+              <svg className={`w-5 h-5 mr-2 transform transition-transform ${expandedYears.has(year) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+              {year}
+            </h3>
+            {expandedYears.has(year) && (
+              <div className="pl-4 pb-2 space-y-2">
+                {Object.keys(groupedVykazy[year]).sort((a, b) => Number(b) - Number(a)).map(month => {
+                  const monthKey = `${year}-${month}`;
+                  return (
+                    <div key={monthKey} className="bg-white rounded-lg">
+                      <h4 onClick={() => toggleMonth(monthKey)} className="p-3 font-semibold cursor-pointer flex items-center">
+                        <svg className={`w-4 h-4 mr-2 transform transition-transform ${expandedMonths.has(monthKey) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+                        {monthNames[Number(month)]}
+                      </h4>
+                      {expandedMonths.has(monthKey) && (
+                        <div className="px-3 pb-3 space-y-3">
+                          {groupedVykazy[year][month].map(v => (
+                            <div key={v.id} className="bg-slate-50 rounded-lg p-4 shadow-sm">
+                              {editingId === v.id ? (
+                                <div className="flex flex-col gap-2">
+                                  {/* In-line editing is disabled in grouped view for now */}
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div className="text-sm font-medium">{formatDate(v.datum)}</div>
+                                    <div className={`text-sm font-semibold ${v.zisk >= 0 ? 'text-green-600' : 'text-red-600'}`}>{currency.format(v.zisk)}</div>
+                                  </div>
+                                  <div className="text-sm text-gray-700">{v.pracovnici?.jmeno} • {v.klienti?.nazev}</div>
+                                  <div className="font-bold text-sm text-gray-700">{v.akce?.nazev}</div>
+                                  <div className="text-sm text-gray-500 mt-2">{v.popis}</div>
+                                  <div className="flex items-center justify-between mt-3 text-sm">
+                                    <div>{v.pocet_hodin} h</div>
+                                    <div className="text-green-700">{currency.format(v.prijem)}</div>
+                                    <div className="text-red-600">{currency.format(v.naklad)}</div>
+                                  </div>
+                                  <div className="flex gap-2 mt-3">
+                                    <button onClick={() => startEdit(v)} className="text-sm text-gray-700">Upravit</button>
+                                    <button onClick={() => deleteVykaz(v.id)} className="text-sm text-red-500">Smazat</button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ) : (
-              <>
-                <div className="flex justify-between items-start mb-2">
-                  <div className="text-sm font-medium">{formatDate(v.datum)}</div>
-                  <div className={`text-sm font-semibold ${v.zisk >= 0 ? 'text-green-600' : 'text-red-600'}`}>{currency.format(v.zisk)}</div>
-                </div>
-                <div className="text-sm text-gray-700">{v.pracovnici?.jmeno} • {v.klienti?.nazev}</div>
-                <div className="font-bold text-sm text-gray-700">{v.akce?.nazev}</div>
-                <div className="text-sm text-gray-500 mt-2">{v.popis}</div>
-                <div className="flex items-center justify-between mt-3 text-sm">
-                  <div>{v.pocet_hodin} h</div>
-                  <div className="text-green-700">{currency.format(v.prijem)}</div>
-                  <div className="text-red-600">{currency.format(v.naklad)}</div>
-                </div>
-                <div className="flex gap-2 mt-3">
-                  <button onClick={() => startEdit(v)} className="text-sm text-gray-700">Upravit</button>
-                  <button onClick={() => deleteVykaz(v.id)} className="text-sm text-red-500">Smazat</button>
-                </div>
-              </>
             )}
           </div>
         ))}
-
       </div>
 
       {/* Desktop: table */}
@@ -290,66 +357,68 @@ export default function VykazyPage() {
               <th className="p-3">Pracovník</th>
               <th className="p-3">Klient</th>
               <th className="p-3">Akce</th>
-              <th className="p-3">Popis</th>
               <th className="p-3 text-right">Hodiny</th>
               <th className="p-3 text-right text-green-700 bg-green-50">Fakturace (Příjem)</th>
               <th className="p-3 text-right text-red-700 bg-red-50">Mzda (Náklad)</th>
               <th className="p-3 text-right font-bold">Zisk</th>
+              <th className="p-3"></th>
             </tr>
           </thead>
-          <tbody className="divide-y">
-            {vykazyWithCalc.map((v) => (
-              editingId === v.id ? (
-                <tr key={v.id} className="bg-white">
-                  <td className="p-3">
-                    <input type="date" value={editDatum} onChange={e => setEditDatum(e.target.value)} className="border p-2 rounded" />
-                  </td>
-                  <td className="p-3">
-                    <select value={editPracovnikId} onChange={e => setEditPracovnikId(e.target.value)} className="border p-2 rounded">
-                      {pracovnici.map(p => <option key={p.id} value={p.id}>{p.jmeno}</option>)}
-                    </select>
-                  </td>
-                  <td className="p-3">
-                    <select value={editKlientId} onChange={e => setEditKlientId(e.target.value)} className="border p-2 rounded">
-                      {klienti.map(k => <option key={k.id} value={k.id}>{k.nazev}</option>)}
-                    </select>
-                  </td>
-                  <td className="p-3">
-                    {/* Akce is not editable in-line, so we just show it or leave empty */}
-                  </td>
-                  <td className="p-3">
-                    <input value={editPopis} onChange={e => setEditPopis(e.target.value)} className="border p-2 rounded w-full" />
-                  </td>
-                  <td className="p-3 text-right">
-                    <input type="number" value={editHodiny} onChange={e => setEditHodiny(e.target.value)} className="border p-2 rounded w-24 text-right" />
-                  </td>
-                  <td className="p-3 text-right">
-                    <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded mr-2">Uložit</button>
-                    <button onClick={cancelEdit} className="bg-gray-200 px-3 py-1 rounded">Zrušit</button>
-                  </td>
-                  {/* prazdne sloupecky pro zachování struktury */}
-                  <td className="p-3"></td>
-                  <td className="p-3"></td>
-                </tr>
-              ) : (
-                <tr key={v.id} className="hover:bg-gray-50 text-black">
-                  <td className="p-3">{formatDate(v.datum)}</td>
-                  <td className="p-3 font-medium">{v.pracovnici?.jmeno}</td>
-                  <td className="p-3">{v.klienti?.nazev}</td>
-                  <td className="p-3 font-medium">{v.akce?.nazev}</td>
-                  <td className="p-3 text-gray-500">{v.popis}</td>
-                  <td className="p-3 text-right">{v.pocet_hodin} h</td>
-                  <td className="p-3 text-right bg-green-50">{currency.format(v.prijem)}</td>
-                  <td className="p-3 text-right bg-red-50">{currency.format(v.naklad)}</td>
-                  <td className={`p-3 text-right font-bold ${v.zisk >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {currency.format(v.zisk)}
-                  </td>
-                  <td className="p-3 text-right">
-                    <button onClick={() => startEdit(v)} className="text-gray-700 mr-2">Upravit</button>
-                    <button onClick={() => deleteVykaz(v.id)} className="text-red-500">Smazat</button>
+          <tbody className="divide-y divide-slate-200">
+          {Object.keys(groupedVykazy).sort((a, b) => Number(b) - Number(a)).map(year => (
+              <Fragment key={year}>
+                <tr onClick={() => toggleYear(year)} className="bg-slate-100 hover:bg-slate-200 cursor-pointer">
+                  <td colSpan={9} className="p-2 font-bold text-lg">
+                    <div className="flex items-center">
+                      <svg className={`w-5 h-5 mr-2 transform transition-transform ${expandedYears.has(year) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+                      {year}
+                    </div>
                   </td>
                 </tr>
-              )
+                {expandedYears.has(year) && Object.keys(groupedVykazy[year]).sort((a, b) => Number(b) - Number(a)).map(month => {
+                  const monthKey = `${year}-${month}`;
+                  const monthData = groupedVykazy[year][month];
+                  return (
+                    <Fragment key={monthKey}>
+                      <tr onClick={() => toggleMonth(monthKey)} className="bg-slate-50 hover:bg-slate-100 cursor-pointer">
+                        <td colSpan={9} className="p-2 font-semibold pl-8">
+                          <div className="flex items-center">
+                            <svg className={`w-4 h-4 mr-2 transform transition-transform ${expandedMonths.has(monthKey) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+                            {monthNames[Number(month)]}
+                          </div>
+                        </td>
+                      </tr>
+                      {expandedMonths.has(monthKey) && monthData.map(v => (
+                        <Fragment key={v.id}>
+                          <tr className="hover:bg-gray-50 text-black">
+                            <td className="p-3">{formatDate(v.datum)}</td>
+                            <td className="p-3 font-medium">{v.pracovnici?.jmeno}</td>
+                            <td className="p-3">{v.klienti?.nazev}</td>
+                            <td className="p-3 font-medium">{v.akce?.nazev}</td>
+                            <td className="p-3 text-right">{v.pocet_hodin} h</td>
+                            <td className="p-3 text-right bg-green-50">{currency.format(v.prijem)}</td>
+                            <td className="p-3 text-right bg-red-50">{currency.format(v.naklad)}</td>
+                            <td className={`p-3 text-right font-bold ${v.zisk >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {currency.format(v.zisk)}
+                            </td>
+                            <td className="p-3 text-right">
+                              <button onClick={() => startEdit(v)} className="text-gray-700 mr-2">Upravit</button>
+                              <button onClick={() => deleteVykaz(v.id)} className="text-red-500">Smazat</button>
+                            </td>
+                          </tr>
+                          {v.popis && (
+                            <tr className="hover:bg-gray-50 text-black">
+                              <td colSpan={9} className="p-3 pt-0 text-gray-500 pl-10">
+                                {v.popis}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      ))}
+                    </Fragment>
+                  );
+                })}
+              </Fragment>
             ))}
           </tbody>
         </table>
