@@ -44,6 +44,7 @@ export default function RootLayout({
               <NavLink href="/dashboard">Dashboard</NavLink>
               <NavLink href="/">Klienti</NavLink>
               <NavLink href="/pracovnici">Dodavatelé</NavLink>
+              <NavLink href="/akce">Akce</NavLink>
               <NavLink href="/vykazy">Výkazy</NavLink>
               <NavLink href="/finance">Finance</NavLink>
             </div>
