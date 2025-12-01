@@ -142,7 +142,7 @@ export default function PracovniciPage() {
           </div>
           <div className="md:col-span-1 flex justify-start md:justify-end w-full">
             <button type="button" onClick={pridatPracovnika} className="w-full md:w-auto inline-flex items-center justify-center bg-blue-700 text-white rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
-              Uložit
+              Uložit pracovníka
             </button>
           </div>
         </div>
@@ -185,7 +185,7 @@ export default function PracovniciPage() {
                       <input type="number" className="border p-2 rounded w-24 bg-white" value={editHodinovaMzda} onChange={e => setEditHodinovaMzda(e.target.value)} />
                     </td>
                     <td className="p-2 text-right">
-                      <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded-md mr-2 text-sm">Uložit</button>
+                      <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded-md mr-2 text-sm">Uložit změny</button>
                       <button onClick={cancelEdit} className="bg-gray-200 px-3 py-1 rounded-md text-sm">Zrušit</button>
                     </td>
                   </tr>
