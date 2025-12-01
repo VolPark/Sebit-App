@@ -50,7 +50,7 @@ export default function MobileMenu() {
               <Link href="/pracovnici" onClick={() => setOpen(false)} className="px-4 py-2 rounded text-sm font-medium text-gray-700 hover:bg-gray-100">Pracovníci</Link>
               <Link href="/akce" onClick={() => setOpen(false)} className="px-4 py-2 rounded text-sm font-medium text-gray-700 hover:bg-gray-100">Akce</Link>
               <Link href="/vykazy" onClick={() => setOpen(false)} className="px-4 py-2 rounded text-sm font-medium text-gray-700 hover:bg-gray-100">Výkazy</Link>
-              <Link href="/finance" onClick={() => setOpen(false)} className="px-4 py-2 rounded text-sm font-medium text-gray-700 hover:bg-gray-100">Finance</Link>
+              <Link href="/mzdy" onClick={() => setOpen(false)} className="px-4 py-2 rounded text-sm font-medium text-gray-700 hover:bg-gray-100">Mzdy</Link>
             </div>
           </div>
         )}

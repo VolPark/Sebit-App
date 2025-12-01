@@ -46,7 +46,7 @@ export default function RootLayout({
               <NavLink href="/pracovnici">Pracovníci</NavLink>
               <NavLink href="/akce">Akce</NavLink>
               <NavLink href="/vykazy">Výkazy</NavLink>
-              <NavLink href="/finance">Finance</NavLink>
+              <NavLink href="/mzdy">Mzdy</NavLink>
             </div>
             
             {/* RIGHT: Avatar (desktop) + Hamburger (mobile) - replaced with client component */}

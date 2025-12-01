@@ -1,0 +1,203 @@
+'use client'
+import { useState, useEffect, useMemo, Fragment } from 'react'
+import { supabase } from '@/lib/supabase'
+
+// Helper to get month name
+const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
+
+// Main component
+export default function MzdyPage() {
+  // Data state
+  const [pracovnici, setPracovnici] = useState<any[]>([])
+  const [mzdy, setMzdy] = useState<any[]>([])
+  
+  // UI state
+  const [loading, setLoading] = useState(true)
+  const [statusMessage, setStatusMessage] = useState('')
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [editingPracovnikId, setEditingPracovnikId] = useState<number | null>(null)
+
+  // Form state
+  const [hrubaMzda, setHrubaMzda] = useState('')
+  const [faktura, setFaktura] = useState('')
+  const [priplatek, setPriplatek] = useState('')
+
+  useEffect(() => {
+    fetchData()
+  }, [selectedDate])
+
+  async function fetchData() {
+    setLoading(true)
+    
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth() + 1;
+
+    // Fetch active workers and their salaries for the selected month
+    const { data: pracovniciData, error: pracovniciError } = await supabase
+      .from('pracovnici')
+      .select('*, mzdy(*)')
+      .eq('is_active', true)
+      .eq('mzdy.rok', year)
+      .eq('mzdy.mesic', month)
+      .order('jmeno');
+
+    if (pracovniciData) {
+      setPracovnici(pracovniciData);
+    }
+    if (pracovniciError) {
+      console.error('Chyba při načítání dat:', pracovniciError);
+      setStatusMessage('Nepodařilo se načíst data.');
+    }
+    
+    setLoading(false)
+  }
+
+  // --- Date navigation ---
+  const changeMonth = (offset: number) => {
+    setSelectedDate(currentDate => {
+      const newDate = new Date(currentDate);
+      newDate.setMonth(newDate.getMonth() + offset);
+      return newDate;
+    });
+  }
+  
+  // --- Form handling ---
+  const startEditing = (pracovnik: any) => {
+    setEditingPracovnikId(pracovnik.id);
+    const mzda = pracovnik.mzdy[0]; // There will be at most one per our query
+    if (mzda) {
+      setHrubaMzda(String(mzda.hruba_mzda || ''));
+      setFaktura(String(mzda.faktura || ''));
+      setPriplatek(String(mzda.priplatek || ''));
+    } else {
+      resetForm();
+    }
+  };
+
+  const cancelEditing = () => {
+    setEditingPracovnikId(null);
+    resetForm();
+  };
+  
+  const resetForm = () => {
+    setHrubaMzda('');
+    setFaktura('');
+    setPriplatek('');
+  }
+
+  const handleSave = async (pracovnikId: number) => {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth() + 1;
+
+    const payload = {
+      pracovnik_id: pracovnikId,
+      rok: year,
+      mesic: month,
+      hruba_mzda: parseFloat(hrubaMzda) || null,
+      faktura: parseFloat(faktura) || null,
+      priplatek: parseFloat(priplatek) || null,
+    };
+    
+    // Upsert will insert or update based on the unique constraint (pracovnik_id, rok, mesic)
+    const { error } = await supabase.from('mzdy').upsert(payload);
+
+    if (error) {
+      alert('Nepodařilo se uložit mzdu: ' + error.message);
+    } else {
+      setStatusMessage('Mzda uložena.');
+      await fetchData(); // Refresh data for the view
+      cancelEditing();
+    }
+  };
+
+  // --- UI Render ---
+  const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), []);
+  const totalMonthSalary = useMemo(() => {
+    return pracovnici.reduce((sum, p) => {
+      const mzda = p.mzdy[0];
+      return sum + (mzda?.celkova_castka || 0);
+    }, 0);
+  }, [pracovnici]);
+
+  return (
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+      <h2 className="text-2xl font-bold text-black mb-4">Správa mezd</h2>
+      
+      {/* Month Selector */}
+      <div className="flex items-center justify-center gap-4 mb-8 bg-white/80 backdrop-blur-sm p-3 rounded-2xl shadow-md ring-1 ring-slate-200 max-w-md mx-auto">
+        <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-200 transition-colors">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <span className="text-xl font-semibold w-48 text-center">
+          {monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}
+        </span>
+        <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-200 transition-colors">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        </button>
+      </div>
+
+      {/* Total for month */}
+      <div className="text-right mb-4 pr-2 font-bold text-gray-700">
+        Celkem za měsíc: {currency.format(totalMonthSalary)}
+      </div>
+
+      {/* Workers List */}
+      <div className="space-y-3">
+        {loading && <p>Načítám pracovníky...</p>}
+        {!loading && pracovnici.map(p => {
+          const mzda = p.mzdy[0];
+          const isEditing = editingPracovnikId === p.id;
+          
+          return (
+            <div key={p.id} className={`bg-white rounded-2xl shadow-sm ring-1 transition-all ${isEditing ? 'ring-blue-500' : 'ring-slate-200'}`}>
+              {/* --- Collapsed View --- */}
+              {!isEditing && (
+                <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => startEditing(p)}>
+                  <span className="font-medium">{p.jmeno}</span>
+                  {mzda ? (
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-gray-500 hidden sm:block">
+                        {currency.format(mzda.hruba_mzda || 0)} + {currency.format(mzda.faktura || 0)} + {currency.format(mzda.priplatek || 0)}
+                      </span>
+                      <span className="font-bold text-lg">{currency.format(mzda.celkova_castka)}</span>
+                      <span className="text-blue-600 text-sm">Upravit</span>
+                    </div>
+                  ) : (
+                    <div className="px-4 py-1.5 rounded-full bg-blue-100 text-blue-800 text-sm font-semibold">
+                      Zadat mzdu
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* --- Expanded/Editing View --- */}
+              {isEditing && (
+                <div className="p-4">
+                  <h3 className="font-semibold mb-3">{p.jmeno}</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Hrubá mzda</label>
+                      <input type="number" placeholder="0" value={hrubaMzda} onChange={e => setHrubaMzda(e.target.value)} className="w-full rounded-lg border-slate-300 p-2" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Faktura</label>
+                      <input type="number" placeholder="0" value={faktura} onChange={e => setFaktura(e.target.value)} className="w-full rounded-lg border-slate-300 p-2" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Příplatek</label>
+                      <input type="number" placeholder="0" value={priplatek} onChange={e => setPriplatek(e.target.value)} className="w-full rounded-lg border-slate-300 p-2" />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-4 mt-4">
+                    <button onClick={cancelEditing} className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full text-sm">Zrušit</button>
+                    <button onClick={() => handleSave(p.id)} className="bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-semibold">Uložit</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
