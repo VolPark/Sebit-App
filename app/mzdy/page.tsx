@@ -107,7 +107,7 @@ export default function MzdyPage() {
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth() + 1;
 
-    const payload = {
+    const upsertPayload = {
       pracovnik_id: pracovnikId,
       rok: year,
       mesic: month,
@@ -115,8 +115,10 @@ export default function MzdyPage() {
       faktura: parseFloat(faktura) || null,
       priplatek: parseFloat(priplatek) || null,
     };
-    
-    const { error } = await supabase.from('mzdy').upsert(payload);
+
+    const { error } = await supabase
+      .from('mzdy')
+      .upsert(upsertPayload, { onConflict: 'pracovnik_id,rok,mesic' });
 
     if (error) {
       alert('Nepodařilo se uložit mzdu: ' + error.message);
