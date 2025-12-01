@@ -6,8 +6,8 @@ import Header from '@/components/Header'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'SEBIT Solutions',
-  description: 'Moderní správa firmy',
+  title: 'Interiéry Horyna',
+  description: 'Moderní správa interiérových projektů',
 }
 
 export default function RootLayout({
@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="cs">
-      <body className={`${inter.className} bg-[#f8f9fa] min-h-screen flex flex-col text-gray-800`}>
+      <body className={`${inter.className} bg-white min-h-screen flex flex-col text-[#333333]`}>
         
         {/* SKIP LINK for A11y */}
         <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-white px-3 py-2 rounded shadow-md z-50">

@@ -178,7 +178,7 @@ export default function MzdyPage() {
           const canEdit = p.is_active;
           
           return (
-            <div key={p.id} className={`bg-white rounded-2xl shadow-sm ring-1 transition-all ${isEditing ? 'ring-blue-500' : 'ring-slate-200'} ${!canEdit ? 'bg-gray-50' : ''}`}>
+            <div key={p.id} className={`bg-white rounded-2xl shadow-sm ring-1 transition-all ${isEditing ? 'ring-[#E30613]' : 'ring-slate-200'} ${!canEdit ? 'bg-gray-50' : ''}`}>
               {/* --- Collapsed View --- */}
               {!isEditing && (
                 <div className={`p-4 flex items-center justify-between`}>
@@ -236,7 +236,7 @@ export default function MzdyPage() {
                   ) : (
                     <>
                       {canEdit ? (
-                        <div className="px-4 py-1.5 rounded-full bg-blue-100 text-blue-800 text-sm font-semibold cursor-pointer" onClick={() => startEditing(p)}>
+                        <div className="px-4 py-1.5 rounded-full bg-[#E30613]/10 text-[#E30613] text-sm font-semibold cursor-pointer" onClick={() => startEditing(p)}>
                           Zadat mzdu
                         </div>
                       ) : (
@@ -269,7 +269,7 @@ export default function MzdyPage() {
                   </div>
                   <div className="flex justify-end gap-4 mt-4">
                     <button onClick={cancelEditing} className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full text-sm">Zrušit</button>
-                    <button onClick={() => handleSave(p.id)} className="bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-semibold">Uložit</button>
+                    <button onClick={() => handleSave(p.id)} className="bg-[#E30613] text-white px-6 py-2 rounded-full text-sm font-semibold">Uložit</button>
                   </div>
                 </div>
               )}

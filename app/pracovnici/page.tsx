@@ -134,14 +134,14 @@ export default function PracovniciPage() {
         <div className="bg-white/95 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <div className="md:col-span-1">
             <label className="block text-sm font-medium text-gray-600 mb-1">Jméno pracovníka</label>
-            <input placeholder="Jan Novák" className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" value={jmeno} onChange={e => setJmeno(e.target.value)} />
+            <input placeholder="Jan Novák" className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" value={jmeno} onChange={e => setJmeno(e.target.value)} />
           </div>
           <div className="md:col-span-1">
             <label className="block text-sm font-medium text-gray-600 mb-1">Hodinová sazba (Kč)</label>
-            <input type="number" placeholder="250" className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" value={hodinovaMzda} onChange={e => setHodinovaMzda(e.target.value)} />
+            <input type="number" placeholder="250" className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" value={hodinovaMzda} onChange={e => setHodinovaMzda(e.target.value)} />
           </div>
           <div className="md:col-span-1 flex justify-start md:justify-end w-full">
-            <button type="button" onClick={pridatPracovnika} className="w-full md:w-auto inline-flex items-center justify-center bg-blue-700 text-white rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
+            <button type="button" onClick={pridatPracovnika} className="w-full md:w-auto inline-flex items-center justify-center bg-[#E30613] text-white rounded-full px-8 py-3 text-base shadow-sm hover:bg-[#C00000] transition">
               Uložit pracovníka
             </button>
           </div>
@@ -155,7 +155,7 @@ export default function PracovniciPage() {
             <span className="mr-3 text-sm font-medium text-gray-600">Zobrazit neaktivní</span>
             <span className="relative">
               <input type="checkbox" checked={showInactive} onChange={() => setShowInactive(!showInactive)} className="sr-only peer" />
-              <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-[#E30613]/30 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#E30613]"></div>
             </span>
           </label>
         </div>
@@ -177,7 +177,7 @@ export default function PracovniciPage() {
             {pracovnici.map((p) => (
               <Fragment key={p.id}>
                 {editingId === p.id ? (
-                  <tr className="bg-blue-50">
+                  <tr className="bg-red-50">
                     <td className="p-2">
                       <input className="border p-2 rounded w-full bg-white" value={editJmeno} onChange={e => setEditJmeno(e.target.value)} />
                     </td>
@@ -185,7 +185,7 @@ export default function PracovniciPage() {
                       <input type="number" className="border p-2 rounded w-24 bg-white" value={editHodinovaMzda} onChange={e => setEditHodinovaMzda(e.target.value)} />
                     </td>
                     <td className="p-2 text-right">
-                      <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded-md mr-2 text-sm">Uložit změny</button>
+                      <button onClick={saveEdit} className="bg-[#E30613] text-white px-3 py-1 rounded-md mr-2 text-sm">Uložit změny</button>
                       <button onClick={cancelEdit} className="bg-gray-200 px-3 py-1 rounded-md text-sm">Zrušit</button>
                     </td>
                   </tr>
@@ -197,7 +197,7 @@ export default function PracovniciPage() {
                        <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={() => toggleActive(p.id, p.is_active)} 
-                          className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-colors ${p.is_active ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-colors ${p.is_active ? 'bg-red-100/80 text-red-800 hover:bg-red-100' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
                         >
                           {p.is_active ? 'Ukončit' : 'Aktivovat'}
                         </button>

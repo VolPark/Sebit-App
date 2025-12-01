@@ -241,7 +241,7 @@ export default function VykazyPage() {
 
       {/* Formulář - Google 2025 style (mobile‑first) */}
       <div className="mb-6">
-        <div className={`bg-white/90 ring-1 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 transition-all ${editingId ? 'ring-blue-500' : 'ring-slate-200'}`}>
+        <div className={`bg-white/90 ring-1 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 transition-all ${editingId ? 'ring-[#E30613]' : 'ring-slate-200'}`}>
           
           <div className="w-full">
             <label className="block text-sm font-medium text-gray-600 mb-1">Pracovník</label>
@@ -261,18 +261,18 @@ export default function VykazyPage() {
           <div className="">
             <label className="block text-sm font-medium text-gray-600 mb-1">Datum</label>
             <input id="datum" type="date"
-              className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
+              className="w-full rounded-lg bg-white border border-slate-300 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 p-3 transition"
               value={datum} onChange={e => setDatum(e.target.value)} />
           </div>
 
           <div className="">
             <label className="block text-sm font-medium text-gray-600 mb-1">Hodiny</label>
-            <input id="hodiny" type="number" step="0.5" placeholder="8.5" className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition" value={hodiny} onChange={e => setHodiny(e.target.value)} />
+            <input id="hodiny" type="number" step="0.5" placeholder="8.5" className="w-full rounded-lg bg-white border border-slate-300 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 p-3 transition" value={hodiny} onChange={e => setHodiny(e.target.value)} />
           </div>
           
           <div className="md:col-span-3">
             <label className="block text-sm font-medium text-gray-600 mb-1">Popis činnosti</label>
-            <input id="popis" type="text" placeholder="Co bylo uděláno?" className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition" value={popis} onChange={e => setPopis(e.target.value)} />
+            <input id="popis" type="text" placeholder="Co bylo uděláno?" className="w-full rounded-lg bg-white border border-slate-300 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 p-3 transition" value={popis} onChange={e => setPopis(e.target.value)} />
           </div>
 
           <div className="md:col-span-3 flex justify-end gap-4">
@@ -283,7 +283,7 @@ export default function VykazyPage() {
               </button>
             )}
             <button type="button" onClick={editingId ? saveEdit : ulozitVykaz}
-              className="inline-flex items-center justify-center bg-blue-700 text-white rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
+              className="inline-flex items-center justify-center bg-[#E30613] text-white rounded-full px-8 py-3 text-base shadow-sm hover:bg-[#C00000] transition">
               {editingId ? 'Aktualizovat' : 'Uložit výkaz'}
             </button>
           </div>

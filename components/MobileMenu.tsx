@@ -45,12 +45,12 @@ export default function MobileMenu() {
         {open && (
           <div id="mobile-menu" className="fixed top-16 left-0 right-0 px-4 z-40">
             <div className="w-full bg-white/95 backdrop-blur rounded-b-lg shadow-md p-3 flex flex-col gap-2">
-              <Link href="/dashboard" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>Dashboard</Link>
-              <Link href="/klienti" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/klienti' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>Klienti</Link>
-              <Link href="/pracovnici" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/pracovnici' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>Pracovníci</Link>
-              <Link href="/akce" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/akce' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>Akce</Link>
-              <Link href="/vykazy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/vykazy' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>Výkazy</Link>
-              <Link href="/mzdy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/mzdy' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>Mzdy</Link>
+              <Link href="/dashboard" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/dashboard' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Dashboard</Link>
+              <Link href="/klienti" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/klienti' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Klienti</Link>
+              <Link href="/pracovnici" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/pracovnici' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Pracovníci</Link>
+              <Link href="/akce" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/akce' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Akce</Link>
+              <Link href="/vykazy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/vykazy' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Výkazy</Link>
+              <Link href="/mzdy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/mzdy' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Mzdy</Link>
             </div>
           </div>
         )}

@@ -85,7 +85,7 @@ export default function AkcePage() {
       if (showNewClientForm && newClientName) {
         const { data, error } = await supabase
           .from('klienti')
-          .insert({ nazev: newClientName, sazba: 1000 }) // Assuming a default sazba
+          .insert({ nazev: newClientName })
           .select('id')
           .single();
         if (error) {
@@ -115,7 +115,6 @@ export default function AkcePage() {
       odhad_hodin: parseFloat(odhadHodin || '0') || 0,
     };
     
-    // When creating new action, it's never completed
     if(!editingId) {
       payload.is_completed = false;
     }
@@ -170,15 +169,15 @@ export default function AkcePage() {
 
       {/* Form */}
       <div className="mb-6">
-        <div className={`bg-white/90 ring-1 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-2 gap-4 transition-all ${editingId ? 'ring-blue-500' : 'ring-slate-200'}`}>
+        <div className={`bg-white/90 ring-1 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-2 gap-4 transition-all ${editingId ? 'ring-[#E30613]' : 'ring-slate-200'}`}>
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-600 mb-1">Název akce</label>
-            <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" placeholder="Např. Vánoční večírek 2025" value={nazev} onChange={e => setNazev(e.target.value)} />
+            <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="Např. Realizace kuchyně" value={nazev} onChange={e => setNazev(e.target.value)} />
           </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Datum</label>
-            <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" type="date" value={datum} onChange={e => setDatum(e.target.value)} />
+            <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" type="date" value={datum} onChange={e => setDatum(e.target.value)} />
           </div>
           
           <div>
@@ -193,7 +192,7 @@ export default function AkcePage() {
             </div>
             {showNewClientForm && (
               <input 
-                className="mt-2 w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" 
+                className="mt-2 w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" 
                 placeholder="Jméno nového klienta" 
                 value={newClientName} 
                 onChange={e => setNewClientName(e.target.value)} 
@@ -204,22 +203,22 @@ export default function AkcePage() {
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Cena pro klienta</label>
-              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" placeholder="0" value={cenaKlient} onChange={e => setCenaKlient(e.target.value)} type="number" />
+              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="0" value={cenaKlient} onChange={e => setCenaKlient(e.target.value)} type="number" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Odhad hodin</label>
-              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" placeholder="0" value={odhadHodin} onChange={e => setOdhadHodin(e.target.value)} type="number" />
+              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="0" value={odhadHodin} onChange={e => setOdhadHodin(e.target.value)} type="number" />
             </div>
           </div>
           
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Materiál (klient)</label>
-              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" placeholder="0" value={materialKlient} onChange={e => setMaterialKlient(e.target.value)} type="number" />
+              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="0" value={materialKlient} onChange={e => setMaterialKlient(e.target.value)} type="number" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Materiál (my)</label>
-              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" placeholder="0" value={materialMy} onChange={e => setMaterialMy(e.target.value)} type="number" />
+              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="0" value={materialMy} onChange={e => setMaterialMy(e.target.value)} type="number" />
             </div>
           </div>
 
@@ -229,7 +228,7 @@ export default function AkcePage() {
                 Zrušit
               </button>
             )}
-            <button type="button" onClick={saveAkce} className="inline-flex items-center justify-center bg-blue-700 text-white rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
+            <button type="button" onClick={saveAkce} className="inline-flex items-center justify-center bg-[#E30613] text-white rounded-full px-8 py-3 text-base shadow-sm hover:bg-[#C00000] transition">
               {editingId ? 'Aktualizovat akci' : 'Uložit akci'}
             </button>
           </div>
@@ -243,7 +242,7 @@ export default function AkcePage() {
             <span className="mr-3 text-sm font-medium text-gray-600">Zobrazit ukončené</span>
             <span className="relative">
               <input type="checkbox" checked={showCompleted} onChange={() => setShowCompleted(!showCompleted)} className="sr-only peer" />
-              <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-[#E30613]/30 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#E30613]"></div>
             </span>
           </label>
         </div>
@@ -264,7 +263,7 @@ export default function AkcePage() {
               <div className="flex items-center justify-between mt-4">
                 <button 
                   onClick={() => toggleCompleteAkce(a.id, a.is_completed)} 
-                  className={`rounded-full px-4 py-1.5 text-sm font-semibold shadow-sm transition-colors ${a.is_completed ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                  className={`rounded-full px-4 py-1.5 text-sm font-semibold shadow-sm transition-colors ${a.is_completed ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100/80 text-red-800 hover:bg-red-100'}`}
                 >
                   {a.is_completed ? 'Aktivovat' : 'Ukončit'}
                 </button>
@@ -335,7 +334,7 @@ export default function AkcePage() {
                     <div className="flex items-center justify-end gap-2">
                       <button 
                         onClick={() => toggleCompleteAkce(a.id, a.is_completed)} 
-                        className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-colors ${a.is_completed ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-blue-100 text-blue-800 hover:bg-blue-200'}`}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-colors ${a.is_completed ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100/80 text-red-800 hover:bg-red-100'}`}
                       >
                         {a.is_completed ? 'Aktivovat' : 'Ukončit'}
                       </button>

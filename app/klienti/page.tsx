@@ -109,14 +109,14 @@ export default function KlientiPage() {
         <div className="bg-white/95 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
           <div className="md:col-span-1">
             <label className="block text-sm font-medium text-gray-600 mb-1">Název klienta</label>
-            <input placeholder="Např. Google s.r.o." className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" value={nazev} onChange={e => setNazev(e.target.value)} />
+            <input placeholder="Např. Google s.r.o." className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" value={nazev} onChange={e => setNazev(e.target.value)} />
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-600 mb-1">Poznámka</label>
-            <textarea placeholder="Klient vyžaduje reporty..." className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" value={poznamka} onChange={e => setPoznamka(e.target.value)} rows={1}></textarea>
+            <textarea placeholder="Klient vyžaduje reporty..." className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" value={poznamka} onChange={e => setPoznamka(e.target.value)} rows={1}></textarea>
           </div>
           <div className="md:col-span-3 flex justify-end">
-            <button type="button" onClick={pridatKlienta} className="inline-flex items-center justify-center bg-blue-700 text-white rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
+            <button type="button" onClick={pridatKlienta} className="inline-flex items-center justify-center bg-[#E30613] text-white rounded-full px-8 py-3 text-base shadow-sm hover:bg-[#C00000] transition">
               Uložit nového klienta
             </button>
           </div>
@@ -144,7 +144,7 @@ export default function KlientiPage() {
               <Fragment key={k.id}>
                 {editingId === k.id ? (
                   /* In-line editing row */
-                  <tr className="bg-blue-50">
+                  <tr className="bg-red-50">
                     <td className="p-2">
                       <input className="border p-2 rounded w-full bg-white" value={editNazev} onChange={e => setEditNazev(e.target.value)} />
                     </td>
@@ -152,7 +152,7 @@ export default function KlientiPage() {
                       <textarea className="border p-2 rounded w-full bg-white" value={editPoznamka} onChange={e => setEditPoznamka(e.target.value)} rows={2}></textarea>
                     </td>
                     <td className="p-2 text-right">
-                      <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded-md mr-2 text-sm">Uložit</button>
+                      <button onClick={saveEdit} className="bg-[#E30613] text-white px-3 py-1 rounded-md mr-2 text-sm">Uložit změny</button>
                       <button onClick={cancelEdit} className="bg-gray-200 px-3 py-1 rounded-md text-sm">Zrušit</button>
                     </td>
                   </tr>
@@ -164,7 +164,7 @@ export default function KlientiPage() {
                       {k.poznamka || '—'}
                     </td>
                     <td className="p-3 text-right">
-                      <button onClick={() => startEdit(k)} className="text-sm text-blue-600 hover:underline mr-4">Upravit</button>
+                      <button onClick={() => startEdit(k)} className="text-sm text-red-600 hover:underline mr-4">Upravit</button>
                       <button onClick={() => deleteKlient(k.id)} className="text-sm text-red-500 hover:underline">Smazat</button>
                     </td>
                   </tr>

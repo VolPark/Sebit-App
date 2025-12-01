@@ -10,7 +10,7 @@ function NavLink({ href, children, pathname }: { href: string, children: React.R
   return (
     <Link 
       href={href} 
-      className={`px-4 py-2 rounded-full text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white hover:shadow-sm transition-all duration-200 ${isActive ? 'bg-blue-100 text-blue-800 shadow-sm' : ''}`}
+      className={`px-4 py-2 rounded-full text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white hover:shadow-sm transition-all duration-200 ${isActive ? 'bg-[#F5F5F5] text-[#E30613] shadow-sm' : ''}`}
     >
       {children}
     </Link>
@@ -26,11 +26,11 @@ export default function Header() {
         
         {/* Logo sekce */}
         <div className="flex items-center gap-2 pl-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-blue-600/30">
-            F
+          <div className="w-8 h-8 bg-[#E30613] rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-red-500/30">
+            H
           </div>
           <span className="text-lg font-bold tracking-tight text-gray-900 hidden sm:block">
-            SEBIT Solutions
+            Interiéry Horyna
           </span>
         </div>
 

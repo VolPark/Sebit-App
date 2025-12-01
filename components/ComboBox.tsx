@@ -31,7 +31,7 @@ export default function ComboBox({ items, selected, setSelected }: ComboBoxProps
     <Combobox as="div" value={selected} onChange={setSelected}>
       <div className="relative">
         <Combobox.Input
-          className="w-full rounded-lg bg-white/60 border-slate-300 p-3 pr-10 transition duration-150 ease-in-out placeholder:text-gray-400 text-gray-900 border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm sm:leading-6"
+          className="w-full rounded-lg bg-white/60 border-slate-300 p-3 pr-10 transition duration-150 ease-in-out placeholder:text-gray-400 text-gray-900 border focus:outline-none focus:ring-2 focus:ring-[#E30613] focus:border-[#E30613] sm:text-sm sm:leading-6"
           onChange={(event) => setQuery(event.target.value)}
           displayValue={(item: ComboBoxItem) => item?.name || ''}
           placeholder="Vyhledejte..."
@@ -63,7 +63,7 @@ export default function ComboBox({ items, selected, setSelected }: ComboBoxProps
                   className={({ active }) =>
                     classNames(
                       'relative cursor-pointer select-none rounded-lg py-2.5 pl-4 pr-9 transition-colors',
-                      active ? 'bg-blue-500/90 text-white' : 'text-gray-900'
+                      active ? 'bg-[#E30613] text-white' : 'text-gray-900'
                     )
                   }
                 >
@@ -74,7 +74,7 @@ export default function ComboBox({ items, selected, setSelected }: ComboBoxProps
                         <span
                           className={classNames(
                             'absolute inset-y-0 right-0 flex items-center pr-3',
-                            active ? 'text-white' : 'text-blue-50'
+                            active ? 'text-white' : 'text-[#E30613]'
                           )}
                         >
                           <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
