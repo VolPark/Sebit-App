@@ -9,7 +9,6 @@ const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", 
 export default function MzdyPage() {
   // Data state
   const [pracovnici, setPracovnici] = useState<any[]>([])
-  const [mzdy, setMzdy] = useState<any[]>([])
   
   // UI state
   const [loading, setLoading] = useState(true)
@@ -27,33 +26,48 @@ export default function MzdyPage() {
   }, [selectedDate])
 
   async function fetchData() {
-    setLoading(true)
+    setLoading(true);
     
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth() + 1;
 
-    // Fetch active workers and their salaries for the selected month
-    const { data: pracovniciData, error: pracovniciError } = await supabase
-      .from('pracovnici')
-      .select('*, mzdy(*)')
-      .eq('is_active', true)
-      .eq('mzdy.rok', year)
-      .eq('mzdy.mesic', month)
-      .order('jmeno');
+    // 1. Fetch all workers
+    const { data: allPracovnici, error: pracError } = await supabase
+        .from('pracovnici')
+        .select('*')
+        .order('jmeno');
 
-    if (pracovniciData) {
-      setPracovnici(pracovniciData);
+    // 2. Fetch all salaries for the selected month
+    const { data: monthlyMzdy, error: mzdyError } = await supabase
+        .from('mzdy')
+        .select('*')
+        .eq('rok', year)
+        .eq('mesic', month);
+
+    if (pracError || mzdyError) {
+        console.error('Chyba při načítání dat:', pracError || mzdyError);
+        setStatusMessage('Nepodařilo se načíst data.');
+        setLoading(false);
+        return;
     }
-    if (pracovniciError) {
-      console.error('Chyba při načítání dat:', pracovniciError);
-      setStatusMessage('Nepodařilo se načíst data.');
-    }
+
+    // 3. Combine the data
+    const mzdyMap = new Map(monthlyMzdy.map(m => [m.pracovnik_id, m]));
+    const combinedData = allPracovnici.map(p => ({
+        ...p,
+        mzda: mzdyMap.get(p.id) || null,
+    }));
     
-    setLoading(false)
+    // 4. Filter for display according to the new rule: show if active OR if they have a salary this month
+    const filteredPracovnici = combinedData.filter(p => p.is_active || p.mzda !== null);
+
+    setPracovnici(filteredPracovnici);
+    setLoading(false);
   }
 
   // --- Date navigation ---
   const changeMonth = (offset: number) => {
+    setEditingPracovnikId(null); // Close any open editors
     setSelectedDate(currentDate => {
       const newDate = new Date(currentDate);
       newDate.setMonth(newDate.getMonth() + offset);
@@ -63,8 +77,11 @@ export default function MzdyPage() {
   
   // --- Form handling ---
   const startEditing = (pracovnik: any) => {
+    // Prevent editing if worker is inactive
+    if (!pracovnik.is_active) return;
+    
     setEditingPracovnikId(pracovnik.id);
-    const mzda = pracovnik.mzdy[0]; // There will be at most one per our query
+    const mzda = pracovnik.mzda;
     if (mzda) {
       setHrubaMzda(String(mzda.hruba_mzda || ''));
       setFaktura(String(mzda.faktura || ''));
@@ -98,14 +115,13 @@ export default function MzdyPage() {
       priplatek: parseFloat(priplatek) || null,
     };
     
-    // Upsert will insert or update based on the unique constraint (pracovnik_id, rok, mesic)
     const { error } = await supabase.from('mzdy').upsert(payload);
 
     if (error) {
       alert('Nepodařilo se uložit mzdu: ' + error.message);
     } else {
       setStatusMessage('Mzda uložena.');
-      await fetchData(); // Refresh data for the view
+      await fetchData(); 
       cancelEditing();
     }
   };
@@ -114,8 +130,7 @@ export default function MzdyPage() {
   const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), []);
   const totalMonthSalary = useMemo(() => {
     return pracovnici.reduce((sum, p) => {
-      const mzda = p.mzdy[0];
-      return sum + (mzda?.celkova_castka || 0);
+      return sum + (p.mzda?.celkova_castka || 0);
     }, 0);
   }, [pracovnici]);
 
@@ -143,29 +158,38 @@ export default function MzdyPage() {
 
       {/* Workers List */}
       <div className="space-y-3">
-        {loading && <p>Načítám pracovníky...</p>}
+        {loading && <p className="text-center text-gray-500">Načítám pracovníky...</p>}
         {!loading && pracovnici.map(p => {
-          const mzda = p.mzdy[0];
+          const mzda = p.mzda;
           const isEditing = editingPracovnikId === p.id;
+          const canEdit = p.is_active;
           
           return (
-            <div key={p.id} className={`bg-white rounded-2xl shadow-sm ring-1 transition-all ${isEditing ? 'ring-blue-500' : 'ring-slate-200'}`}>
+            <div key={p.id} className={`bg-white rounded-2xl shadow-sm ring-1 transition-all ${isEditing ? 'ring-blue-500' : 'ring-slate-200'} ${!canEdit ? 'bg-gray-50' : ''}`}>
               {/* --- Collapsed View --- */}
               {!isEditing && (
-                <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => startEditing(p)}>
-                  <span className="font-medium">{p.jmeno}</span>
+                <div className={`p-4 flex items-center justify-between ${canEdit ? 'cursor-pointer' : 'cursor-default'}`} onClick={() => startEditing(p)}>
+                  <span className={`font-medium ${!canEdit ? 'text-gray-400 line-through' : ''}`}>{p.jmeno}</span>
                   {mzda ? (
                     <div className="flex items-center gap-4">
                       <span className="text-sm text-gray-500 hidden sm:block">
                         {currency.format(mzda.hruba_mzda || 0)} + {currency.format(mzda.faktura || 0)} + {currency.format(mzda.priplatek || 0)}
                       </span>
-                      <span className="font-bold text-lg">{currency.format(mzda.celkova_castka)}</span>
-                      <span className="text-blue-600 text-sm">Upravit</span>
+                      <span className={`font-bold text-lg ${!canEdit ? 'text-gray-500': ''}`}>{currency.format(mzda.celkova_castka)}</span>
+                      {canEdit && <span className="text-blue-600 text-sm">Upravit</span>}
                     </div>
                   ) : (
-                    <div className="px-4 py-1.5 rounded-full bg-blue-100 text-blue-800 text-sm font-semibold">
-                      Zadat mzdu
-                    </div>
+                    <>
+                      {canEdit ? (
+                        <div className="px-4 py-1.5 rounded-full bg-blue-100 text-blue-800 text-sm font-semibold">
+                          Zadat mzdu
+                        </div>
+                      ) : (
+                        <div className="px-4 py-1.5 rounded-full bg-gray-200 text-gray-500 text-sm font-semibold">
+                          Ukončen
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
