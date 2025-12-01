@@ -65,6 +65,25 @@ const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, cl
 );
 
 
+const AdditionalKpis = ({ data, currency }: { data: DashboardData, currency: Intl.NumberFormat }) => (
+    <>
+      <KPICard title="Odpracované hodiny" value={data.totalHours.toLocaleString('cs-CZ') + ' h'} />
+      <KPICard title="Prům. Sazba Firmy" value={currency.format(data.avgCompanyRate) + '/h'} />
+      <div className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80">
+        <p className="text-sm font-semibold text-gray-500 uppercase">PRŮM. HODINOVÁ MZDA</p>
+        <p className="text-4xl font-bold mt-2 text-[#333333]">{currency.format(data.averageHourlyWage)}<span className="text-2xl text-gray-400">/h</span></p>
+        <p className="text-sm text-gray-500 mt-1">
+          Prům. měsíční: {currency.format(data.averageMonthlyWage)}
+        </p>
+      </div>
+      <KPICard 
+        title="Odhad vs. Realita" 
+        value={`${(data.estimatedVsActualHoursRatio * 100).toFixed(2)}%`} 
+        percentageColor={data.estimatedVsActualHoursRatio >= 1 ? 'text-green-500' : 'text-red-500'} 
+      />
+    </>
+  );
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -172,20 +191,13 @@ export default function DashboardPage() {
               />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {renderKpis(kpiData)}
+                <AdditionalKpis data={kpiData as DashboardData} currency={currency} />
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {renderKpis(data)}
-              <KPICard title="Odpracované hodiny" value={data.totalHours.toLocaleString('cs-CZ') + ' h'} />
-              <KPICard title="Prům. Sazba Firmy" value={currency.format(data.avgCompanyRate) + '/h'} />
-              <div className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80">
-                <p className="text-sm font-semibold text-gray-500 uppercase">PRŮM. HODINOVÁ MZDA</p>
-                <p className="text-4xl font-bold mt-2 text-[#333333]">{currency.format(data.averageHourlyWage)}<span className="text-2xl text-gray-400">/h</span></p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Prům. měsíční: {currency.format(data.averageMonthlyWage)}
-                </p>
-              </div>
+              <AdditionalKpis data={data} currency={currency} />
             </div>
           )}
 

@@ -258,6 +258,8 @@ export default function AkcePage() {
               <div className="text-sm text-gray-700">Klient: {a.klienti?.nazev || '—'}</div>
               <div className="mt-3 text-sm space-y-1">
                 <div><span className="font-medium">Cena:</span> {currency(Number(a.cena_klient || 0))}</div>
+                <div><span className="font-medium">Materiál (klient):</span> {currency(Number(a.material_klient || 0))}</div>
+                <div><span className="font-medium">Materiál (my):</span> {currency(Number(a.material_my || 0))}</div>
                 <div><span className="font-medium">Odhad:</span> {a.odhad_hodin} h</div>
               </div>
               <div className="flex items-center justify-between mt-4">
@@ -318,6 +320,8 @@ export default function AkcePage() {
                 <th className="p-3">Datum</th>
                 <th className="p-3">Klient</th>
                 <th className="p-3 text-right">Částka klient</th>
+                <th className="p-3 text-right">Materiál klient</th>
+                <th className="p-3 text-right">Materiál my</th>
                 <th className="p-3 text-right">Odhad hodin</th>
                 <th className="p-3"></th>
               </tr>
@@ -329,6 +333,8 @@ export default function AkcePage() {
                   <td className="p-3">{formatDate(a.datum)}</td>
                   <td className="p-3">{a.klienti?.nazev || '—'}</td>
                   <td className="p-3 text-right">{currency(Number(a.cena_klient || 0))}</td>
+                  <td className="p-3 text-right">{currency(Number(a.material_klient || 0))}</td>
+                  <td className="p-3 text-right">{currency(Number(a.material_my || 0))}</td>
                   <td className="p-3 text-right">{a.odhad_hodin}</td>
                   <td className="p-3 text-right">
                     <div className="flex items-center justify-end gap-2">

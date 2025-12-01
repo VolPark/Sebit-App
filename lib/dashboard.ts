@@ -8,6 +8,9 @@ export interface MonthlyData {
   grossProfit: number;
   totalHours: number;
   materialProfit: number;
+  totalMaterialKlient: number;
+  totalLaborCost: number;
+  totalEstimatedHours: number;
 }
 
 export interface DashboardData {
@@ -19,6 +22,7 @@ export interface DashboardData {
   avgCompanyRate: number;
   averageHourlyWage: number;
   averageMonthlyWage: number;
+  estimatedVsActualHoursRatio: number;
   topClients: { klient_id: number; nazev: string; total: number }[];
   topWorkers: { pracovnik_id: number; jmeno: string; total: number }[];
   
@@ -62,14 +66,16 @@ export async function getDashboardData(
       const { start, end } = getISODateRange(startDate, endDate);
 
       // --- Revenue & Material Costs ---
-      let akceQuery = supabase.from('akce').select('cena_klient, material_my, material_klient').gte('datum', start).lte('datum', end);
+      let akceQuery = supabase.from('akce').select('cena_klient, material_my, material_klient, odhad_hodin').gte('datum', start).lte('datum', end);
       if (filters.klientId) {
         akceQuery = akceQuery.eq('klient_id', filters.klientId);
       }
       const akceResult = await akceQuery;
       const totalRevenue = akceResult.data?.reduce((sum, a) => sum + (a.cena_klient || 0), 0) ?? 0;
       const totalMaterialCost = akceResult.data?.reduce((sum, a) => sum + (a.material_my || 0), 0) ?? 0;
+      const totalMaterialKlient = akceResult.data?.reduce((sum, a) => sum + (a.material_klient || 0), 0) ?? 0;
       const materialProfit = akceResult.data?.reduce((sum, a) => sum + ((a.material_klient || 0) - (a.material_my || 0)), 0) ?? 0;
+      const totalEstimatedHours = akceResult.data?.reduce((sum, a) => sum + (a.odhad_hodin || 0), 0) ?? 0;
 
       // --- Labor Costs & Hours ---
       let totalLaborCost = 0;
@@ -144,7 +150,10 @@ export async function getDashboardData(
         totalCosts,
         grossProfit,
         totalHours,
-        materialProfit
+        materialProfit,
+        totalMaterialKlient,
+        totalLaborCost,
+        totalEstimatedHours
       });
     }
 
@@ -170,6 +179,14 @@ export async function getDashboardData(
     const totalCosts = monthlyData.reduce((sum, m) => sum + m.totalCosts, 0);
     const totalHours = monthlyData.reduce((sum, m) => sum + m.totalHours, 0);
     const totalMaterialProfit = monthlyData.reduce((sum, m) => sum + m.materialProfit, 0);
+    const totalMaterialKlient = monthlyData.reduce((sum, m) => sum + m.totalMaterialKlient, 0);
+    const totalLaborCost = monthlyData.reduce((sum, m) => sum + m.totalLaborCost, 0);
+    const totalEstimatedHours = monthlyData.reduce((sum, m) => sum + m.totalEstimatedHours, 0);
+
+    // Calculate Average Wages for last 12 months
+    const averageHourlyWage = totalHours > 0 ? totalLaborCost / totalHours : 0;
+    const averageMonthlyWage = totalLaborCost / 12; // Assuming 12 months for calculation
+    const estimatedVsActualHoursRatio = totalEstimatedHours > 0 ? totalHours / totalEstimatedHours : 0;
 
     // Top Clients
     const clientMap = new Map<number, { name: string, total: number }>();
@@ -200,9 +217,10 @@ export async function getDashboardData(
       grossProfit: totalRevenue - totalCosts,
       materialProfit: totalMaterialProfit,
       totalHours,
-      avgCompanyRate: totalHours > 0 ? totalRevenue / totalHours : 0,
-      averageHourlyWage: 0,
-      averageMonthlyWage: 0,
+      avgCompanyRate: totalHours > 0 ? (totalRevenue - totalMaterialKlient) / totalHours : 0,
+      averageHourlyWage,
+      averageMonthlyWage,
+      estimatedVsActualHoursRatio,
       topClients,
       topWorkers,
       monthlyData,
@@ -225,7 +243,7 @@ export async function getDashboardData(
     }
     const { start, end } = getISODateRange(startDate, endDate);
 
-        let akceQuery = supabase.from('akce').select('cena_klient, material_my, material_klient, klient_id, klienti(nazev)').gte('datum', start).lte('datum', end);
+        let akceQuery = supabase.from('akce').select('cena_klient, material_my, material_klient, odhad_hodin, klient_id, klienti(nazev)').gte('datum', start).lte('datum', end);
     if (filters.klientId) akceQuery = akceQuery.eq('klient_id', filters.klientId);
 
     let mzdyQuery = supabase.from('mzdy').select('celkova_castka, pracovnik_id').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
@@ -243,11 +261,13 @@ export async function getDashboardData(
 
     const totalRevenue = akceData.reduce((sum, a) => sum + (a.cena_klient || 0), 0);
     const totalMaterialCost = akceData.reduce((sum, a) => sum + (a.material_my || 0), 0);
+    const totalMaterialKlient = akceData.reduce((sum, a) => sum + (a.material_klient || 0), 0);
     const materialProfit = akceData.reduce((sum, a) => sum + ((a.material_klient || 0) - (a.material_my || 0)), 0);
     const totalLaborCost = mzdyData.reduce((sum, m) => sum + (m.celkova_castka || 0), 0);
     const totalCosts = totalMaterialCost + totalLaborCost;
     const totalHours = praceData.reduce((sum, p) => sum + (p.pocet_hodin || 0), 0);
-    
+    const totalEstimatedHours = akceData.reduce((sum, a) => sum + (a.odhad_hodin || 0), 0);
+
     // Calculate Average Wages
     const uniqueEmployeeIds = new Set(mzdyData.map(m => m.pracovnik_id));
     const uniqueEmployeeCount = uniqueEmployeeIds.size;
@@ -263,6 +283,7 @@ export async function getDashboardData(
     }
     
     const averageHourlyWage = totalHours > 0 ? totalLaborCost / totalHours : 0;
+    const estimatedVsActualHoursRatio = totalEstimatedHours > 0 ? totalHours / totalEstimatedHours : 0;
 
     // Top Clients
     const clientMap = new Map<number, { name: string, total: number }>();
@@ -292,9 +313,10 @@ export async function getDashboardData(
       grossProfit: totalRevenue - totalCosts,
       materialProfit,
       totalHours,
-      avgCompanyRate: totalHours > 0 ? totalRevenue / totalHours : 0,
+      avgCompanyRate: totalHours > 0 ? (totalRevenue - totalMaterialKlient) / totalHours : 0,
       averageHourlyWage,
       averageMonthlyWage,
+      estimatedVsActualHoursRatio,
       topClients,
       topWorkers,
       monthlyData: [], // Not applicable for single period view
