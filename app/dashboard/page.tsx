@@ -23,13 +23,13 @@ const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, cl
   <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
     {/* Time Period Tabs */}
     <div className="p-1 bg-gray-100 rounded-full flex items-center">
-      {(['month', 'last12months', 'year'] as const).map(p => (
+      {(['last12months', 'year'] as const).map(p => (
         <button
           key={p}
           onClick={() => setPeriod(p)}
           className={`px-6 py-2 rounded-full text-sm font-semibold transition-all w-full ${period === p ? 'bg-white shadow' : 'text-gray-600 hover:bg-white/60'}`}
         >
-          {p === 'month' ? 'Tento měsíc' : p === 'last12months' ? 'Posl. 12 měsíců' : 'Roční přehled'}
+          {p === 'last12months' ? 'Posl. 12 měsíců' : 'Roční přehled'}
         </button>
       ))}
     </div>
@@ -68,12 +68,13 @@ const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, cl
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'month' | 'last12months' | 'year'>('last12months');
+  const [period, setPeriod] = useState<'last12months' | 'year'>('last12months');
   const [year, setYear] = useState(new Date().getFullYear());
   const [filters, setFilters] = useState<{ pracovnikId?: number | null, klientId?: number | null }>({});
   
   const [workers, setWorkers] = useState<FilterOption[]>([]);
   const [clients, setClients] = useState<FilterOption[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<MonthlyData | null>(null);
   
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -96,6 +97,7 @@ export default function DashboardPage() {
       const periodParam = period === 'year' ? { year } : period;
       const dashboardData = await getDashboardData(periodParam, filters);
       setData(dashboardData);
+      setSelectedMonth(null); // Reset month selection on period change
       setLoading(false);
     }
     loadDashboard();
@@ -103,19 +105,44 @@ export default function DashboardPage() {
 
   const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), []);
 
-  const renderKpis = (d: DashboardData, helpText?: string) => {
-    const totalRevenue = d.totalRevenue || 0;
-    const costsPercentage = totalRevenue > 0 ? `${(d.totalCosts / totalRevenue * 100).toFixed(0)}%` : `0%`;
-    const profitPercentage = totalRevenue > 0 ? `${(d.grossProfit / totalRevenue * 100).toFixed(0)}%` : `0%`;
-    const materialProfitPercentage = totalRevenue > 0 ? `${(d.materialProfit / totalRevenue * 100).toFixed(0)}%` : `0%`;
-    const titleSuffix = period === 'last12months' ? 'Celkové ' : '';
+  const handleMonthClick = (monthData: MonthlyData) => {
+    if (selectedMonth && selectedMonth.month === monthData.month && selectedMonth.year === monthData.year) {
+      setSelectedMonth(null);
+    } else {
+      setSelectedMonth(monthData);
+    }
+  };
+
+  const kpiData = selectedMonth ?? data;
+
+  const renderKpis = (d: DashboardData | MonthlyData | null) => {
+    if (!d) return null;
+
+    // Gross profit for monthly data is pre-calculated. For total data, it's also available.
+    const grossProfit = 'grossProfit' in d ? d.grossProfit : (d.totalRevenue - d.totalCosts);
+    const materialProfit = 'materialProfit' in d ? d.materialProfit : 0;
+
+    const costsPercentage = d.totalRevenue > 0 ? `${(d.totalCosts / d.totalRevenue * 100).toFixed(0)}%` : `0%`;
+    const profitPercentage = d.totalRevenue > 0 ? `${(grossProfit / d.totalRevenue * 100).toFixed(0)}%` : `0%`;
+    const materialProfitPercentage = d.totalRevenue > 0 ? `${(materialProfit / d.totalRevenue * 100).toFixed(0)}%` : `0%`;
+    
+    let helpText: string;
+    let titleSuffix: string = '';
+    if (selectedMonth) {
+        helpText = `Data za ${selectedMonth.month} ${selectedMonth.year}`;
+    } else if (period === 'last12months') {
+        helpText = "Za posledních 12 měsíců";
+        titleSuffix = 'Celkové '
+    } else {
+        helpText = `Data za rok ${year}`;
+    }
 
     return (
         <>
             <KPICard title={`${titleSuffix}Příjmy`} value={currency.format(d.totalRevenue)} helpText={helpText} />
             <KPICard title={`${titleSuffix}Náklady`} value={currency.format(d.totalCosts)} helpText={helpText} percentage={costsPercentage} percentageColor="text-red-500" />
-            <KPICard title={`${titleSuffix}Zisk`} value={currency.format(d.grossProfit)} helpText={helpText} percentage={profitPercentage} percentageColor="text-green-500" />
-            <KPICard title="Zisk na materiálu" value={currency.format(d.materialProfit)} helpText={helpText} percentage={materialProfitPercentage} percentageColor="text-green-500" />
+            <KPICard title={`${titleSuffix}Zisk`} value={currency.format(grossProfit)} helpText={helpText} percentage={profitPercentage} percentageColor="text-green-500" />
+            <KPICard title="Zisk na materiálu" value={currency.format(materialProfit)} helpText={helpText} percentage={materialProfitPercentage} percentageColor="text-green-500" />
         </>
     );
   }
@@ -138,9 +165,13 @@ export default function DashboardPage() {
         <>
           {period === 'last12months' ? (
             <div className="space-y-6">
-              <BarChart data={data.monthlyData} />
+              <BarChart 
+                data={data.monthlyData} 
+                onMonthClick={handleMonthClick}
+                selectedMonth={selectedMonth}
+              />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {renderKpis(data, "Za posledních 12 měsíců")}
+                {renderKpis(kpiData)}
               </div>
             </div>
           ) : (
