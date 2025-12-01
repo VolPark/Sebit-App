@@ -42,7 +42,7 @@ export default function RootLayout({
             {/* DESKTOP LINKS: zachovat styl, skryté na mobilu */}
             <div className="hidden md:flex items-center gap-1 bg-gray-100/50 p-1 rounded-full">
               <NavLink href="/dashboard">Dashboard</NavLink>
-              <NavLink href="/">Klienti</NavLink>
+              <NavLink href="/klienti">Klienti</NavLink>
               <NavLink href="/pracovnici">Dodavatelé</NavLink>
               <NavLink href="/akce">Akce</NavLink>
               <NavLink href="/vykazy">Výkazy</NavLink>
