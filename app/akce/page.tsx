@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/formatDate'
+import ComboBox from '@/components/ComboBox'
 
 export default function AkcePage() {
   const [akce, setAkce] = useState<any[]>([])
@@ -13,7 +14,7 @@ export default function AkcePage() {
   // Form state
   const [nazev, setNazev] = useState('')
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0])
-  const [klientId, setKlientId] = useState('')
+  const [selectedKlient, setSelectedKlient] = useState<{id: string, name: string} | null>(null)
   const [showNewClientForm, setShowNewClientForm] = useState(false)
   const [newClientName, setNewClientName] = useState('')
   const [cenaKlient, setCenaKlient] = useState('')
@@ -24,6 +25,8 @@ export default function AkcePage() {
   useEffect(() => {
     fetchAll()
   }, [])
+
+  const formattedKlienti = useMemo(() => klienti.map(k => ({ id: k.id, name: k.nazev })), [klienti]);
 
   async function fetchAll() {
     setLoading(true)
@@ -39,7 +42,7 @@ export default function AkcePage() {
   function resetForm() {
     setNazev('')
     setDatum(new Date().toISOString().split('T')[0])
-    setKlientId('')
+    setSelectedKlient(null)
     setCenaKlient('')
     setMaterialKlient('')
     setMaterialMy('')
@@ -52,7 +55,11 @@ export default function AkcePage() {
     setEditingId(a.id)
     setNazev(a.nazev || '')
     setDatum(a.datum ? a.datum.split('T')[0] : '')
-    setKlientId(String(a.klient_id || ''))
+    if (a.klient_id && a.klienti) {
+      setSelectedKlient({ id: a.klient_id, name: a.klienti.nazev })
+    } else {
+      setSelectedKlient(null)
+    }
     setCenaKlient(String(a.cena_klient || ''))
     setMaterialKlient(String(a.material_klient || ''))
     setMaterialMy(String(a.material_my || ''))
@@ -71,7 +78,7 @@ export default function AkcePage() {
     setLoading(true)
 
     const ensureClient = async (): Promise<number | null> => {
-      if (klientId) return Number(klientId);
+      if (selectedKlient) return Number(selectedKlient.id);
       if (showNewClientForm && newClientName) {
         const { data, error } = await supabase
           .from('klienti')
@@ -82,6 +89,8 @@ export default function AkcePage() {
           alert('Nepodařilo se vytvořit nového klienta: ' + error.message);
           return null;
         }
+        // Also select it in the form
+        setSelectedKlient({ id: data.id, name: newClientName });
         return data.id;
       }
       return null;
@@ -149,22 +158,14 @@ export default function AkcePage() {
           
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Klient</label>
-            <select 
-              className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" 
-              value={klientId} 
-              onChange={e => {
-                if (e.target.value === '_new_') {
-                  setShowNewClientForm(true)
-                  setKlientId('')
-                } else {
-                  setShowNewClientForm(false)
-                  setKlientId(e.target.value)
-                }
-              }}>
-              <option value="">— Vyberte klienta —</option>
-              {klienti.map((k: any) => <option key={k.id} value={k.id}>{k.nazev}</option>)}
-              <option value="_new_">+ Vytvořit nového klienta...</option>
-            </select>
+            <div className="flex items-center gap-2">
+              <div className="w-full">
+                <ComboBox items={formattedKlienti} selected={selectedKlient} setSelected={setSelectedKlient} />
+              </div>
+              <button onClick={() => { setShowNewClientForm(!showNewClientForm); setSelectedKlient(null); }} className="p-3 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
+                +
+              </button>
+            </div>
             {showNewClientForm && (
               <input 
                 className="mt-2 w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" 
