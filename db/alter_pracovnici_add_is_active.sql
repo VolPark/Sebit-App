@@ -1,0 +1,2 @@
+ALTER TABLE pracovnici
+ADD COLUMN is_active BOOLEAN DEFAULT TRUE;

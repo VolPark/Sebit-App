@@ -1,45 +1,64 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link' // přidáno
+import { Menu, Transition } from '@headlessui/react'
 
 export default function PracovniciPage() {
+  // Data state
   const [pracovnici, setPracovnici] = useState<any[]>([])
-  const [jmeno, setJmeno] = useState('')
-  const [mzda, setMzda] = useState('')
   const [loading, setLoading] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
 
+  // Form state for adding new workers
+  const [jmeno, setJmeno] = useState('')
+  const [hodinovaMzda, setHodinovaMzda] = useState('')
+
+  // State for inline editing
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editJmeno, setEditJmeno] = useState('')
-  const [editMzda, setEditMzda] = useState('')
+  const [editHodinovaMzda, setEditHodinovaMzda] = useState('')
+
+  // State for filtering
+  const [showInactive, setShowInactive] = useState(false);
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [showInactive])
 
   async function fetchData() {
     setLoading(true)
-    const { data } = await supabase.from('pracovnici').select('*').order('id')
+    const { data, error } = await supabase
+      .from('pracovnici')
+      .select('*')
+      .eq('is_active', !showInactive)
+      .order('jmeno')
+      
     if (data) setPracovnici(data)
+    if (error) {
+      console.error('Chyba při načítání pracovníků:', error)
+      setStatusMessage('Chyba při načítání dat.')
+    }
     setLoading(false)
   }
 
-  async function pridat() {
-    if (!jmeno || !mzda) return alert('Vyplňte jméno a mzdu')
+  async function pridatPracovnika() {
+    if (!jmeno || !hodinovaMzda) return alert('Vyplňte jméno i hodinovou sazbu.')
     setLoading(true)
     
     const { error } = await supabase
       .from('pracovnici')
-      .insert({ jmeno: jmeno, hodinova_mzda: parseFloat(mzda) })
+      .insert({ 
+        jmeno: jmeno, 
+        hodinova_mzda: parseFloat(hodinovaMzda)
+      })
 
     if (!error) {
       setJmeno('')
-      setMzda('')
+      setHodinovaMzda('')
       setStatusMessage('Pracovník přidán')
       fetchData()
     } else {
-      alert(error.message)
+      alert('Nepodařilo se přidat pracovníka: ' + error.message)
     }
     setLoading(false)
   }
@@ -47,132 +66,187 @@ export default function PracovniciPage() {
   function startEdit(p: any) {
     setEditingId(p.id)
     setEditJmeno(p.jmeno)
-    setEditMzda(String(p.hodinova_mzda))
+    setEditHodinovaMzda(String(p.hodinova_mzda || ''))
   }
+
   function cancelEdit() {
     setEditingId(null)
-    setEditJmeno('')
-    setEditMzda('')
   }
+
   async function saveEdit() {
     if (!editingId) return
     setLoading(true)
-    const { error } = await supabase.from('pracovnici').update({ jmeno: editJmeno, hodinova_mzda: parseFloat(editMzda || '0') }).eq('id', editingId)
+    const { error } = await supabase.from('pracovnici').update({ 
+      jmeno: editJmeno, 
+      hodinova_mzda: parseFloat(editHodinovaMzda) || 0
+    }).eq('id', editingId)
+
     if (!error) {
-      setStatusMessage('Dodavatel upraven')
+      setStatusMessage('Pracovník upraven')
       cancelEdit()
       fetchData()
     } else {
-      alert(error.message)
-    }
-    setLoading(false)
-  }
-  async function deleteSupplier(id: number) {
-    if (!confirm('Opravdu smazat?')) return
-    setLoading(true)
-    const { data, error } = await supabase.from('pracovnici').delete().eq('id', Number(id))
-    if (error) {
-      console.error('Chyba při mazání dodavatele', error)
-      alert('Nepodařilo se smazat dodavatele: ' + error.message)
-    } else {
-      setStatusMessage('Dodavatel smazán')
-      fetchData()
+      alert('Nepodařilo se uložit změny: ' + error.message)
     }
     setLoading(false)
   }
 
+  async function deletePracovnik(id: number) {
+    if (!confirm('Opravdu smazat pracovníka? Tato akce může ovlivnit historické výkazy.')) return
+    setLoading(true)
+    const { error } = await supabase.from('pracovnici').delete().eq('id', Number(id))
+    if (error) {
+      alert('Nepodařilo se smazat pracovníka: ' + error.message)
+    } else {
+      setStatusMessage('Pracovník smazán')
+      fetchData()
+    }
+    setLoading(false)
+  }
+  
+  async function toggleActive(id: number, currentStatus: boolean) {
+    const actionText = currentStatus ? 'ukončit' : 'aktivovat';
+    if (!confirm(`Opravdu chcete ${actionText} tohoto pracovníka?`)) return
+    
+    const { error } = await supabase
+      .from('pracovnici')
+      .update({ is_active: !currentStatus })
+      .eq('id', id)
+      
+    if (error) {
+      alert(`Nepodařilo se ${actionText} pracovníka: ` + error.message)
+    } else {
+      setStatusMessage(`Pracovník byl ${actionText}ován.`)
+      fetchData()
+    }
+  }
+
   return (
-    <div className="p-4 sm:p-8 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
-        <h2 className="text-2xl font-bold text-black">Správa dodavatelů</h2>
-        <div className="flex gap-2">
-          <Link href="/dodavatele/platby" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm h-10 flex items-center">
-            Platby dodavatelům
-          </Link>
-        </div>
+        <h2 className="text-2xl font-bold text-black">Správa pracovníků</h2>
       </div>
 
       <div role="status" aria-live="polite" className="sr-only">{statusMessage}</div>
       
-      {/* Formulář — material card, Google 2025 */}
-      <div className="mb-6">
-        <div className="bg-white/95 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md flex flex-col md:flex-row gap-3 items-end">
-          <input id="jmeno" placeholder="Jméno dodavatele" className="flex-1 rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" value={jmeno} onChange={e => setJmeno(e.target.value)} />
-          <input id="mzda" type="number" placeholder="Sazba (Kč/h)" className="w-40 rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" value={mzda} onChange={e => setMzda(e.target.value)} />
-          <button type="button" onClick={pridat} className="bg-green-600 text-white px-5 py-3 rounded-full shadow-sm hover:shadow-md">Uložit</button>
+      {/* Form to add new worker */}
+      <div className="mb-8">
+        <div className="bg-white/95 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div className="md:col-span-1">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Jméno pracovníka</label>
+            <input placeholder="Jan Novák" className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" value={jmeno} onChange={e => setJmeno(e.target.value)} />
+          </div>
+          <div className="md:col-span-1">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Hodinová sazba (Kč)</label>
+            <input type="number" placeholder="250" className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-blue-300 focus:ring-2 focus:ring-blue-200" value={hodinovaMzda} onChange={e => setHodinovaMzda(e.target.value)} />
+          </div>
+          <div className="md:col-span-1 flex justify-start md:justify-end w-full">
+            <button type="button" onClick={pridatPracovnika} className="w-full md:w-auto inline-flex items-center justify-center bg-blue-700 text-white rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
+              Uložit
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Mobile: cards (stack) */}
-      <div className="space-y-3 md:hidden mb-6">
-        {loading && <div className="p-4 bg-white rounded shadow animate-pulse">Načítám...</div>}
-        {!loading && pracovnici.length === 0 && <div className="text-gray-500 p-3">Žádní dodavatelé.</div>}
-        {pracovnici.map((p) => (
-          <div key={p.id} className="p-4 bg-white rounded shadow-sm">
-            {editingId === p.id ? (
-              <div className="flex flex-col gap-2">
-                <input value={editJmeno} onChange={e => setEditJmeno(e.target.value)} className="border p-2 rounded" />
-                <input value={editMzda} onChange={e => setEditMzda(e.target.value)} className="border p-2 rounded" />
-                <div className="flex gap-2">
-                  <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-2 rounded">Uložit</button>
-                  <button onClick={cancelEdit} className="bg-gray-200 px-3 py-2 rounded">Zrušit</button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{p.jmeno}</div>
-                  <div className="text-sm text-gray-500">{p.hodinova_mzda} Kč/h</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => startEdit(p)} className="text-sm text-gray-700">Upravit</button>
-                  <button onClick={() => deleteSupplier(p.id)} className="text-sm text-red-500">Smazat</button>
-                </div>
-              </div>
+       {/* Table of workers */}
+      <div className="overflow-x-auto">
+        <div className="flex justify-end mb-4">
+          <label className="inline-flex items-center cursor-pointer">
+            <span className="mr-3 text-sm font-medium text-gray-600">Zobrazit neaktivní</span>
+            <span className="relative">
+              <input type="checkbox" checked={showInactive} onChange={() => setShowInactive(!showInactive)} className="sr-only peer" />
+              <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </span>
+          </label>
+        </div>
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-gray-100 text-gray-600 border-b">
+            <tr>
+              <th className="p-3">Jméno</th>
+              <th className="p-3">Hodinová sazba</th>
+              <th className="p-3 text-right">Akce</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {loading && (
+              <tr><td colSpan={3} className="p-4 text-center">Načítám...</td></tr>
             )}
-          </div>
-        ))}
+            {!loading && pracovnici.length === 0 && (
+              <tr><td colSpan={3} className="p-4 text-center text-gray-500">Žádní pracovníci nebyli nalezeni.</td></tr>
+            )}
+            {pracovnici.map((p) => (
+              <Fragment key={p.id}>
+                {editingId === p.id ? (
+                  <tr className="bg-blue-50">
+                    <td className="p-2">
+                      <input className="border p-2 rounded w-full bg-white" value={editJmeno} onChange={e => setEditJmeno(e.target.value)} />
+                    </td>
+                    <td className="p-2">
+                      <input type="number" className="border p-2 rounded w-24 bg-white" value={editHodinovaMzda} onChange={e => setEditHodinovaMzda(e.target.value)} />
+                    </td>
+                    <td className="p-2 text-right">
+                      <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded-md mr-2 text-sm">Uložit</button>
+                      <button onClick={cancelEdit} className="bg-gray-200 px-3 py-1 rounded-md text-sm">Zrušit</button>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr className={`hover:bg-gray-50 text-black ${!p.is_active ? 'bg-gray-50 text-gray-400' : ''}`}>
+                    <td className={`p-3 font-medium ${!p.is_active ? 'line-through' : ''}`}>{p.jmeno}</td>
+                    <td className="p-3">{p.hodinova_mzda} Kč/h</td>
+                    <td className="p-3 text-right">
+                       <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => toggleActive(p.id, p.is_active)} 
+                          className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-colors ${p.is_active ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
+                        >
+                          {p.is_active ? 'Ukončit' : 'Aktivovat'}
+                        </button>
+                        {p.is_active && (
+                          <Menu as="div" className="relative inline-block text-left">
+                            <Menu.Button className="p-2 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                              </svg>
+                            </Menu.Button>
+                            <Transition
+                              as={Fragment}
+                              enter="transition ease-out duration-100"
+                              enterFrom="transform opacity-0 scale-95"
+                              enterTo="transform opacity-100 scale-100"
+                              leave="transition ease-in duration-75"
+                              leaveFrom="transform opacity-100 scale-100"
+                              leaveTo="transform opacity-0 scale-95"
+                            >
+                              <Menu.Items className="absolute right-0 bottom-full z-10 mb-2 w-32 origin-bottom-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                <div className="py-1">
+                                  <Menu.Item>
+                                    {({ active }) => (
+                                      <button onClick={() => startEdit(p)} className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                        Upravit
+                                      </button>
+                                    )}
+                                  </Menu.Item>
+                                  <Menu.Item>
+                                    {({ active }) => (
+                                      <button onClick={() => deletePracovnik(p.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                        Smazat
+                                      </button>
+                                    )}
+                                  </Menu.Item>
+                                </div>
+                              </Menu.Items>
+                            </Transition>
+                          </Menu>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
       </div>
-
-       {/* Tabulka */}
-      <table className="w-full text-left border-collapse hidden md:table">
-         <thead>
-           <tr className="border-b-2 border-gray-200 text-gray-600">
-             <th className="p-3">Jméno</th>
-             <th className="p-3">Hodinová mzda</th>
-             <th className="p-3">Akce</th>
-           </tr>
-         </thead>
-         <tbody>
-           {pracovnici.map((p) => (
-             <tr key={p.id} className="border-b hover:bg-gray-50 text-black">
-               {editingId === p.id ? (
-                 <>
-                   <td className="p-3">
-                     <input className="border p-2 rounded w-full" value={editJmeno} onChange={e => setEditJmeno(e.target.value)} />
-                   </td>
-                   <td className="p-3">
-                     <input className="border p-2 rounded w-32" value={editMzda} onChange={e => setEditMzda(e.target.value)} />
-                   </td>
-                   <td className="p-3">
-                     <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded mr-2">Uložit</button>
-                     <button onClick={cancelEdit} className="bg-gray-200 px-3 py-1 rounded">Zrušit</button>
-                   </td>
-                 </>
-               ) : (
-                 <>
-                   <td className="p-3 font-medium">{p.jmeno}</td>
-                   <td className="p-3">{p.hodinova_mzda} Kč/h</td>
-                   <td className="p-3">
-                     <button onClick={() => startEdit(p)} className="text-red-500 mr-4">Upravit</button>
-                     <button onClick={() => deleteSupplier(p.id)} className="text-red-500">Smazat</button>
-                   </td>
-                 </>
-               )}
-             </tr>
-           ))}
-         </tbody>
-       </table>
-     </div>
-   )
+    </div>
+  )
 }

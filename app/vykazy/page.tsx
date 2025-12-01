@@ -33,7 +33,7 @@ export default function VykazyPage() {
     setLoading(true)
     // 1. Načteme klienty a pracovníky do výběrových menu
     const { data: kData } = await supabase.from('klienti').select('*')
-    const { data: pData } = await supabase.from('pracovnici').select('*')
+    const { data: pData } = await supabase.from('pracovnici').select('*').eq('is_active', true)
     const { data: aData } = await supabase.from('akce').select('*').eq('is_completed', false).order('datum', { ascending: false })
     if (kData) setKlienti(kData)
     if (pData) setPracovnici(pData)
