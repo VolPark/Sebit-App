@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/formatDate'
+import ComboBox from '@/components/ComboBox'
 
 export default function VykazyPage() {
   // Stavy pro data z databáze
@@ -10,12 +11,12 @@ export default function VykazyPage() {
   const [pracovnici, setPracovnici] = useState<any[]>([])
   const [allAkce, setAllAkce] = useState<any[]>([])        // všechny akce
   const [actionOptions, setActionOptions] = useState<any[]>([]) // akce filtrované podle klienta
-  const [selectedAkceId, setSelectedAkceId] = useState('') // vybraná akce (povinné)
+  const [selectedAkce, setSelectedAkce] = useState<{id: string, name: string} | null>(null)
+  const [selectedPracovnik, setSelectedPracovnik] = useState<{id: string, name: string} | null>(null)
+  const [selectedKlient, setSelectedKlient] = useState<{id: string, name: string} | null>(null)
 
   // Stavy pro formulář
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0])
-  const [pracovnikId, setPracovnikId] = useState('')
-  const [klientId, setKlientId] = useState('')
   const [popis, setPopis] = useState('')
   const [hodiny, setHodiny] = useState('')
 
@@ -42,7 +43,7 @@ export default function VykazyPage() {
     // To 'klienti(nazev, sazba)' říká Supabase: "Sáhni si pro data vedle"
     const { data: vData, error } = await supabase
       .from('prace')
-      .select('*, klienti(nazev, sazba), pracovnici(jmeno, hodinova_mzda), akce(nazev)')
+      .select('*, klienti(id, nazev, sazba), pracovnici(id, jmeno, hodinova_mzda), akce(id, nazev)')
       .order('datum', { ascending: false })
     
     if (vData) setVykazy(vData)
@@ -51,25 +52,26 @@ export default function VykazyPage() {
   }
 
   // Pokud uživatel vybere klienta, nastavíme options jen pro tohoto klienta
-  function onKlientChange(val: string) {
-    setKlientId(val)
-    setSelectedAkceId('') // vymazat vybranou akci (pokud patřila jinému klientovi)
-    if (!val) {
+  function onKlientChange(klient: {id: string, name: string} | null) {
+    setSelectedKlient(klient)
+    setSelectedAkce(null) // vymazat vybranou akci (pokud patřila jinému klientovi)
+    if (!klient) {
       setActionOptions(allAkce)
       return
     }
-    const filtered = allAkce.filter(a => String(a.klient_id) === String(val))
+    const filtered = allAkce.filter(a => String(a.klient_id) === String(klient.id))
     setActionOptions(filtered)
   }
   
   // Pokud uživatel vybere akci, předvyplníme klienta a zúžíme options
-  function onAkceChange(val: string) {
-    setSelectedAkceId(val)
-    if (!val) return
-    const akc = allAkce.find(a => String(a.id) === String(val))
+  function onAkceChange(akce: {id: string, name: string} | null) {
+    setSelectedAkce(akce)
+    if (!akce) return
+    const akc = allAkce.find(a => String(a.id) === String(akce.id))
     if (!akc) return
     if (akc.klient_id) {
-      setKlientId(String(akc.klient_id))
+      const correspondingKlient = klienti.find(k => k.id === akc.klient_id)
+      if(correspondingKlient) setSelectedKlient({id: correspondingKlient.id, name: correspondingKlient.nazev})
       // zúžíme options na tento klienta
       const filtered = allAkce.filter(a => String(a.klient_id) === String(akc.klient_id))
       setActionOptions(filtered)
@@ -77,17 +79,17 @@ export default function VykazyPage() {
   }
 
   async function ulozitVykaz() {
-    if (!pracovnikId || !selectedAkceId || !hodiny) return alert('Vyplňte povinná pole (pracovník, akce, hodiny)')
+    if (!selectedPracovnik?.id || !selectedAkce?.id || !hodiny) return alert('Vyplňte povinná pole (pracovník, akce, hodiny)')
     setLoading(true)
 
     // připravíme payload; pokud existuje sloupec akce_id, uložíme ho, pokud ne, DB vrátí chybu (zachytíme)
     const payload: any = {
       datum: datum,
-      pracovnik_id: pracovnikId,
-      klient_id: klientId || null,
+      pracovnik_id: selectedPracovnik.id,
+      klient_id: selectedKlient?.id || null,
       pocet_hodin: parseFloat(hodiny),
       popis: popis,
-      akce_id: selectedAkceId
+      akce_id: selectedAkce.id
     }
 
     const { error } = await supabase.from('prace').insert(payload)
@@ -106,18 +108,22 @@ export default function VykazyPage() {
   function startEdit(v: any) {
     setEditingId(v.id)
     setDatum(v.datum)
-    setPracovnikId(String(v.pracovnik_id || ''))
-    setKlientId(String(v.klient_id || ''))
-    setSelectedAkceId(String(v.akce_id || ''))
+    if(v.pracovnici) setSelectedPracovnik({id: v.pracovnici.id, name: v.pracovnici.jmeno})
+    if(v.klienti) setSelectedKlient({id: v.klienti.id, name: v.klienti.nazev})
+    if (v.akce) {
+      setSelectedAkce({id: v.akce.id, name: v.akce.nazev})
+    } else {
+      setSelectedAkce(null)
+    }
     setPopis(v.popis || '')
     setHodiny(String(v.pocet_hodin || ''))
   }
   function cancelEdit() {
     setEditingId(null)
     setDatum(new Date().toISOString().split('T')[0])
-    setPracovnikId('')
-    setKlientId('')
-    setSelectedAkceId('')
+    setSelectedPracovnik(null)
+    setSelectedKlient(null)
+    setSelectedAkce(null)
     setPopis('')
     setHodiny('')
   }
@@ -126,9 +132,9 @@ export default function VykazyPage() {
     setLoading(true)
     const { error } = await supabase.from('prace').update({
       datum: datum,
-      pracovnik_id: pracovnikId,
-      klient_id: klientId,
-      akce_id: selectedAkceId,
+      pracovnik_id: selectedPracovnik?.id,
+      klient_id: selectedKlient?.id,
+      akce_id: selectedAkce?.id,
       popis: popis,
       pocet_hodin: parseFloat(hodiny || '0')
     }).eq('id', editingId)
@@ -154,17 +160,17 @@ export default function VykazyPage() {
   const [expandedYears, setExpandedYears] = useState(new Set<string>());
   const [expandedMonths, setExpandedMonths] = useState(new Set<string>());
 
-  const [pracovnikFilter, setPracovnikFilter] = useState('');
-  const [klientFilter, setKlientFilter] = useState('');
-  const [akceFilter, setAkceFilter] = useState('');
+  const [selectedPracovnikFilter, setSelectedPracovnikFilter] = useState<{id: string, name: string} | null>(null);
+  const [selectedKlientFilter, setSelectedKlientFilter] = useState<{id: string, name: string} | null>(null);
+  const [selectedAkceFilter, setSelectedAkceFilter] = useState<{id: string, name: string} | null>(null);
 
   const groupedVykazy = useMemo(() => {
     const grouped: { [year: string]: { [month: string]: any[] } } = {};
     
     const filteredVykazy = vykazy.filter(v => {
-      const pracovnikMatch = !pracovnikFilter || String(v.pracovnik_id) === pracovnikFilter;
-      const klientMatch = !klientFilter || String(v.klient_id) === klientFilter;
-      const akceMatch = !akceFilter || String(v.akce_id) === akceFilter;
+      const pracovnikMatch = !selectedPracovnikFilter || String(v.pracovnik_id) === selectedPracovnikFilter.id;
+      const klientMatch = !selectedKlientFilter || String(v.klient_id) === selectedKlientFilter.id;
+      const akceMatch = !selectedAkceFilter || String(v.akce_id) === selectedAkceFilter.id;
       return pracovnikMatch && klientMatch && akceMatch;
     });
 
@@ -185,7 +191,7 @@ export default function VykazyPage() {
       grouped[year][month].push(vykaz);
     }
     return grouped;
-  }, [vykazy, pracovnikFilter, klientFilter, akceFilter]);
+  }, [vykazy, selectedPracovnikFilter, selectedKlientFilter, selectedAkceFilter]);
 
   useEffect(() => {
     if (Object.keys(groupedVykazy).length > 0) {
@@ -222,6 +228,11 @@ export default function VykazyPage() {
   
   // Přepočítaná data (odděleně od renderu)
 
+  const formattedActionOptions = useMemo(() => actionOptions.map(a => ({ id: a.id, name: a.nazev })), [actionOptions]);
+  const formattedAllActionOptions = useMemo(() => allAkce.map(a => ({ id: a.id, name: a.nazev })), [allAkce]);
+  const formattedPracovnici = useMemo(() => pracovnici.map(p => ({ id: p.id, name: p.jmeno })), [pracovnici]);
+  const formattedKlienti = useMemo(() => klienti.map(k => ({ id: k.id, name: k.nazev })), [klienti]);
+
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <h2 className="text-2xl font-bold mb-4 text-black">Výkazy práce</h2>
@@ -234,40 +245,17 @@ export default function VykazyPage() {
           
           <div className="w-full">
             <label className="block text-sm font-medium text-gray-600 mb-1">Pracovník</label>
-            <select
-              id="pracovnik"
-              className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
-              value={pracovnikId} onChange={e => setPracovnikId(e.target.value)}
-            >
-              <option value="">— Vyberte —</option>
-              {pracovnici.map(p => <option key={p.id} value={p.id}>{p.jmeno}</option>)}
-            </select>
+            <ComboBox items={formattedPracovnici} selected={selectedPracovnik} setSelected={setSelectedPracovnik} />
           </div>
 
           <div className="w-full">
             <label className="block text-sm font-medium text-gray-600 mb-1">Klient</label>
-            <select
-              id="klient"
-              className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
-              value={klientId} onChange={e => onKlientChange(e.target.value)}
-            >
-              <option value="">— Vyberte —</option>
-              {klienti.map(k => <option key={k.id} value={k.id}>{k.nazev}</option>)}
-            </select>
+            <ComboBox items={formattedKlienti} selected={selectedKlient} setSelected={onKlientChange} />
           </div>
 
           <div className="w-full">
             <label className="block text-sm font-medium text-gray-600 mb-1">Akce</label>
-            <select
-              id="akce"
-              className="w-full rounded-lg bg-white border border-slate-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-200 p-3 transition"
-              value={selectedAkceId} onChange={e => onAkceChange(e.target.value)}
-            >
-              <option value="">— Vyberte akci —</option>
-              {actionOptions.map(a => (
-                <option key={a.id} value={a.id}>{a.nazev} {a.datum ? `• ${formatDate(a.datum)}` : ''}</option>
-              ))}
-            </select>
+            <ComboBox items={formattedActionOptions} selected={selectedAkce} setSelected={onAkceChange} />
           </div>
 
           <div className="">
@@ -306,24 +294,15 @@ export default function VykazyPage() {
       <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">Filtr: Pracovník</label>
-          <select onChange={e => setPracovnikFilter(e.target.value)} value={pracovnikFilter} className="w-full rounded-lg bg-white border border-slate-300 p-2 transition">
-            <option value="">Všichni</option>
-            {pracovnici.map(p => <option key={p.id} value={p.id}>{p.jmeno}</option>)}
-          </select>
+          <ComboBox items={formattedPracovnici} selected={selectedPracovnikFilter} setSelected={setSelectedPracovnikFilter} />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">Filtr: Klient</label>
-          <select onChange={e => setKlientFilter(e.target.value)} value={klientFilter} className="w-full rounded-lg bg-white border border-slate-300 p-2 transition">
-            <option value="">Všichni</option>
-            {klienti.map(k => <option key={k.id} value={k.id}>{k.nazev}</option>)}
-          </select>
+          <ComboBox items={formattedKlienti} selected={selectedKlientFilter} setSelected={setSelectedKlientFilter} />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">Filtr: Akce</label>
-          <select onChange={e => setAkceFilter(e.target.value)} value={akceFilter} className="w-full rounded-lg bg-white border border-slate-300 p-2 transition">
-            <option value="">Všechny</option>
-            {allAkce.map(a => <option key={a.id} value={a.id}>{a.nazev}</option>)}
-          </select>
+          <ComboBox items={formattedAllActionOptions} selected={selectedAkceFilter} setSelected={setSelectedAkceFilter} />
         </div>
       </div>
       
