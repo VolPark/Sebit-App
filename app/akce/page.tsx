@@ -29,6 +29,38 @@ export default function AkcePage() {
     fetchAll()
   }, [showCompleted])
 
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
+
+  const sortedAkce = useMemo(() => {
+    let sortableItems = [...akce]
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue = a[sortConfig.key]
+        let bValue = b[sortConfig.key]
+        if (sortConfig.key === 'klient') {
+          aValue = a.klienti?.nazev || ''
+          bValue = b.klienti?.nazev || ''
+        }
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1
+        }
+        return 0
+      })
+    }
+    return sortableItems
+  }, [akce, sortConfig])
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc'
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc'
+    }
+    setSortConfig({ key, direction })
+  }
+
   const formattedKlienti = useMemo(() => klienti.map(k => ({ id: k.id, name: k.nazev })), [klienti]);
 
   async function fetchAll() {
@@ -249,7 +281,7 @@ export default function AkcePage() {
         {/* Mobile */}
         <div className="space-y-3 md:hidden">
           {loading && <div className="p-4 bg-white rounded-lg shadow animate-pulse">Načítám...</div>}
-          {akce.map(a => (
+          {sortedAkce.map(a => (
             <div key={a.id} className={`bg-white rounded-lg p-4 shadow-sm ${a.is_completed ? 'opacity-60' : ''}`}>
               <div className="flex justify-between items-start mb-2">
                 <div className={`font-medium ${a.is_completed ? 'line-through' : ''}`}>{a.nazev}</div>
@@ -316,18 +348,32 @@ export default function AkcePage() {
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-gray-100 text-gray-600 border-b">
               <tr>
-                <th className="p-3">Název</th>
-                <th className="p-3">Datum</th>
-                <th className="p-3">Klient</th>
-                <th className="p-3 text-right">Částka klient</th>
-                <th className="p-3 text-right">Materiál klient</th>
-                <th className="p-3 text-right">Materiál my</th>
-                <th className="p-3 text-right">Odhad hodin</th>
+                <th className="p-3 cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('nazev')}>
+                  <div className="flex items-center gap-1">Název {sortConfig?.key === 'nazev' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                </th>
+                <th className="p-3 cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('datum')}>
+                  <div className="flex items-center gap-1">Datum {sortConfig?.key === 'datum' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                </th>
+                <th className="p-3 cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('klient')}>
+                  <div className="flex items-center gap-1">Klient {sortConfig?.key === 'klient' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                </th>
+                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('cena_klient')}>
+                  <div className="flex items-center justify-end gap-1">Částka klient {sortConfig?.key === 'cena_klient' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                </th>
+                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('material_klient')}>
+                  <div className="flex items-center justify-end gap-1">Materiál klient {sortConfig?.key === 'material_klient' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                </th>
+                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('material_my')}>
+                  <div className="flex items-center justify-end gap-1">Materiál my {sortConfig?.key === 'material_my' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                </th>
+                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('odhad_hodin')}>
+                  <div className="flex items-center justify-end gap-1">Odhad hodin {sortConfig?.key === 'odhad_hodin' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                </th>
                 <th className="p-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {akce.map(a => (
+              {sortedAkce.map(a => (
                 <tr key={a.id} className={`hover:bg-gray-50 ${a.is_completed ? 'bg-gray-50 text-gray-400' : ''}`}>
                   <td className={`p-3 font-medium ${a.is_completed ? 'line-through' : ''}`}>{a.nazev}</td>
                   <td className="p-3">{formatDate(a.datum)}</td>
