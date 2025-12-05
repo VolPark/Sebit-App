@@ -324,3 +324,133 @@ export async function getDashboardData(
     };
   }
 }
+
+export interface WorkerStats {
+  id: number;
+  name: string;
+  totalHours: number;
+  totalWages: number;
+  avgHourlyRate: number;
+}
+
+export interface ClientStats {
+  id: number;
+  name: string;
+  revenue: number;
+  materialCost: number;
+  laborCost: number;
+  totalCost: number;
+  profit: number;
+  margin: number;
+  totalHours: number;
+}
+
+export async function getDetailedStats(
+  period: 'last12months' | { year: number }
+) {
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = new Date();
+  
+    if (period === 'last12months') {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    } else {
+      const year = period.year;
+      startDate = new Date(year, 0, 1);
+      endDate = new Date(year, 11, 31);
+    }
+    
+    const start = startDate.toISOString();
+    const end = endDate.toISOString();
+
+    const [workersRes, clientsRes, praceRes, mzdyRes, akceRes] = await Promise.all([
+        supabase.from('pracovnici').select('*'),
+        supabase.from('klienti').select('*'),
+        supabase.from('prace').select('*').gte('datum', start).lte('datum', end),
+        supabase.from('mzdy').select('*').gte('rok', startDate.getFullYear() - 1).lte('rok', endDate.getFullYear() + 1), 
+        supabase.from('akce').select('*').gte('datum', start).lte('datum', end)
+    ]);
+    
+    const workers = workersRes.data || [];
+    const clients = clientsRes.data || [];
+    const prace = praceRes.data || [];
+    const mzdy = mzdyRes.data || [];
+    const akce = akceRes.data || [];
+
+    // Process Workers
+    const workerStats: WorkerStats[] = workers.map(w => {
+        const wPrace = prace.filter(p => p.pracovnik_id === w.id);
+        const wMzdy = mzdy.filter(m => {
+            if (m.pracovnik_id !== w.id) return false;
+            // Check if mzdy month is within range
+            const mDate = new Date(m.rok, m.mesic - 1, 1);
+            return mDate >= startDate && mDate <= endDate;
+        });
+        
+        const totalHours = wPrace.reduce((sum, p) => sum + p.pocet_hodin, 0);
+        const totalWages = wMzdy.reduce((sum, m) => sum + m.celkova_castka, 0);
+        
+        return {
+            id: w.id,
+            name: w.jmeno,
+            totalHours,
+            totalWages,
+            avgHourlyRate: totalHours > 0 ? totalWages / totalHours : 0
+        };
+    }).sort((a, b) => b.totalHours - a.totalHours);
+
+    // Process Clients (Labor Cost Calculation)
+    const workerRates = new Map<string, number>(); // key: "workerId-year-month" -> rate
+    
+    const workerMonthHours = new Map<string, number>();
+    prace.forEach(p => {
+        const d = new Date(p.datum);
+        const key = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
+        workerMonthHours.set(key, (workerMonthHours.get(key) || 0) + p.pocet_hodin);
+    });
+
+    mzdy.forEach(m => {
+        const key = `${m.pracovnik_id}-${m.rok}-${m.mesic}`;
+        const hours = workerMonthHours.get(key) || 0;
+        if (hours > 0) {
+            workerRates.set(key, m.celkova_castka / hours);
+        }
+    });
+
+    const clientLaborCosts = new Map<number, number>();
+    const clientHours = new Map<number, number>();
+
+    prace.forEach(p => {
+        if (!p.klient_id) return;
+        const d = new Date(p.datum);
+        const key = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
+        const rate = workerRates.get(key) || 0;
+        const cost = p.pocet_hodin * rate;
+        
+        clientLaborCosts.set(p.klient_id, (clientLaborCosts.get(p.klient_id) || 0) + cost);
+        clientHours.set(p.klient_id, (clientHours.get(p.klient_id) || 0) + p.pocet_hodin);
+    });
+
+    const clientStats: ClientStats[] = clients.map(c => {
+        const cAkce = akce.filter(a => a.klient_id === c.id);
+        const revenue = cAkce.reduce((sum, a) => sum + (a.cena_klient || 0), 0);
+        const materialCost = cAkce.reduce((sum, a) => sum + (a.material_my || 0), 0);
+        const laborCost = clientLaborCosts.get(c.id) || 0;
+        const totalCost = materialCost + laborCost;
+        
+        return {
+            id: c.id,
+            name: c.nazev,
+            revenue,
+            materialCost,
+            laborCost,
+            totalCost,
+            profit: revenue - totalCost,
+            margin: revenue > 0 ? ((revenue - totalCost) / revenue) * 100 : 0,
+            totalHours: clientHours.get(c.id) || 0
+        };
+    }).sort((a, b) => b.revenue - a.revenue);
+
+    return { workers: workerStats, clients: clientStats };
+}
