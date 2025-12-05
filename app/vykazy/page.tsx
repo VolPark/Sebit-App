@@ -43,7 +43,7 @@ export default function VykazyPage() {
     // To 'klienti(nazev, sazba)' říká Supabase: "Sáhni si pro data vedle"
     const { data: vData, error } = await supabase
       .from('prace')
-      .select('*, klienti(id, nazev, sazba), pracovnici(id, jmeno, hodinova_mzda), akce(id, nazev)')
+      .select('*, klienti(id, nazev, sazba), pracovnici(id, jmeno, hodinova_mzda), akce(id, nazev, klient_id, klienti(nazev))')
       .order('datum', { ascending: false })
     
     if (vData) setVykazy(vData)
@@ -168,9 +168,11 @@ export default function VykazyPage() {
     const grouped: { [year: string]: { [month: string]: any[] } } = {};
     
     const filteredVykazy = vykazy.filter(v => {
-      const pracovnikMatch = !selectedPracovnikFilter || String(v.pracovnik_id) === selectedPracovnikFilter.id;
-      const klientMatch = !selectedKlientFilter || String(v.klient_id) === selectedKlientFilter.id;
-      const akceMatch = !selectedAkceFilter || String(v.akce_id) === selectedAkceFilter.id;
+      const pracovnikMatch = !selectedPracovnikFilter || String(v.pracovnik_id) === String(selectedPracovnikFilter.id);
+      const klientMatch = !selectedKlientFilter || 
+                          String(v.klient_id) === String(selectedKlientFilter.id) ||
+                          (v.akce && String(v.akce.klient_id) === String(selectedKlientFilter.id));
+      const akceMatch = !selectedAkceFilter || String(v.akce_id) === String(selectedAkceFilter.id);
       return pracovnikMatch && klientMatch && akceMatch;
     });
 
@@ -228,6 +230,22 @@ export default function VykazyPage() {
   
   // Přepočítaná data (odděleně od renderu)
 
+  const integrityStats = useMemo(() => {
+    let direct = 0;
+    let inferred = 0;
+    let missing = 0;
+    vykazy.forEach(v => {
+      if (v.klient_id) {
+        direct++;
+      } else if (v.akce && v.akce.klient_id) {
+        inferred++;
+      } else {
+        missing++;
+      }
+    });
+    return { direct, inferred, missing, total: vykazy.length };
+  }, [vykazy]);
+
   const formattedActionOptions = useMemo(() => actionOptions.map(a => ({ id: a.id, name: a.nazev })), [actionOptions]);
   const formattedAllActionOptions = useMemo(() => allAkce.map(a => ({ id: a.id, name: a.nazev })), [allAkce]);
   const formattedPracovnici = useMemo(() => pracovnici.map(p => ({ id: p.id, name: p.jmeno })), [pracovnici]);
@@ -238,6 +256,26 @@ export default function VykazyPage() {
       <h2 className="text-2xl font-bold mb-4 text-black">Výkazy práce</h2>
 
       <div role="status" aria-live="polite" className="sr-only">{statusMessage}</div>
+
+      {/* Data Integrity Check */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6 flex flex-wrap gap-4 text-sm text-blue-800 items-center">
+        <span className="font-semibold flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 mr-1"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" /></svg>
+          Kontrola integrity dat:
+        </span>
+        <span>Celkem záznamů: <b>{integrityStats.total}</b></span>
+        <span className="text-green-700">Přímá vazba: <b>{integrityStats.direct}</b></span>
+        <span className="text-indigo-700 flex items-center" title="Dopárováno přes akci">
+           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1"><path fillRule="evenodd" d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" clipRule="evenodd" /><path fillRule="evenodd" d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" clipRule="evenodd" /></svg>
+           Dopárováno přes akci: <b>{integrityStats.inferred}</b>
+        </span>
+        {integrityStats.missing > 0 && (
+             <span className="text-red-600 font-bold flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
+                Bez klienta: {integrityStats.missing}
+             </span>
+        )}
+      </div>
 
       {/* Formulář - Google 2025 style (mobile‑first) */}
       <div className="mb-6">
@@ -339,7 +377,16 @@ export default function VykazyPage() {
                                     <div className="text-sm font-medium">{formatDate(v.datum)}</div>
                                     <div className="text-sm font-semibold">{v.pocet_hodin} h</div>
                                   </div>
-                                  <div className="text-sm text-gray-700">{v.pracovnici?.jmeno} • {v.klienti?.nazev}</div>
+                                  <div className="text-sm text-gray-700">{v.pracovnici?.jmeno} •                               {v.klienti?.nazev ? (
+                                v.klienti.nazev
+                              ) : v.akce?.klienti?.nazev ? (
+                                <span className="flex items-center text-indigo-700" title="Klient napárován z akce">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 mr-1"><path fillRule="evenodd" d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" clipRule="evenodd" /><path fillRule="evenodd" d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" clipRule="evenodd" /></svg>
+                                  {v.akce.klienti.nazev}
+                                </span>
+                              ) : (
+                                <span className="text-red-500 font-bold text-xs">Chybí</span>
+                              )}</div>
                                   <div className="font-bold text-sm text-gray-700">{v.akce?.nazev}</div>
                                   <div className="text-sm text-gray-500 mt-2">{v.popis}</div>
                                   <div className="flex gap-2 mt-3">
@@ -403,7 +450,16 @@ export default function VykazyPage() {
                           <tr className="hover:bg-gray-50 text-black">
                             <td className="p-3">{formatDate(v.datum)}</td>
                             <td className="p-3 font-medium">{v.pracovnici?.jmeno}</td>
-                            <td className="p-3">{v.klienti?.nazev}</td>
+                            <td className="p-3">                              {v.klienti?.nazev ? (
+                                v.klienti.nazev
+                              ) : v.akce?.klienti?.nazev ? (
+                                <span className="flex items-center text-indigo-700" title="Klient napárován z akce">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 mr-1"><path fillRule="evenodd" d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" clipRule="evenodd" /><path fillRule="evenodd" d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" clipRule="evenodd" /></svg>
+                                  {v.akce.klienti.nazev}
+                                </span>
+                              ) : (
+                                <span className="text-red-500 font-bold text-xs">Chybí</span>
+                              )}</td>
                             <td className="p-3 font-medium">{v.akce?.nazev}</td>
                             <td className="p-3 text-right">{v.pocet_hodin} h</td>
                             <td className="p-3 text-right">
