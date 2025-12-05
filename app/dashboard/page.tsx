@@ -118,6 +118,7 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => (
         <thead className="bg-gray-50 border-b text-gray-600">
           <tr>
             <th className="p-4 whitespace-nowrap">Klient</th>
+            <th className="p-4 text-right whitespace-nowrap">Počet hodin</th>
             <th className="p-4 text-right whitespace-nowrap">Příjmy</th>
             <th className="p-4 text-right whitespace-nowrap">Náklady (Mat.)</th>
             <th className="p-4 text-right whitespace-nowrap">Náklady (Práce)</th>
@@ -130,6 +131,7 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => (
           {data.map(c => (
             <tr key={c.id} className="hover:bg-gray-50">
               <td className="p-4 font-medium text-gray-900">{c.name}</td>
+              <td className="p-4 text-right font-medium">{c.totalHours.toLocaleString('cs-CZ')} h</td>
               <td className="p-4 text-right font-medium">{c.revenue.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</td>
               <td className="p-4 text-right text-gray-600">{c.materialCost.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</td>
               <td className="p-4 text-right text-gray-600">{c.laborCost.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</td>
@@ -138,7 +140,7 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => (
               <td className={`p-4 text-right ${c.margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{c.margin.toFixed(1)}%</td>
             </tr>
           ))}
-          {data.length === 0 && <tr><td colSpan={7} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
+          {data.length === 0 && <tr><td colSpan={8} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
         </tbody>
       </table>
     </div>

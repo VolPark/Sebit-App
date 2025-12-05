@@ -369,7 +369,7 @@ export async function getDetailedStats(
         supabase.from('klienti').select('*'),
         supabase.from('prace').select('*').gte('datum', start).lte('datum', end),
         supabase.from('mzdy').select('*').gte('rok', startDate.getFullYear() - 1).lte('rok', endDate.getFullYear() + 1), 
-        supabase.from('akce').select('*').gte('datum', start).lte('datum', end)
+        supabase.from('akce').select('*').gte('datum', start).lte('datum', end) // We need all actions to map ID -> Client
     ]);
     
     const workers = workersRes.data || [];
@@ -378,64 +378,107 @@ export async function getDetailedStats(
     const mzdy = mzdyRes.data || [];
     const akce = akceRes.data || [];
 
-    // Process Workers
+    // 1. Build Map: Worker ID -> Base Hourly Rate
+    const workerBaseRateMap = new Map<number, number>();
+    workers.forEach(w => {
+        // Ensure we parse to float/int in case it comes as string
+        const rate = Number(w.hodinova_mzda) || 0;
+        workerBaseRateMap.set(w.id, rate);
+    });
+
+    // 2. Build Map: Action ID -> Client ID
+    // This allows us to find the client even if the 'prace' record only has an 'akce_id'
+    const actionClientMap = new Map<number, number>();
+    akce.forEach(a => {
+        if (a.klient_id) {
+            actionClientMap.set(a.id, a.klient_id);
+        }
+    });
+
+    // Process Workers Stats
     const workerStats: WorkerStats[] = workers.map(w => {
         const wPrace = prace.filter(p => p.pracovnik_id === w.id);
         const wMzdy = mzdy.filter(m => {
             if (m.pracovnik_id !== w.id) return false;
-            // Check if mzdy month is within range
             const mDate = new Date(m.rok, m.mesic - 1, 1);
             return mDate >= startDate && mDate <= endDate;
         });
         
-        const totalHours = wPrace.reduce((sum, p) => sum + p.pocet_hodin, 0);
-        const totalWages = wMzdy.reduce((sum, m) => sum + m.celkova_castka, 0);
+        const totalHours = wPrace.reduce((sum, p) => sum + (Number(p.pocet_hodin) || 0), 0);
+        const totalWages = wMzdy.reduce((sum, m) => sum + (Number(m.celkova_castka) || 0), 0);
         
         return {
             id: w.id,
             name: w.jmeno,
             totalHours,
             totalWages,
-            avgHourlyRate: totalHours > 0 ? totalWages / totalHours : 0
+            // If total hours > 0, calculate real rate. Else use base rate.
+            avgHourlyRate: totalHours > 0 ? totalWages / totalHours : (workerBaseRateMap.get(w.id) || 0)
         };
     }).sort((a, b) => b.totalHours - a.totalHours);
 
+
     // Process Clients (Labor Cost Calculation)
-    const workerRates = new Map<string, number>(); // key: "workerId-year-month" -> rate
     
+    // 3. Calculate Real Monthly Rates from Mzdy (Payroll)
+    // key: "workerId-year-month" -> rate
+    const workerRealMonthlyRates = new Map<string, number>(); 
+    
+    // First, sum hours per worker per month to calculate the rate
     const workerMonthHours = new Map<string, number>();
     prace.forEach(p => {
         const d = new Date(p.datum);
         const key = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
-        workerMonthHours.set(key, (workerMonthHours.get(key) || 0) + p.pocet_hodin);
+        workerMonthHours.set(key, (workerMonthHours.get(key) || 0) + (Number(p.pocet_hodin) || 0));
     });
 
     mzdy.forEach(m => {
         const key = `${m.pracovnik_id}-${m.rok}-${m.mesic}`;
         const hours = workerMonthHours.get(key) || 0;
         if (hours > 0) {
-            workerRates.set(key, m.celkova_castka / hours);
+            workerRealMonthlyRates.set(key, (Number(m.celkova_castka) || 0) / hours);
         }
     });
 
+    // 4. Aggregate Costs per Client
     const clientLaborCosts = new Map<number, number>();
     const clientHours = new Map<number, number>();
 
     prace.forEach(p => {
-        if (!p.klient_id) return;
+        // Determine Client ID: Try direct link first, then via Action
+        let clientId = p.klient_id;
+        if (!clientId && p.akce_id) {
+            clientId = actionClientMap.get(p.akce_id);
+        }
+
+        if (!clientId) return; // Skip if orphan (no client found)
+
         const d = new Date(p.datum);
-        const key = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
-        const rate = workerRates.get(key) || 0;
-        const cost = p.pocet_hodin * rate;
         
-        clientLaborCosts.set(p.klient_id, (clientLaborCosts.get(p.klient_id) || 0) + cost);
-        clientHours.set(p.klient_id, (clientHours.get(p.klient_id) || 0) + p.pocet_hodin);
+        // Determine Rate
+        // A: Try specific monthly rate (from finalized payroll)
+        const rateKey = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
+        let rate = workerRealMonthlyRates.get(rateKey);
+        
+        // B: Fallback to Base Rate (from Worker profile)
+        if (rate === undefined || rate === null) {
+            rate = workerBaseRateMap.get(p.pracovnik_id);
+        }
+        
+        // C: Final safety fallback
+        if (!rate) rate = 0;
+
+        const hours = Number(p.pocet_hodin) || 0;
+        const cost = hours * rate;
+        
+        clientLaborCosts.set(clientId, (clientLaborCosts.get(clientId) || 0) + cost);
+        clientHours.set(clientId, (clientHours.get(clientId) || 0) + hours);
     });
 
     const clientStats: ClientStats[] = clients.map(c => {
         const cAkce = akce.filter(a => a.klient_id === c.id);
-        const revenue = cAkce.reduce((sum, a) => sum + (a.cena_klient || 0), 0);
-        const materialCost = cAkce.reduce((sum, a) => sum + (a.material_my || 0), 0);
+        const revenue = cAkce.reduce((sum, a) => sum + (Number(a.cena_klient) || 0), 0);
+        const materialCost = cAkce.reduce((sum, a) => sum + (Number(a.material_my) || 0), 0);
         const laborCost = clientLaborCosts.get(c.id) || 0;
         const totalCost = materialCost + laborCost;
         
