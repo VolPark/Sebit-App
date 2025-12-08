@@ -114,6 +114,7 @@ const WorkersTable = ({ data }: { data: WorkerStats[] }) => (
 
 const ClientsTable = ({ data }: { data: ClientStats[] }) => {
   const [expandedClients, setExpandedClients] = useState<Set<number>>(new Set());
+  const [sortConfig, setSortConfig] = useState<{ key: keyof ClientStats; direction: 'asc' | 'desc' } | null>(null);
 
   const toggleClient = (id: number) => {
     const newExpanded = new Set(expandedClients);
@@ -125,26 +126,73 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
     setExpandedClients(newExpanded);
   };
 
+  const requestSort = (key: keyof ClientStats) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedData = useMemo(() => {
+    let sortableItems = [...data];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        // Handle potential undefined/types
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+          if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+          return 0;
+        }
+
+        // For numbers
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [data, sortConfig]);
+
   const currency = (val: number) => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(val);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200/80 overflow-hidden overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="bg-gray-50 border-b text-gray-600">
+        <thead className="bg-gray-100 text-gray-600 border-b">
           <tr>
             <th className="p-4 whitespace-nowrap w-8"></th>
-            <th className="p-4 whitespace-nowrap">Klient</th>
-            <th className="p-4 text-right whitespace-nowrap">Počet hodin</th>
-            <th className="p-4 text-right whitespace-nowrap">Příjmy</th>
-            <th className="p-4 text-right whitespace-nowrap">Náklady (Mat.)</th>
-            <th className="p-4 text-right whitespace-nowrap">Náklady (Práce)</th>
-            <th className="p-4 text-right whitespace-nowrap">Celkem Náklady</th>
-            <th className="p-4 text-right whitespace-nowrap">Zisk</th>
-            <th className="p-4 text-right whitespace-nowrap">Marže</th>
+            <th className="p-4 whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('name')}>
+              <div className="flex items-center gap-1">Klient {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            </th>
+            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('totalHours')}>
+              <div className="flex items-center justify-end gap-1">Počet hodin {sortConfig?.key === 'totalHours' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            </th>
+            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('revenue')}>
+              <div className="flex items-center justify-end gap-1">Příjmy {sortConfig?.key === 'revenue' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            </th>
+            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('materialCost')}>
+              <div className="flex items-center justify-end gap-1">Náklady (Mat.) {sortConfig?.key === 'materialCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            </th>
+            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('laborCost')}>
+              <div className="flex items-center justify-end gap-1">Náklady (Práce) {sortConfig?.key === 'laborCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            </th>
+            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('totalCost')}>
+              <div className="flex items-center justify-end gap-1">Celkem Náklady {sortConfig?.key === 'totalCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            </th>
+            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('profit')}>
+              <div className="flex items-center justify-end gap-1">Zisk {sortConfig?.key === 'profit' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            </th>
+            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('margin')}>
+              <div className="flex items-center justify-end gap-1">Marže {sortConfig?.key === 'margin' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {data.map(c => (
+          {sortedData.map(c => (
             <Fragment key={c.id}>
               <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleClient(c.id)}>
                 <td className="p-4 text-center">
@@ -215,7 +263,7 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
               )}
             </Fragment>
           ))}
-          {data.length === 0 && <tr><td colSpan={9} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
+          {sortedData.length === 0 && <tr><td colSpan={9} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
         </tbody>
       </table>
     </div>
