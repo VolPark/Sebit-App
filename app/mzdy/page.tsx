@@ -196,47 +196,47 @@ export default function MzdyPage() {
   }, [pracovnici]);
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
-      <h2 className="text-2xl font-bold text-black mb-4">Správa mezd</h2>
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto dark:text-gray-100">
+      <h2 className="text-2xl font-bold text-black dark:text-white mb-4">Správa mezd</h2>
 
       {statusMessage && (
-        <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+        <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-200' : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-200'}`}>
           {statusMessage}
         </div>
       )}
 
       {/* Month Selector */}
-      <div className="flex items-center justify-center gap-4 mb-8 bg-white/80 backdrop-blur-sm p-3 rounded-2xl shadow-md ring-1 ring-slate-200 max-w-md mx-auto">
+      <div className="flex items-center justify-center gap-4 mb-8 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-3 rounded-2xl shadow-md ring-1 ring-slate-200 dark:ring-slate-700 max-w-md mx-auto transition-colors">
         <button
           onClick={() => changeMonth(-1)}
           disabled={selectedDate.getFullYear() === 2025 && selectedDate.getMonth() === 0}
-          className={`p-2 rounded-full transition-colors ${selectedDate.getFullYear() === 2025 && selectedDate.getMonth() === 0 ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-200'}`}
+          className={`p-2 rounded-full transition-colors ${selectedDate.getFullYear() === 2025 && selectedDate.getMonth() === 0 ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-slate-800 dark:text-gray-200'}`}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
-        <span className="text-xl font-semibold w-48 text-center">
+        <span className="text-xl font-semibold w-48 text-center dark:text-white">
           {monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}
         </span>
-        <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-200 transition-colors">
+        <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-800 dark:text-gray-200 transition-colors">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
         </button>
       </div>
 
       {/* Total for month */}
-      <div className="text-right mb-4 pr-2 font-bold text-gray-700">
+      <div className="text-right mb-4 pr-2 font-bold text-gray-700 dark:text-gray-300">
         Celkem za měsíc: {currency.format(totalMonthSalary)}
       </div>
 
       {/* Workers List */}
       <div className="space-y-3">
-        {loading && <p className="text-center text-gray-500">Načítám pracovníky...</p>}
+        {loading && <p className="text-center text-gray-500 dark:text-gray-400">Načítám pracovníky...</p>}
         {!loading && pracovnici.map(p => {
           const mzda = p.mzda;
           const isEditing = editingPracovnikId === p.id;
           const canEdit = p.is_active;
 
           return (
-            <div key={p.id} className={`bg-white rounded-2xl shadow-sm ring-1 transition-all ${isEditing ? 'ring-[#E30613]' : 'ring-slate-200'} ${!canEdit ? 'bg-gray-50' : ''}`}>
+            <div key={p.id} className={`bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 transition-all ${isEditing ? 'ring-[#E30613]' : 'ring-slate-200 dark:ring-slate-700'} ${!canEdit ? 'bg-gray-50 dark:bg-slate-900/50' : ''}`}>
               {/* --- Collapsed View --- */}
               {!isEditing && (
                 <div className={`p-4 flex items-center justify-between`}>
@@ -244,18 +244,18 @@ export default function MzdyPage() {
                     className={`flex-grow ${canEdit && !mzda ? 'cursor-pointer' : 'cursor-default'}`}
                     onClick={() => canEdit && !mzda && startEditing(p)}
                   >
-                    <span className={`font-medium ${!canEdit ? 'text-gray-400 line-through' : ''}`}>{p.jmeno}</span>
+                    <span className={`font-medium dark:text-white ${!canEdit ? 'text-gray-400 dark:text-gray-500 line-through' : ''}`}>{p.jmeno}</span>
                   </div>
 
                   {mzda ? (
                     <div className="flex items-center gap-4">
-                      <span className="text-sm text-gray-500 hidden sm:block">
+                      <span className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
                         {currency.format(mzda.hruba_mzda || 0)} + {currency.format(mzda.faktura || 0)} + {currency.format(mzda.priplatek || 0)}
                       </span>
-                      <span className={`font-bold text-lg ${!canEdit ? 'text-gray-500' : ''}`}>{currency.format(mzda.celkova_castka)}</span>
+                      <span className={`font-bold text-lg dark:text-white ${!canEdit ? 'text-gray-500 dark:text-gray-500' : ''}`}>{currency.format(mzda.celkova_castka)}</span>
                       {canEdit && (
                         <Menu as="div" className="relative inline-block text-left">
-                          <Menu.Button className="p-2 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+                          <Menu.Button className="p-2 rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-800 hover:text-gray-600 dark:hover:text-gray-200">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
                             </svg>
@@ -269,18 +269,18 @@ export default function MzdyPage() {
                             leaveFrom="transform opacity-100 scale-100"
                             leaveTo="transform opacity-0 scale-95"
                           >
-                            <Menu.Items className="absolute right-0 bottom-full z-10 mb-2 w-32 origin-bottom-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <Menu.Items className="absolute right-0 bottom-full z-10 mb-2 w-32 origin-bottom-right rounded-md bg-white dark:bg-slate-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                               <div className="py-1">
                                 <Menu.Item>
                                   {({ active }) => (
-                                    <button onClick={() => startEditing(p)} className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                    <button onClick={() => startEditing(p)} className={`${active ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'} group flex items-center w-full px-4 py-2 text-sm`}>
                                       Upravit
                                     </button>
                                   )}
                                 </Menu.Item>
                                 <Menu.Item>
                                   {({ active }) => (
-                                    <button onClick={() => openDeleteModal(mzda.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                    <button onClick={() => openDeleteModal(mzda.id)} className={`${active ? 'bg-gray-100 dark:bg-slate-700 text-red-700 dark:text-red-400' : 'text-red-600 dark:text-red-400'} group flex items-center w-full px-4 py-2 text-sm`}>
                                       Smazat
                                     </button>
                                   )}
@@ -294,11 +294,11 @@ export default function MzdyPage() {
                   ) : (
                     <>
                       {canEdit ? (
-                        <div className="px-4 py-1.5 rounded-full bg-[#E30613]/10 text-[#E30613] text-sm font-semibold cursor-pointer" onClick={() => startEditing(p)}>
+                        <div className="px-4 py-1.5 rounded-full bg-[#E30613]/10 dark:bg-[#E30613]/20 text-[#E30613] dark:text-[#E30613] text-sm font-semibold cursor-pointer hover:bg-[#E30613]/20 dark:hover:bg-[#E30613]/30 transition" onClick={() => startEditing(p)}>
                           Zadat mzdu
                         </div>
                       ) : (
-                        <div className="px-4 py-1.5 rounded-full bg-gray-200 text-gray-500 text-sm font-semibold">
+                        <div className="px-4 py-1.5 rounded-full bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-gray-400 text-sm font-semibold">
                           Ukončen
                         </div>
                       )}
@@ -310,24 +310,24 @@ export default function MzdyPage() {
               {/* --- Expanded/Editing View --- */}
               {isEditing && (
                 <div className="p-4">
-                  <h3 className="font-semibold mb-3">{p.jmeno}</h3>
+                  <h3 className="font-semibold mb-3 dark:text-white">{p.jmeno}</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">Hrubá mzda</label>
-                      <input type="number" placeholder="0" value={hrubaMzda} onChange={e => setHrubaMzda(e.target.value)} className="w-full rounded-lg border-slate-300 p-2" />
+                      <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Hrubá mzda</label>
+                      <input type="number" placeholder="0" value={hrubaMzda} onChange={e => setHrubaMzda(e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 dark:text-white p-2" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">Faktura</label>
-                      <input type="number" placeholder="0" value={faktura} onChange={e => setFaktura(e.target.value)} className="w-full rounded-lg border-slate-300 p-2" />
+                      <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Faktura</label>
+                      <input type="number" placeholder="0" value={faktura} onChange={e => setFaktura(e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 dark:text-white p-2" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">Příplatek</label>
-                      <input type="number" placeholder="0" value={priplatek} onChange={e => setPriplatek(e.target.value)} className="w-full rounded-lg border-slate-300 p-2" />
+                      <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Příplatek</label>
+                      <input type="number" placeholder="0" value={priplatek} onChange={e => setPriplatek(e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 dark:text-white p-2" />
                     </div>
                   </div>
                   <div className="flex justify-end gap-4 mt-4">
-                    <button onClick={cancelEditing} className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full text-sm">Zrušit</button>
-                    <button onClick={() => handleSave(p.id)} className="bg-[#E30613] text-white px-6 py-2 rounded-full text-sm font-semibold">Uložit</button>
+                    <button onClick={cancelEditing} className="bg-gray-200 dark:bg-slate-800 text-gray-800 dark:text-gray-300 px-6 py-2 rounded-full text-sm hover:bg-gray-300 dark:hover:bg-slate-700 transition">Zrušit</button>
+                    <button onClick={() => handleSave(p.id)} className="bg-[#E30613] text-white px-6 py-2 rounded-full text-sm font-semibold hover:bg-[#C00000] transition">Uložit</button>
                   </div>
                 </div>
               )}
@@ -339,13 +339,13 @@ export default function MzdyPage() {
       {/* Custom Confirmation Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">{modalConfig.title}</h3>
-            <p className="text-gray-600 mb-6">{modalConfig.message}</p>
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200 border dark:border-slate-700">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{modalConfig.title}</h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">{modalConfig.message}</p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setModalOpen(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition"
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-md transition"
               >
                 Zrušit
               </button>

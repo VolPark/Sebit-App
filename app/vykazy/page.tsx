@@ -11,9 +11,9 @@ export default function VykazyPage() {
   const [pracovnici, setPracovnici] = useState<any[]>([])
   const [allAkce, setAllAkce] = useState<any[]>([])        // všechny akce
   const [actionOptions, setActionOptions] = useState<any[]>([]) // akce filtrované podle klienta
-  const [selectedAkce, setSelectedAkce] = useState<{ id: string, name: string } | null>(null)
-  const [selectedPracovnik, setSelectedPracovnik] = useState<{ id: string, name: string } | null>(null)
-  const [selectedKlient, setSelectedKlient] = useState<{ id: string, name: string } | null>(null)
+  const [selectedAkce, setSelectedAkce] = useState<{ id: string | number, name: string } | null>(null)
+  const [selectedPracovnik, setSelectedPracovnik] = useState<{ id: string | number, name: string } | null>(null)
+  const [selectedKlient, setSelectedKlient] = useState<{ id: string | number, name: string } | null>(null)
 
   // Stavy pro formulář
   const [datum, setDatum] = useState(() => {
@@ -76,7 +76,7 @@ export default function VykazyPage() {
   }
 
   // Pokud uživatel vybere klienta, nastavíme options jen pro tohoto klienta
-  function onKlientChange(klient: { id: string, name: string } | null) {
+  function onKlientChange(klient: { id: string | number, name: string } | null) {
     setSelectedKlient(klient)
     setSelectedAkce(null) // vymazat vybranou akci (pokud patřila jinému klientovi)
     if (!klient) {
@@ -88,7 +88,7 @@ export default function VykazyPage() {
   }
 
   // Pokud uživatel vybere akci, předvyplníme klienta a zúžíme options
-  function onAkceChange(akce: { id: string, name: string } | null) {
+  function onAkceChange(akce: { id: string | number, name: string } | null) {
     setSelectedAkce(akce)
     if (!akce) return
     const akc = allAkce.find(a => String(a.id) === String(akce.id))
@@ -212,9 +212,9 @@ export default function VykazyPage() {
   const [expandedYears, setExpandedYears] = useState(new Set<string>());
   const [expandedMonths, setExpandedMonths] = useState(new Set<string>());
 
-  const [selectedPracovnikFilter, setSelectedPracovnikFilter] = useState<{ id: string, name: string } | null>(null);
-  const [selectedKlientFilter, setSelectedKlientFilter] = useState<{ id: string, name: string } | null>(null);
-  const [selectedAkceFilter, setSelectedAkceFilter] = useState<{ id: string, name: string } | null>(null);
+  const [selectedPracovnikFilter, setSelectedPracovnikFilter] = useState<{ id: string | number, name: string } | null>(null);
+  const [selectedKlientFilter, setSelectedKlientFilter] = useState<{ id: string | number, name: string } | null>(null);
+  const [selectedAkceFilter, setSelectedAkceFilter] = useState<{ id: string | number, name: string } | null>(null);
 
   const groupedVykazy = useMemo(() => {
     const grouped: { [year: string]: { [month: string]: any[] } } = {};
@@ -304,31 +304,29 @@ export default function VykazyPage() {
   const formattedKlienti = useMemo(() => klienti.map(k => ({ id: k.id, name: k.nazev })), [klienti]);
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
-      <h2 className="text-2xl font-bold mb-4 text-black">Výkazy práce</h2>
-
-      <h2 className="text-2xl font-bold mb-4 text-black">Výkazy práce</h2>
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto dark:text-gray-100">
+      <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">Výkazy práce</h2>
 
       {statusMessage && (
-        <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+        <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-200' : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-200'}`}>
           {statusMessage}
         </div>
       )}
 
       {/* Data Integrity Check */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6 flex flex-wrap gap-4 text-sm text-blue-800 items-center">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-6 flex flex-wrap gap-4 text-sm text-blue-800 dark:text-blue-300 items-center">
         <span className="font-semibold flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 mr-1"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" /></svg>
           Kontrola integrity dat:
         </span>
         <span>Celkem záznamů: <b>{integrityStats.total}</b></span>
-        <span className="text-green-700">Přímá vazba: <b>{integrityStats.direct}</b></span>
-        <span className="text-indigo-700 flex items-center" title="Dopárováno přes akci">
+        <span className="text-green-700 dark:text-green-400">Přímá vazba: <b>{integrityStats.direct}</b></span>
+        <span className="text-indigo-700 dark:text-indigo-400 flex items-center" title="Dopárováno přes akci">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1"><path fillRule="evenodd" d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" clipRule="evenodd" /><path fillRule="evenodd" d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" clipRule="evenodd" /></svg>
           Dopárováno přes akci: <b>{integrityStats.inferred}</b>
         </span>
         {integrityStats.missing > 0 && (
-          <span className="text-red-600 font-bold flex items-center">
+          <span className="text-red-600 dark:text-red-400 font-bold flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
             Bez klienta: {integrityStats.missing}
           </span>
@@ -337,44 +335,44 @@ export default function VykazyPage() {
 
       {/* Formulář - Google 2025 style (mobile‑first) */}
       <div className="mb-6">
-        <div className={`bg-white/90 ring-1 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 transition-all ${editingId ? 'ring-[#E30613]' : 'ring-slate-200'}`}>
+        <div className={`bg-white/90 dark:bg-slate-900/90 ring-1 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 transition-all ${editingId ? 'ring-[#E30613]' : 'ring-slate-200 dark:ring-slate-700'}`}>
 
           <div className="w-full">
-            <label className="block text-sm font-medium text-gray-600 mb-1">Pracovník</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Pracovník</label>
             <ComboBox items={formattedPracovnici} selected={selectedPracovnik} setSelected={setSelectedPracovnik} />
           </div>
 
           <div className="w-full">
-            <label className="block text-sm font-medium text-gray-600 mb-1">Klient</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Klient</label>
             <ComboBox items={formattedKlienti} selected={selectedKlient} setSelected={onKlientChange} />
           </div>
 
           <div className="w-full">
-            <label className="block text-sm font-medium text-gray-600 mb-1">Akce</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Akce</label>
             <ComboBox items={formattedActionOptions} selected={selectedAkce} setSelected={onAkceChange} />
           </div>
 
           <div className="">
-            <label className="block text-sm font-medium text-gray-600 mb-1">Datum</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Datum</label>
             <input id="datum" type="date"
-              className="w-full rounded-lg bg-white border border-slate-300 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 p-3 transition"
+              className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white p-3 transition"
               value={datum} onChange={e => setDatum(e.target.value)} min="2025-01-01" />
           </div>
 
           <div className="">
-            <label className="block text-sm font-medium text-gray-600 mb-1">Hodiny</label>
-            <input id="hodiny" type="number" step="0.5" placeholder="8.5" className="w-full rounded-lg bg-white border border-slate-300 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 p-3 transition" value={hodiny} onChange={e => setHodiny(e.target.value)} />
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Hodiny</label>
+            <input id="hodiny" type="number" step="0.5" placeholder="8.5" className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white p-3 transition" value={hodiny} onChange={e => setHodiny(e.target.value)} />
           </div>
 
           <div className="md:col-span-3">
-            <label className="block text-sm font-medium text-gray-600 mb-1">Popis činnosti</label>
-            <input id="popis" type="text" placeholder="Co bylo uděláno?" className="w-full rounded-lg bg-white border border-slate-300 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 p-3 transition" value={popis} onChange={e => setPopis(e.target.value)} />
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Popis činnosti</label>
+            <input id="popis" type="text" placeholder="Co bylo uděláno?" className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white p-3 transition" value={popis} onChange={e => setPopis(e.target.value)} />
           </div>
 
           <div className="md:col-span-3 flex justify-end gap-4">
             {editingId && (
               <button type="button" onClick={cancelEdit}
-                className="inline-flex items-center justify-center bg-gray-200 text-gray-700 rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
+                className="inline-flex items-center justify-center bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
                 Zrušit
               </button>
             )}
@@ -389,25 +387,25 @@ export default function VykazyPage() {
       {/* Filtry tabulky */}
       <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">Filtr: Pracovník</label>
+          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Filtr: Pracovník</label>
           <ComboBox items={formattedPracovnici} selected={selectedPracovnikFilter} setSelected={setSelectedPracovnikFilter} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">Filtr: Klient</label>
+          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Filtr: Klient</label>
           <ComboBox items={formattedKlienti} selected={selectedKlientFilter} setSelected={setSelectedKlientFilter} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">Filtr: Akce</label>
+          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Filtr: Akce</label>
           <ComboBox items={formattedAllActionOptions} selected={selectedAkceFilter} setSelected={setSelectedAkceFilter} />
         </div>
       </div>
 
       {/* Mobile: stacked cards */}
       <div className="space-y-2 md:hidden mb-6">
-        {loading && <div className="p-4 bg-white rounded-lg shadow animate-pulse">Načítám...</div>}
+        {loading && <div className="p-4 bg-white dark:bg-slate-900 rounded-lg shadow animate-pulse dark:text-white">Načítám...</div>}
         {Object.keys(groupedVykazy).sort((a, b) => Number(b) - Number(a)).map(year => (
-          <div key={year} className="bg-slate-100 rounded-lg">
-            <h3 onClick={() => toggleYear(year)} className="p-4 text-lg font-bold cursor-pointer flex items-center">
+          <div key={year} className="bg-slate-100 dark:bg-slate-800 rounded-lg">
+            <h3 onClick={() => toggleYear(year)} className="p-4 text-lg font-bold cursor-pointer flex items-center dark:text-white">
               <svg className={`w-5 h-5 mr-2 transform transition-transform ${expandedYears.has(year) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
               {year}
             </h3>
@@ -416,15 +414,15 @@ export default function VykazyPage() {
                 {Object.keys(groupedVykazy[year]).sort((a, b) => Number(b) - Number(a)).map(month => {
                   const monthKey = `${year}-${month}`;
                   return (
-                    <div key={monthKey} className="bg-white rounded-lg">
-                      <h4 onClick={() => toggleMonth(monthKey)} className="p-3 font-semibold cursor-pointer flex items-center">
+                    <div key={monthKey} className="bg-white dark:bg-slate-900 rounded-lg">
+                      <h4 onClick={() => toggleMonth(monthKey)} className="p-3 font-semibold cursor-pointer flex items-center dark:text-white">
                         <svg className={`w-4 h-4 mr-2 transform transition-transform ${expandedMonths.has(monthKey) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
                         {monthNames[Number(month)]}
                       </h4>
                       {expandedMonths.has(monthKey) && (
                         <div className="px-3 pb-3 space-y-3">
                           {groupedVykazy[year][month].map(v => (
-                            <div key={v.id} className="bg-slate-50 rounded-lg p-4 shadow-sm">
+                            <div key={v.id} className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 shadow-sm">
                               {editingId === v.id ? (
                                 <div className="flex flex-col gap-2">
                                   {/* In-line editing is disabled in grouped view for now */}
@@ -432,24 +430,24 @@ export default function VykazyPage() {
                               ) : (
                                 <>
                                   <div className="flex justify-between items-start mb-2">
-                                    <div className="text-sm font-medium">{formatDate(v.datum)}</div>
-                                    <div className="text-sm font-semibold">{v.pocet_hodin} h</div>
+                                    <div className="text-sm font-medium dark:text-white">{formatDate(v.datum)}</div>
+                                    <div className="text-sm font-semibold dark:text-white">{v.pocet_hodin} h</div>
                                   </div>
-                                  <div className="text-sm text-gray-700">{v.pracovnici?.jmeno} •                               {v.klienti?.nazev ? (
+                                  <div className="text-sm text-gray-700 dark:text-gray-300">{v.pracovnici?.jmeno} •                               {v.klienti?.nazev ? (
                                     v.klienti.nazev
                                   ) : v.akce?.klienti?.nazev ? (
-                                    <span className="flex items-center text-indigo-700" title="Klient napárován z akce">
+                                    <span className="flex items-center text-indigo-700 dark:text-indigo-400" title="Klient napárován z akce">
                                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 mr-1"><path fillRule="evenodd" d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" clipRule="evenodd" /><path fillRule="evenodd" d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" clipRule="evenodd" /></svg>
                                       {v.akce.klienti.nazev}
                                     </span>
                                   ) : (
                                     <span className="text-red-500 font-bold text-xs">Chybí</span>
                                   )}</div>
-                                  <div className="font-bold text-sm text-gray-700">{v.akce?.nazev}</div>
-                                  <div className="text-sm text-gray-500 mt-2">{v.popis}</div>
+                                  <div className="font-bold text-sm text-gray-700 dark:text-gray-200">{v.akce?.nazev}</div>
+                                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">{v.popis}</div>
                                   <div className="flex gap-2 mt-3">
-                                    <button onClick={() => startEdit(v)} className="text-sm text-gray-700">Upravit</button>
-                                    <button onClick={() => openDeleteModal(v.id)} className="text-sm text-red-500">Smazat</button>
+                                    <button onClick={() => startEdit(v)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition">Upravit</button>
+                                    <button onClick={() => openDeleteModal(v.id)} className="text-sm text-red-500 hover:text-red-700 transition">Smazat</button>
                                   </div>
                                 </>
                               )}
@@ -469,7 +467,7 @@ export default function VykazyPage() {
       {/* Desktop: table */}
       <div className="overflow-x-auto hidden md:block">
         <table className="w-full text-left text-sm border-collapse">
-          <thead className="bg-gray-100 text-gray-600 border-b">
+          <thead className="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-b dark:border-slate-700">
             <tr>
               <th className="p-3">Datum</th>
               <th className="p-3">Pracovník</th>
@@ -479,10 +477,10 @@ export default function VykazyPage() {
               <th className="p-3"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200">
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
             {Object.keys(groupedVykazy).sort((a, b) => Number(b) - Number(a)).map(year => (
               <Fragment key={year}>
-                <tr onClick={() => toggleYear(year)} className="bg-slate-100 hover:bg-slate-200 cursor-pointer">
+                <tr onClick={() => toggleYear(year)} className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer dark:text-white">
                   <td colSpan={6} className="p-2 font-bold text-lg">
                     <div className="flex items-center">
                       <svg className={`w-5 h-5 mr-2 transform transition-transform ${expandedYears.has(year) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
@@ -495,7 +493,7 @@ export default function VykazyPage() {
                   const monthData = groupedVykazy[year][month];
                   return (
                     <Fragment key={monthKey}>
-                      <tr onClick={() => toggleMonth(monthKey)} className="bg-slate-50 hover:bg-slate-100 cursor-pointer">
+                      <tr onClick={() => toggleMonth(monthKey)} className="bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer dark:text-white">
                         <td colSpan={6} className="p-2 font-semibold pl-8">
                           <div className="flex items-center">
                             <svg className={`w-4 h-4 mr-2 transform transition-transform ${expandedMonths.has(monthKey) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
@@ -505,13 +503,13 @@ export default function VykazyPage() {
                       </tr>
                       {expandedMonths.has(monthKey) && monthData.map(v => (
                         <Fragment key={v.id}>
-                          <tr className="hover:bg-gray-50 text-black">
+                          <tr className="hover:bg-gray-50 dark:hover:bg-slate-800 text-black dark:text-gray-100">
                             <td className="p-3">{formatDate(v.datum)}</td>
                             <td className="p-3 font-medium">{v.pracovnici?.jmeno}</td>
                             <td className="p-3">                              {v.klienti?.nazev ? (
                               v.klienti.nazev
                             ) : v.akce?.klienti?.nazev ? (
-                              <span className="flex items-center text-indigo-700" title="Klient napárován z akce">
+                              <span className="flex items-center text-indigo-700 dark:text-indigo-400" title="Klient napárován z akce">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 mr-1"><path fillRule="evenodd" d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" clipRule="evenodd" /><path fillRule="evenodd" d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" clipRule="evenodd" /></svg>
                                 {v.akce.klienti.nazev}
                               </span>
@@ -521,13 +519,13 @@ export default function VykazyPage() {
                             <td className="p-3 font-medium">{v.akce?.nazev}</td>
                             <td className="p-3 text-right">{v.pocet_hodin} h</td>
                             <td className="p-3 text-right">
-                              <button onClick={() => startEdit(v)} className="text-gray-700 mr-2">Upravit</button>
-                              <button onClick={() => openDeleteModal(v.id)} className="text-red-500">Smazat</button>
+                              <button onClick={() => startEdit(v)} className="text-gray-700 dark:text-gray-300 mr-2 hover:text-gray-900 dark:hover:text-white transition">Upravit</button>
+                              <button onClick={() => openDeleteModal(v.id)} className="text-red-500 hover:text-red-700 transition">Smazat</button>
                             </td>
                           </tr>
                           {v.popis && (
-                            <tr className="hover:bg-gray-50 text-black">
-                              <td colSpan={6} className="p-3 pt-0 text-gray-500 pl-10">
+                            <tr className="hover:bg-gray-50 dark:hover:bg-slate-800 text-black dark:text-gray-100">
+                              <td colSpan={6} className="p-3 pt-0 text-gray-500 dark:text-gray-400 pl-10">
                                 {v.popis}
                               </td>
                             </tr>

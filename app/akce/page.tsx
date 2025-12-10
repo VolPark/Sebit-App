@@ -31,10 +31,13 @@ export default function AkcePage() {
     actionClass: '',
   })
 
-  // Form state
+  // Stavy pro formulář
   const [nazev, setNazev] = useState('')
-  const [datum, setDatum] = useState(new Date().toISOString().split('T')[0])
-  const [selectedKlient, setSelectedKlient] = useState<{ id: string, name: string } | null>(null)
+  const [datum, setDatum] = useState(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return today < '2025-01-01' ? '2025-01-01' : today;
+  })
+  const [selectedKlient, setSelectedKlient] = useState<{ id: string | number, name: string } | null>(null)
   const [showNewClientForm, setShowNewClientForm] = useState(false)
   const [newClientName, setNewClientName] = useState('')
   const [cenaKlient, setCenaKlient] = useState('')
@@ -259,41 +262,41 @@ export default function AkcePage() {
   const currency = (v: number) => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(v)
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
-      <h2 className="text-2xl font-bold mb-4 text-black">Správa akcí</h2>
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto dark:text-gray-100">
+      <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">Správa akcí</h2>
 
       {statusMessage && (
-        <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+        <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-200' : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-200'}`}>
           {statusMessage}
         </div>
       )}
 
       {/* Form */}
       <div className="mb-6">
-        <div className={`bg-white/90 ring-1 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-2 gap-4 transition-all ${editingId ? 'ring-[#E30613]' : 'ring-slate-200'}`}>
+        <div className={`bg-white/90 dark:bg-slate-900/90 ring-1 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-2 gap-4 transition-all ${editingId ? 'ring-[#E30613]' : 'ring-slate-200 dark:ring-slate-700'}`}>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-600 mb-1">Název akce</label>
-            <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="Např. Realizace kuchyně" value={nazev} onChange={e => setNazev(e.target.value)} />
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Název akce</label>
+            <input className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="Např. Realizace kuchyně" value={nazev} onChange={e => setNazev(e.target.value)} />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Datum</label>
-            <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" type="date" value={datum} onChange={e => setDatum(e.target.value)} />
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Datum</label>
+            <input className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" type="date" value={datum} onChange={e => setDatum(e.target.value)} />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Klient</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Klient</label>
             <div className="flex items-center gap-2">
               <div className="w-full">
                 <ComboBox items={formattedKlienti} selected={selectedKlient} setSelected={setSelectedKlient} />
               </div>
-              <button onClick={() => { setShowNewClientForm(!showNewClientForm); setSelectedKlient(null); }} className="p-3 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
+              <button onClick={() => { setShowNewClientForm(!showNewClientForm); setSelectedKlient(null); }} className="p-3 rounded-lg bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 transition dark:text-white">
                 +
               </button>
             </div>
             {showNewClientForm && (
               <input
-                className="mt-2 w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30"
+                className="mt-2 w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
                 placeholder="Jméno nového klienta"
                 value={newClientName}
                 onChange={e => setNewClientName(e.target.value)}
@@ -303,29 +306,29 @@ export default function AkcePage() {
 
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Cena pro klienta</label>
-              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="0" value={cenaKlient} onChange={e => setCenaKlient(e.target.value)} type="number" />
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Cena pro klienta</label>
+              <input className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={cenaKlient} onChange={e => setCenaKlient(e.target.value)} type="number" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Odhad hodin</label>
-              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="0" value={odhadHodin} onChange={e => setOdhadHodin(e.target.value)} type="number" />
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Odhad hodin</label>
+              <input className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={odhadHodin} onChange={e => setOdhadHodin(e.target.value)} type="number" />
             </div>
           </div>
 
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Materiál (klient)</label>
-              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="0" value={materialKlient} onChange={e => setMaterialKlient(e.target.value)} type="number" />
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Materiál (klient)</label>
+              <input className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={materialKlient} onChange={e => setMaterialKlient(e.target.value)} type="number" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Materiál (my)</label>
-              <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="0" value={materialMy} onChange={e => setMaterialMy(e.target.value)} type="number" />
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Materiál (my)</label>
+              <input className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={materialMy} onChange={e => setMaterialMy(e.target.value)} type="number" />
             </div>
           </div>
 
           <div className="md:col-span-2 flex justify-end gap-4">
             {editingId && (
-              <button type="button" onClick={cancelEdit} className="inline-flex items-center justify-center bg-gray-200 text-gray-700 rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
+              <button type="button" onClick={cancelEdit} className="inline-flex items-center justify-center bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
                 Zrušit
               </button>
             )}
@@ -340,24 +343,24 @@ export default function AkcePage() {
       <div className="overflow-x-auto">
         <div className="flex justify-end mb-4">
           <label className="inline-flex items-center cursor-pointer">
-            <span className="mr-3 text-sm font-medium text-gray-600">Zobrazit ukončené</span>
+            <span className="mr-3 text-sm font-medium text-gray-600 dark:text-gray-400">Zobrazit ukončené</span>
             <span className="relative">
               <input type="checkbox" checked={showCompleted} onChange={() => setShowCompleted(!showCompleted)} className="sr-only peer" />
-              <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-[#E30613]/30 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#E30613]"></div>
+              <div className="w-11 h-6 bg-gray-200 dark:bg-slate-700 rounded-full peer peer-focus:ring-4 peer-focus:ring-[#E30613]/30 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#E30613]"></div>
             </span>
           </label>
         </div>
         {/* Mobile */}
         <div className="space-y-3 md:hidden">
-          {loading && <div className="p-4 bg-white rounded-lg shadow animate-pulse">Načítám...</div>}
+          {loading && <div className="p-4 bg-white dark:bg-slate-900 rounded-lg shadow animate-pulse dark:text-white">Načítám...</div>}
           {sortedAkce.map(a => (
-            <div key={a.id} className={`bg-white rounded-lg p-4 shadow-sm ${a.is_completed ? 'opacity-60' : ''}`}>
+            <div key={a.id} className={`bg-white dark:bg-slate-900 rounded-lg p-4 shadow-sm ${a.is_completed ? 'opacity-60' : ''}`}>
               <div className="flex justify-between items-start mb-2">
-                <div className={`font-medium ${a.is_completed ? 'line-through' : ''}`}>{a.nazev}</div>
-                <div className="text-sm text-gray-500">{formatDate(a.datum)}</div>
+                <div className={`font-medium dark:text-white ${a.is_completed ? 'line-through' : ''}`}>{a.nazev}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{formatDate(a.datum)}</div>
               </div>
-              <div className="text-sm text-gray-700">Klient: {a.klienti?.nazev || '—'}</div>
-              <div className="mt-3 text-sm space-y-1">
+              <div className="text-sm text-gray-700 dark:text-gray-300">Klient: {a.klienti?.nazev || '—'}</div>
+              <div className="mt-3 text-sm space-y-1 dark:text-gray-300">
                 <div><span className="font-medium">Cena:</span> {currency(Number(a.cena_klient || 0))}</div>
                 <div><span className="font-medium">Materiál (klient):</span> {currency(Number(a.material_klient || 0))}</div>
                 <div><span className="font-medium">Materiál (my):</span> {currency(Number(a.material_my || 0))}</div>
@@ -366,13 +369,13 @@ export default function AkcePage() {
               <div className="flex items-center justify-between mt-4">
                 <button
                   onClick={() => openToggleModal(a.id, a.is_completed)}
-                  className={`rounded-full px-4 py-1.5 text-sm font-semibold shadow-sm transition-colors ${a.is_completed ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100/80 text-red-800 hover:bg-red-100'}`}
+                  className={`rounded-full px-4 py-1.5 text-sm font-semibold shadow-sm transition-colors ${a.is_completed ? 'bg-green-100 dark:bg-green-900/80 text-green-800 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-900' : 'bg-red-100/80 dark:bg-red-900/80 text-red-800 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-900'}`}
                 >
                   {a.is_completed ? 'Aktivovat' : 'Ukončit'}
                 </button>
                 {!a.is_completed && (
                   <Menu as="div" className="relative inline-block text-left">
-                    <Menu.Button className="p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                    <Menu.Button className="p-2 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-600 dark:hover:text-gray-200">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
                       </svg>
@@ -386,18 +389,18 @@ export default function AkcePage() {
                       leaveFrom="transform opacity-100 scale-100"
                       leaveTo="transform opacity-0 scale-95"
                     >
-                      <Menu.Items className="absolute right-0 bottom-full mb-2 w-48 origin-bottom-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                      <Menu.Items className="absolute right-0 bottom-full mb-2 w-48 origin-bottom-right rounded-md bg-white dark:bg-slate-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                         <div className="py-1">
                           <Menu.Item>
                             {({ active }) => (
-                              <button onClick={() => startEdit(a)} className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}>
+                              <button onClick={() => startEdit(a)} className={`${active ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'} group flex items-center w-full px-4 py-2 text-sm`}>
                                 Upravit
                               </button>
                             )}
                           </Menu.Item>
                           <Menu.Item>
                             {({ active }) => (
-                              <button onClick={() => openDeleteModal(a.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
+                              <button onClick={() => openDeleteModal(a.id)} className={`${active ? 'bg-gray-100 dark:bg-slate-700 text-red-700 dark:text-red-400' : 'text-red-600 dark:text-red-400'} group flex items-center w-full px-4 py-2 text-sm`}>
                                 Smazat
                               </button>
                             )}
@@ -415,35 +418,35 @@ export default function AkcePage() {
         {/* Desktop */}
         <div className="hidden md:block">
           <table className="w-full text-left text-sm border-collapse">
-            <thead className="bg-gray-100 text-gray-600 border-b">
+            <thead className="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-b dark:border-slate-700">
               <tr>
-                <th className="p-3 cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('nazev')}>
+                <th className="p-3 cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('nazev')}>
                   <div className="flex items-center gap-1">Název {sortConfig?.key === 'nazev' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                 </th>
-                <th className="p-3 cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('datum')}>
+                <th className="p-3 cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('datum')}>
                   <div className="flex items-center gap-1">Datum {sortConfig?.key === 'datum' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                 </th>
-                <th className="p-3 cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('klient')}>
+                <th className="p-3 cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('klient')}>
                   <div className="flex items-center gap-1">Klient {sortConfig?.key === 'klient' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                 </th>
-                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('cena_klient')}>
+                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('cena_klient')}>
                   <div className="flex items-center justify-end gap-1">Částka klient {sortConfig?.key === 'cena_klient' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                 </th>
-                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('material_klient')}>
+                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('material_klient')}>
                   <div className="flex items-center justify-end gap-1">Materiál klient {sortConfig?.key === 'material_klient' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                 </th>
-                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('material_my')}>
+                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('material_my')}>
                   <div className="flex items-center justify-end gap-1">Materiál my {sortConfig?.key === 'material_my' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                 </th>
-                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('odhad_hodin')}>
+                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('odhad_hodin')}>
                   <div className="flex items-center justify-end gap-1">Odhad hodin {sortConfig?.key === 'odhad_hodin' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                 </th>
                 <th className="p-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y dark:divide-slate-700">
               {sortedAkce.map(a => (
-                <tr key={a.id} className={`hover:bg-gray-50 ${a.is_completed ? 'bg-gray-50 text-gray-400' : ''}`}>
+                <tr key={a.id} className={`hover:bg-gray-50 dark:hover:bg-slate-800 ${a.is_completed ? 'bg-gray-50 dark:bg-slate-800/50 text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
                   <td className={`p-3 font-medium ${a.is_completed ? 'line-through' : ''}`}>{a.nazev}</td>
                   <td className="p-3">{formatDate(a.datum)}</td>
                   <td className="p-3">{a.klienti?.nazev || '—'}</td>
@@ -455,13 +458,13 @@ export default function AkcePage() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => openToggleModal(a.id, a.is_completed)}
-                        className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-colors ${a.is_completed ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100/80 text-red-800 hover:bg-red-100'}`}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-colors ${a.is_completed ? 'bg-green-100 dark:bg-green-900/80 text-green-800 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-900' : 'bg-red-100/80 dark:bg-red-900/80 text-red-800 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-900'}`}
                       >
                         {a.is_completed ? 'Aktivovat' : 'Ukončit'}
                       </button>
                       {!a.is_completed && (
                         <Menu as="div" className="relative inline-block text-left">
-                          <Menu.Button className="p-2 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+                          <Menu.Button className="p-2 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-slate-700 dark:hover:text-gray-200">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
                             </svg>
@@ -475,18 +478,18 @@ export default function AkcePage() {
                             leaveFrom="transform opacity-100 scale-100"
                             leaveTo="transform opacity-0 scale-95"
                           >
-                            <Menu.Items className="absolute right-0 bottom-full z-10 mb-2 w-32 origin-bottom-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <Menu.Items className="absolute right-0 bottom-full z-10 mb-2 w-32 origin-bottom-right rounded-md bg-white dark:bg-slate-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                               <div className="py-1">
                                 <Menu.Item>
                                   {({ active }) => (
-                                    <button onClick={() => startEdit(a)} className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                    <button onClick={() => startEdit(a)} className={`${active ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'} group flex items-center w-full px-4 py-2 text-sm`}>
                                       Upravit
                                     </button>
                                   )}
                                 </Menu.Item>
                                 <Menu.Item>
                                   {({ active }) => (
-                                    <button onClick={() => openDeleteModal(a.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                    <button onClick={() => openDeleteModal(a.id)} className={`${active ? 'bg-gray-100 dark:bg-slate-700 text-red-700 dark:text-red-400' : 'text-red-600 dark:text-red-400'} group flex items-center w-full px-4 py-2 text-sm`}>
                                       Smazat
                                     </button>
                                   )}
@@ -508,16 +511,17 @@ export default function AkcePage() {
       {/* Custom Confirmation Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">{modalConfig.title}</h3>
-            <p className="text-gray-600 mb-6">{modalConfig.message}</p>
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200 border dark:border-slate-700">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{modalConfig.title}</h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">{modalConfig.message}</p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setModalOpen(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition"
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-md transition"
               >
                 Zrušit
               </button>
+
               <button
                 onClick={confirmAction}
                 disabled={loading}
