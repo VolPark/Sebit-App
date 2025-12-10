@@ -23,6 +23,24 @@ export default function MzdyPage() {
   })
   const [editingPracovnikId, setEditingPracovnikId] = useState<number | null>(null)
 
+  // Modal State
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalConfig, setModalConfig] = useState<{
+    type: 'DELETE' | null,
+    id: number | null,
+    title: string,
+    message: string,
+    actionLabel: string,
+    actionClass: string
+  }>({
+    type: null,
+    id: null,
+    title: '',
+    message: '',
+    actionLabel: '',
+    actionClass: ''
+  })
+
   // Form state
   const [hrubaMzda, setHrubaMzda] = useState('')
   const [faktura, setFaktura] = useState('')
@@ -132,7 +150,7 @@ export default function MzdyPage() {
       .upsert(upsertPayload, { onConflict: 'pracovnik_id,rok,mesic' });
 
     if (error) {
-      alert('Nepodařilo se uložit mzdu: ' + error.message);
+      setStatusMessage('Nepodařilo se uložit mzdu: ' + error.message)
     } else {
       setStatusMessage('Mzda uložena.');
       await fetchData();
@@ -140,17 +158,34 @@ export default function MzdyPage() {
     }
   };
 
-  const handleDelete = async (mzdaId: number) => {
-    if (!confirm('Opravdu smazat tento záznam o mzdě?')) return;
+  const openDeleteModal = (mzdaId: number) => {
+    setModalConfig({
+      type: 'DELETE',
+      id: mzdaId,
+      title: 'Opravdu smazat tento záznam o mzdě?',
+      message: 'Tato akce je nevratná.',
+      actionLabel: 'Smazat mzdu',
+      actionClass: 'bg-red-600 hover:bg-red-700'
+    })
+    setModalOpen(true)
+  }
 
-    const { error } = await supabase.from('mzdy').delete().eq('id', mzdaId);
-    if (error) {
-      alert('Nepodařilo se smazat mzdu: ' + error.message);
-    } else {
-      setStatusMessage('Záznam o mzdě byl smazán.');
-      fetchData();
+  const confirmAction = async () => {
+    if (!modalConfig.id) return
+
+    // We don't set global 'loading' here to avoid hiding the list, verification will happen via statusMessage or fetchData reload
+
+    if (modalConfig.type === 'DELETE') {
+      const { error } = await supabase.from('mzdy').delete().eq('id', modalConfig.id)
+      if (error) {
+        setStatusMessage('Nepodařilo se smazat mzdu: ' + error.message)
+      } else {
+        setStatusMessage('Záznam o mzdě byl smazán.')
+        fetchData()
+      }
     }
-  };
+    setModalOpen(false)
+  }
 
   // --- UI Render ---
   const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), []);
@@ -163,6 +198,12 @@ export default function MzdyPage() {
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <h2 className="text-2xl font-bold text-black mb-4">Správa mezd</h2>
+
+      {statusMessage && (
+        <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {statusMessage}
+        </div>
+      )}
 
       {/* Month Selector */}
       <div className="flex items-center justify-center gap-4 mb-8 bg-white/80 backdrop-blur-sm p-3 rounded-2xl shadow-md ring-1 ring-slate-200 max-w-md mx-auto">
@@ -239,7 +280,7 @@ export default function MzdyPage() {
                                 </Menu.Item>
                                 <Menu.Item>
                                   {({ active }) => (
-                                    <button onClick={() => handleDelete(mzda.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                    <button onClick={() => openDeleteModal(mzda.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
                                       Smazat
                                     </button>
                                   )}
@@ -294,6 +335,30 @@ export default function MzdyPage() {
           )
         })}
       </div>
+
+      {/* Custom Confirmation Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{modalConfig.title}</h3>
+            <p className="text-gray-600 mb-6">{modalConfig.message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setModalOpen(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition"
+              >
+                Zrušit
+              </button>
+              <button
+                onClick={confirmAction}
+                className={`px-4 py-2 text-white rounded-md shadow-sm transition flex items-center ${modalConfig.actionClass}`}
+              >
+                {modalConfig.actionLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -28,6 +28,24 @@ export default function VykazyPage() {
 
   const [editingId, setEditingId] = useState<number | null>(null)
 
+  // Modal State
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalConfig, setModalConfig] = useState<{
+    type: 'DELETE' | null,
+    id: number | null,
+    title: string,
+    message: string,
+    actionLabel: string,
+    actionClass: string
+  }>({
+    type: null,
+    id: null,
+    title: '',
+    message: '',
+    actionLabel: '',
+    actionClass: ''
+  })
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -85,7 +103,10 @@ export default function VykazyPage() {
   }
 
   async function ulozitVykaz() {
-    if (!selectedPracovnik?.id || !selectedAkce?.id || !hodiny) return alert('Vyplňte povinná pole (pracovník, akce, hodiny)')
+    if (!selectedPracovnik?.id || !selectedAkce?.id || !hodiny) {
+      setStatusMessage('Vyplňte povinná pole (pracovník, akce, hodiny)')
+      return
+    }
     setLoading(true)
 
     // připravíme payload; pokud existuje sloupec akce_id, uložíme ho, pokud ne, DB vrátí chybu (zachytíme)
@@ -106,7 +127,7 @@ export default function VykazyPage() {
       setStatusMessage('Výkaz uložen')
       fetchData() // Obnovit tabulku
     } else {
-      alert('Chyba: ' + error.message)
+      setStatusMessage('Chyba: ' + error.message)
     }
     setLoading(false)
   }
@@ -150,14 +171,38 @@ export default function VykazyPage() {
       cancelEdit()
       fetchData()
     } else {
-      alert(error.message)
+      setStatusMessage(error.message)
     }
     setLoading(false)
   }
-  async function deleteVykaz(id: number) {
-    if (!confirm('Opravdu smazat výkaz?')) return
-    await supabase.from('prace').delete().eq('id', id)
-    fetchData()
+  function openDeleteModal(id: number) {
+    setModalConfig({
+      type: 'DELETE',
+      id,
+      title: 'Opravdu smazat výkaz?',
+      message: 'Tato akce je nevratná.',
+      actionLabel: 'Smazat výkaz',
+      actionClass: 'bg-red-600 hover:bg-red-700'
+    })
+    setModalOpen(true)
+  }
+
+  async function confirmAction() {
+    if (!modalConfig.id) return
+    setLoading(true)
+
+    if (modalConfig.type === 'DELETE') {
+      const { error } = await supabase.from('prace').delete().eq('id', modalConfig.id)
+      if (error) {
+        setStatusMessage('Nepodařilo se smazat výkaz: ' + error.message)
+      } else {
+        setStatusMessage('Výkaz smazán')
+        fetchData()
+      }
+    }
+
+    setModalOpen(false)
+    setLoading(false)
   }
 
   const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), [])
@@ -262,7 +307,13 @@ export default function VykazyPage() {
     <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <h2 className="text-2xl font-bold mb-4 text-black">Výkazy práce</h2>
 
-      <div role="status" aria-live="polite" className="sr-only">{statusMessage}</div>
+      <h2 className="text-2xl font-bold mb-4 text-black">Výkazy práce</h2>
+
+      {statusMessage && (
+        <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {statusMessage}
+        </div>
+      )}
 
       {/* Data Integrity Check */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6 flex flex-wrap gap-4 text-sm text-blue-800 items-center">
@@ -398,7 +449,7 @@ export default function VykazyPage() {
                                   <div className="text-sm text-gray-500 mt-2">{v.popis}</div>
                                   <div className="flex gap-2 mt-3">
                                     <button onClick={() => startEdit(v)} className="text-sm text-gray-700">Upravit</button>
-                                    <button onClick={() => deleteVykaz(v.id)} className="text-sm text-red-500">Smazat</button>
+                                    <button onClick={() => openDeleteModal(v.id)} className="text-sm text-red-500">Smazat</button>
                                   </div>
                                 </>
                               )}
@@ -471,7 +522,7 @@ export default function VykazyPage() {
                             <td className="p-3 text-right">{v.pocet_hodin} h</td>
                             <td className="p-3 text-right">
                               <button onClick={() => startEdit(v)} className="text-gray-700 mr-2">Upravit</button>
-                              <button onClick={() => deleteVykaz(v.id)} className="text-red-500">Smazat</button>
+                              <button onClick={() => openDeleteModal(v.id)} className="text-red-500">Smazat</button>
                             </td>
                           </tr>
                           {v.popis && (
@@ -491,6 +542,30 @@ export default function VykazyPage() {
           </tbody>
         </table>
       </div>
+      {/* Custom Confirmation Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{modalConfig.title}</h3>
+            <p className="text-gray-600 mb-6">{modalConfig.message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setModalOpen(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition"
+              >
+                Zrušit
+              </button>
+              <button
+                onClick={confirmAction}
+                disabled={loading}
+                className={`px-4 py-2 text-white rounded-md shadow-sm transition flex items-center ${modalConfig.actionClass}`}
+              >
+                {loading ? 'Pracuji...' : modalConfig.actionLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

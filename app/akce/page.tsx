@@ -12,10 +12,29 @@ export default function AkcePage() {
   const [statusMessage, setStatusMessage] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
 
+  // Modal State
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalConfig, setModalConfig] = useState<{
+    type: 'DELETE' | 'TOGGLE' | null,
+    id: number | null,
+    title: string,
+    message: string,
+    actionLabel: string,
+    actionClass: string,
+    data?: any
+  }>({
+    type: null,
+    id: null,
+    title: '',
+    message: '',
+    actionLabel: '',
+    actionClass: '',
+  })
+
   // Form state
   const [nazev, setNazev] = useState('')
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0])
-  const [selectedKlient, setSelectedKlient] = useState<{id: string, name: string} | null>(null)
+  const [selectedKlient, setSelectedKlient] = useState<{ id: string, name: string } | null>(null)
   const [showNewClientForm, setShowNewClientForm] = useState(false)
   const [newClientName, setNewClientName] = useState('')
   const [cenaKlient, setCenaKlient] = useState('')
@@ -109,7 +128,10 @@ export default function AkcePage() {
   }
 
   async function saveAkce() {
-    if (!nazev || !datum) return alert('Vyplňte název a datum')
+    if (!nazev || !datum) {
+      setStatusMessage('Chyba: Vyplňte název a datum')
+      return
+    }
     setLoading(true)
 
     const ensureClient = async (): Promise<number | null> => {
@@ -121,7 +143,7 @@ export default function AkcePage() {
           .select('id')
           .single();
         if (error) {
-          alert('Nepodařilo se vytvořit nového klienta: ' + error.message);
+          setStatusMessage('Nepodařilo se vytvořit nového klienta: ' + error.message)
           return null;
         }
         // Also select it in the form
@@ -133,11 +155,11 @@ export default function AkcePage() {
 
     const finalKlientId = await ensureClient();
     if ((showNewClientForm && newClientName && !finalKlientId)) {
-        setLoading(false);
-        return; // Stop if new client creation was intended but failed
+      setLoading(false);
+      return; // Stop if new client creation was intended but failed
     }
 
-    const payload:any = {
+    const payload: any = {
       nazev,
       datum,
       klient_id: finalKlientId,
@@ -146,8 +168,8 @@ export default function AkcePage() {
       material_my: parseFloat(materialMy || '0') || 0,
       odhad_hodin: parseFloat(odhadHodin || '0') || 0,
     };
-    
-    if(!editingId) {
+
+    if (!editingId) {
       payload.is_completed = false;
     }
 
@@ -157,10 +179,10 @@ export default function AkcePage() {
     } else {
       ({ error } = await supabase.from('akce').insert([payload]));
     }
-    
+
     if (error) {
       console.error('Chyba při ukládání akce', error);
-      alert('Nepodařilo se uložit akci: ' + (error.message || JSON.stringify(error)));
+      setStatusMessage('Nepodařilo se uložit akci: ' + (error.message || JSON.stringify(error)))
     } else {
       setStatusMessage(editingId ? 'Akce upravena' : 'Akce uložena');
       cancelEdit();
@@ -169,27 +191,69 @@ export default function AkcePage() {
     setLoading(false);
   }
 
-  async function deleteAkce(id: number) {
-    if (!confirm('Opravdu smazat tuto akci?')) return
-    await supabase.from('akce').delete().eq('id', id)
-    fetchAll()
+  function openDeleteModal(id: number) {
+    setModalConfig({
+      type: 'DELETE',
+      id,
+      title: 'Opravdu smazat tuto akci?',
+      message: 'Tato akce bude trvale smazána.',
+      actionLabel: 'Smazat akci',
+      actionClass: 'bg-red-600 hover:bg-red-700'
+    })
+    setModalOpen(true)
   }
-  
-  async function toggleCompleteAkce(id: number, currentStatus: boolean) {
-    const actionText = currentStatus ? 'aktivovat' : 'ukončit';
-    if (!confirm(`Opravdu chcete ${actionText} tuto akci?`)) return
-    
-    const { error } = await supabase
-      .from('akce')
-      .update({ is_completed: !currentStatus })
-      .eq('id', id)
-      
-    if (error) {
-      alert(`Nepodařilo se ${actionText} akci: ` + error.message)
-    } else {
-      setStatusMessage(`Akce ${actionText}a`)
-      fetchAll()
+
+  function openToggleModal(id: number, currentStatus: boolean) {
+    const actionText = currentStatus ? 'ukončit' : 'aktivovat'; // current=false (neukončeno) -> ukončit, current=true (ukončeno) -> aktivovat
+    // currentStatus = is_completed
+    // if is_completed (true), button says "Aktivovat", so actionText should be 'aktivovat'
+    // if !is_completed (false), button says "Ukončit", so actionText should be 'ukončit'
+
+    // Note: The logic in original toggleCompleteAkce:
+    // const actionText = currentStatus ? 'aktivovat' : 'ukončit';
+    // where currentStatus passed in is 'is_completed'.
+    // if is_completed=true, actionText='aktivovat'. Correct.
+
+    setModalConfig({
+      type: 'TOGGLE',
+      id,
+      title: `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} akci?`,
+      message: `Opravdu chcete ${actionText} tuto akci?`,
+      actionLabel: currentStatus ? 'Aktivovat' : 'Ukončit',
+      actionClass: currentStatus ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700',
+      data: { currentStatus }
+    })
+    setModalOpen(true)
+  }
+
+  async function confirmAction() {
+    if (!modalConfig.id) return
+    setLoading(true)
+
+    if (modalConfig.type === 'DELETE') {
+      const { error } = await supabase.from('akce').delete().eq('id', modalConfig.id)
+      if (error) {
+        setStatusMessage('Nepodařilo se smazat akci: ' + error.message)
+      } else {
+        setStatusMessage('Akce smazána')
+        fetchAll()
+      }
+    } else if (modalConfig.type === 'TOGGLE') {
+      const { error } = await supabase
+        .from('akce')
+        .update({ is_completed: !modalConfig.data.currentStatus })
+        .eq('id', modalConfig.id)
+
+      if (error) {
+        setStatusMessage(`Nepodařilo se změnit stav akce: ` + error.message)
+      } else {
+        setStatusMessage(`Stav akce změněn`)
+        fetchAll()
+      }
     }
+
+    setModalOpen(false)
+    setLoading(false)
   }
 
   const currency = (v: number) => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(v)
@@ -197,7 +261,12 @@ export default function AkcePage() {
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <h2 className="text-2xl font-bold mb-4 text-black">Správa akcí</h2>
-      <div role="status" aria-live="polite" className="sr-only">{statusMessage}</div>
+
+      {statusMessage && (
+        <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {statusMessage}
+        </div>
+      )}
 
       {/* Form */}
       <div className="mb-6">
@@ -206,12 +275,12 @@ export default function AkcePage() {
             <label className="block text-sm font-medium text-gray-600 mb-1">Název akce</label>
             <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="Např. Realizace kuchyně" value={nazev} onChange={e => setNazev(e.target.value)} />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Datum</label>
             <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" type="date" value={datum} onChange={e => setDatum(e.target.value)} />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Klient</label>
             <div className="flex items-center gap-2">
@@ -223,11 +292,11 @@ export default function AkcePage() {
               </button>
             </div>
             {showNewClientForm && (
-              <input 
-                className="mt-2 w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" 
-                placeholder="Jméno nového klienta" 
-                value={newClientName} 
-                onChange={e => setNewClientName(e.target.value)} 
+              <input
+                className="mt-2 w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30"
+                placeholder="Jméno nového klienta"
+                value={newClientName}
+                onChange={e => setNewClientName(e.target.value)}
               />
             )}
           </div>
@@ -242,7 +311,7 @@ export default function AkcePage() {
               <input className="w-full rounded-lg bg-white border border-slate-300 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30" placeholder="0" value={odhadHodin} onChange={e => setOdhadHodin(e.target.value)} type="number" />
             </div>
           </div>
-          
+
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Materiál (klient)</label>
@@ -295,8 +364,8 @@ export default function AkcePage() {
                 <div><span className="font-medium">Odhad:</span> {a.odhad_hodin} h</div>
               </div>
               <div className="flex items-center justify-between mt-4">
-                <button 
-                  onClick={() => toggleCompleteAkce(a.id, a.is_completed)} 
+                <button
+                  onClick={() => openToggleModal(a.id, a.is_completed)}
                   className={`rounded-full px-4 py-1.5 text-sm font-semibold shadow-sm transition-colors ${a.is_completed ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100/80 text-red-800 hover:bg-red-100'}`}
                 >
                   {a.is_completed ? 'Aktivovat' : 'Ukončit'}
@@ -328,7 +397,7 @@ export default function AkcePage() {
                           </Menu.Item>
                           <Menu.Item>
                             {({ active }) => (
-                              <button onClick={() => deleteAkce(a.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
+                              <button onClick={() => openDeleteModal(a.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
                                 Smazat
                               </button>
                             )}
@@ -342,7 +411,7 @@ export default function AkcePage() {
             </div>
           ))}
         </div>
-        
+
         {/* Desktop */}
         <div className="hidden md:block">
           <table className="w-full text-left text-sm border-collapse">
@@ -384,8 +453,8 @@ export default function AkcePage() {
                   <td className="p-3 text-right">{a.odhad_hodin}</td>
                   <td className="p-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button 
-                        onClick={() => toggleCompleteAkce(a.id, a.is_completed)} 
+                      <button
+                        onClick={() => openToggleModal(a.id, a.is_completed)}
                         className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-colors ${a.is_completed ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100/80 text-red-800 hover:bg-red-100'}`}
                       >
                         {a.is_completed ? 'Aktivovat' : 'Ukončit'}
@@ -397,34 +466,34 @@ export default function AkcePage() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
                             </svg>
                           </Menu.Button>
-                            <Transition
-                              as={Fragment}
-                              enter="transition ease-out duration-100"
-                              enterFrom="transform opacity-0 scale-95"
-                              enterTo="transform opacity-100 scale-100"
-                              leave="transition ease-in duration-75"
-                              leaveFrom="transform opacity-100 scale-100"
-                              leaveTo="transform opacity-0 scale-95"
-                            >
-                              <Menu.Items className="absolute right-0 bottom-full z-10 mb-2 w-32 origin-bottom-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                                <div className="py-1">
-                                  <Menu.Item>
-                                    {({ active }) => (
-                                      <button onClick={() => startEdit(a)} className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}>
-                                        Upravit
-                                      </button>
-                                    )}
-                                  </Menu.Item>
-                                  <Menu.Item>
-                                    {({ active }) => (
-                                      <button onClick={() => deleteAkce(a.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
-                                        Smazat
-                                      </button>
-                                    )}
-                                  </Menu.Item>
-                                </div>
-                              </Menu.Items>
-                            </Transition>
+                          <Transition
+                            as={Fragment}
+                            enter="transition ease-out duration-100"
+                            enterFrom="transform opacity-0 scale-95"
+                            enterTo="transform opacity-100 scale-100"
+                            leave="transition ease-in duration-75"
+                            leaveFrom="transform opacity-100 scale-100"
+                            leaveTo="transform opacity-0 scale-95"
+                          >
+                            <Menu.Items className="absolute right-0 bottom-full z-10 mb-2 w-32 origin-bottom-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                              <div className="py-1">
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button onClick={() => startEdit(a)} className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                      Upravit
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button onClick={() => openDeleteModal(a.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                      Smazat
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                              </div>
+                            </Menu.Items>
+                          </Transition>
                         </Menu>
                       )}
                     </div>
@@ -435,8 +504,32 @@ export default function AkcePage() {
           </table>
         </div>
       </div>
+
+      {/* Custom Confirmation Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{modalConfig.title}</h3>
+            <p className="text-gray-600 mb-6">{modalConfig.message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setModalOpen(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition"
+              >
+                Zrušit
+              </button>
+              <button
+                onClick={confirmAction}
+                disabled={loading}
+                className={`px-4 py-2 text-white rounded-md shadow-sm transition flex items-center ${modalConfig.actionClass}`}
+              >
+                {loading ? 'Pracuji...' : modalConfig.actionLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-  
