@@ -10,11 +10,17 @@ const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", 
 export default function MzdyPage() {
   // Data state
   const [pracovnici, setPracovnici] = useState<any[]>([])
-  
+
   // UI state
   const [loading, setLoading] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    if (now.getFullYear() < 2025) {
+      return new Date(2025, 0, 1);
+    }
+    return now;
+  })
   const [editingPracovnikId, setEditingPracovnikId] = useState<number | null>(null)
 
   // Form state
@@ -28,37 +34,37 @@ export default function MzdyPage() {
 
   async function fetchData() {
     setLoading(true);
-    
+
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth() + 1;
 
     // 1. Fetch all workers
     const { data: allPracovnici, error: pracError } = await supabase
-        .from('pracovnici')
-        .select('*')
-        .order('jmeno');
+      .from('pracovnici')
+      .select('*')
+      .order('jmeno');
 
     // 2. Fetch all salaries for the selected month
     const { data: monthlyMzdy, error: mzdyError } = await supabase
-        .from('mzdy')
-        .select('*')
-        .eq('rok', year)
-        .eq('mesic', month);
+      .from('mzdy')
+      .select('*')
+      .eq('rok', year)
+      .eq('mesic', month);
 
     if (pracError || mzdyError) {
-        console.error('Chyba při načítání dat:', pracError || mzdyError);
-        setStatusMessage('Nepodařilo se načíst data.');
-        setLoading(false);
-        return;
+      console.error('Chyba při načítání dat:', pracError || mzdyError);
+      setStatusMessage('Nepodařilo se načíst data.');
+      setLoading(false);
+      return;
     }
 
     // 3. Combine the data
     const mzdyMap = new Map(monthlyMzdy.map(m => [m.pracovnik_id, m]));
     const combinedData = allPracovnici.map(p => ({
-        ...p,
-        mzda: mzdyMap.get(p.id) || null,
+      ...p,
+      mzda: mzdyMap.get(p.id) || null,
     }));
-    
+
     // 4. Filter for display according to the new rule: show if active OR if they have a salary this month
     const filteredPracovnici = combinedData.filter(p => p.is_active || p.mzda !== null);
 
@@ -72,15 +78,20 @@ export default function MzdyPage() {
     setSelectedDate(currentDate => {
       const newDate = new Date(currentDate);
       newDate.setMonth(newDate.getMonth() + offset);
+
+      // Restriction: Do not allow going before Jan 2025
+      if (newDate.getFullYear() < 2025) {
+        return new Date(2025, 0, 1);
+      }
       return newDate;
     });
   }
-  
+
   // --- Form handling ---
   const startEditing = (pracovnik: any) => {
     // Prevent editing if worker is inactive
     if (!pracovnik.is_active) return;
-    
+
     setEditingPracovnikId(pracovnik.id);
     const mzda = pracovnik.mzda;
     if (mzda) {
@@ -96,7 +107,7 @@ export default function MzdyPage() {
     setEditingPracovnikId(null);
     resetForm();
   };
-  
+
   const resetForm = () => {
     setHrubaMzda('');
     setFaktura('');
@@ -124,14 +135,14 @@ export default function MzdyPage() {
       alert('Nepodařilo se uložit mzdu: ' + error.message);
     } else {
       setStatusMessage('Mzda uložena.');
-      await fetchData(); 
+      await fetchData();
       cancelEditing();
     }
   };
 
   const handleDelete = async (mzdaId: number) => {
     if (!confirm('Opravdu smazat tento záznam o mzdě?')) return;
-    
+
     const { error } = await supabase.from('mzdy').delete().eq('id', mzdaId);
     if (error) {
       alert('Nepodařilo se smazat mzdu: ' + error.message);
@@ -152,10 +163,14 @@ export default function MzdyPage() {
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <h2 className="text-2xl font-bold text-black mb-4">Správa mezd</h2>
-      
+
       {/* Month Selector */}
       <div className="flex items-center justify-center gap-4 mb-8 bg-white/80 backdrop-blur-sm p-3 rounded-2xl shadow-md ring-1 ring-slate-200 max-w-md mx-auto">
-        <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-200 transition-colors">
+        <button
+          onClick={() => changeMonth(-1)}
+          disabled={selectedDate.getFullYear() === 2025 && selectedDate.getMonth() === 0}
+          className={`p-2 rounded-full transition-colors ${selectedDate.getFullYear() === 2025 && selectedDate.getMonth() === 0 ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-200'}`}
+        >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
         <span className="text-xl font-semibold w-48 text-center">
@@ -178,13 +193,13 @@ export default function MzdyPage() {
           const mzda = p.mzda;
           const isEditing = editingPracovnikId === p.id;
           const canEdit = p.is_active;
-          
+
           return (
             <div key={p.id} className={`bg-white rounded-2xl shadow-sm ring-1 transition-all ${isEditing ? 'ring-[#E30613]' : 'ring-slate-200'} ${!canEdit ? 'bg-gray-50' : ''}`}>
               {/* --- Collapsed View --- */}
               {!isEditing && (
                 <div className={`p-4 flex items-center justify-between`}>
-                  <div 
+                  <div
                     className={`flex-grow ${canEdit && !mzda ? 'cursor-pointer' : 'cursor-default'}`}
                     onClick={() => canEdit && !mzda && startEditing(p)}
                   >
@@ -196,43 +211,43 @@ export default function MzdyPage() {
                       <span className="text-sm text-gray-500 hidden sm:block">
                         {currency.format(mzda.hruba_mzda || 0)} + {currency.format(mzda.faktura || 0)} + {currency.format(mzda.priplatek || 0)}
                       </span>
-                      <span className={`font-bold text-lg ${!canEdit ? 'text-gray-500': ''}`}>{currency.format(mzda.celkova_castka)}</span>
+                      <span className={`font-bold text-lg ${!canEdit ? 'text-gray-500' : ''}`}>{currency.format(mzda.celkova_castka)}</span>
                       {canEdit && (
-                         <Menu as="div" className="relative inline-block text-left">
-                            <Menu.Button className="p-2 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
-                              </svg>
-                            </Menu.Button>
-                            <Transition
-                              as={Fragment}
-                              enter="transition ease-out duration-100"
-                              enterFrom="transform opacity-0 scale-95"
-                              enterTo="transform opacity-100 scale-100"
-                              leave="transition ease-in duration-75"
-                              leaveFrom="transform opacity-100 scale-100"
-                              leaveTo="transform opacity-0 scale-95"
-                            >
-                              <Menu.Items className="absolute right-0 bottom-full z-10 mb-2 w-32 origin-bottom-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                                <div className="py-1">
-                                  <Menu.Item>
-                                    {({ active }) => (
-                                      <button onClick={() => startEditing(p)} className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}>
-                                        Upravit
-                                      </button>
-                                    )}
-                                  </Menu.Item>
-                                  <Menu.Item>
-                                    {({ active }) => (
-                                      <button onClick={() => handleDelete(mzda.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
-                                        Smazat
-                                      </button>
-                                    )}
-                                  </Menu.Item>
-                                </div>
-                              </Menu.Items>
-                            </Transition>
-                          </Menu>
+                        <Menu as="div" className="relative inline-block text-left">
+                          <Menu.Button className="p-2 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                            </svg>
+                          </Menu.Button>
+                          <Transition
+                            as={Fragment}
+                            enter="transition ease-out duration-100"
+                            enterFrom="transform opacity-0 scale-95"
+                            enterTo="transform opacity-100 scale-100"
+                            leave="transition ease-in duration-75"
+                            leaveFrom="transform opacity-100 scale-100"
+                            leaveTo="transform opacity-0 scale-95"
+                          >
+                            <Menu.Items className="absolute right-0 bottom-full z-10 mb-2 w-32 origin-bottom-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                              <div className="py-1">
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button onClick={() => startEditing(p)} className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                      Upravit
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button onClick={() => handleDelete(mzda.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                      Smazat
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                              </div>
+                            </Menu.Items>
+                          </Transition>
+                        </Menu>
                       )}
                     </div>
                   ) : (
@@ -250,7 +265,7 @@ export default function MzdyPage() {
                   )}
                 </div>
               )}
-              
+
               {/* --- Expanded/Editing View --- */}
               {isEditing && (
                 <div className="p-4">

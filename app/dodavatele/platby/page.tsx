@@ -8,6 +8,7 @@ export default function PlatbyDodavatelumPage() {
   const [platby, setPlatby] = useState<any[]>([])
   const [month, setMonth] = useState(() => {
     const d = new Date()
+    if (d.getFullYear() < 2025) return '2025-01';
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` // YYYY-MM
   })
   const [loading, setLoading] = useState(false)
@@ -32,7 +33,7 @@ export default function PlatbyDodavatelumPage() {
     setLoading(true)
     // uložíme mesic jako první den měsíce a dotazujeme přesně na tento den (jednodušší a spolehlivější)
     const [y, mm] = m.split('-').map(Number)
-    const mesic = `${y}-${String(mm).padStart(2,'0')}-01`
+    const mesic = `${y}-${String(mm).padStart(2, '0')}-01`
 
     const { data, error } = await supabase
       .from('platby')
@@ -56,7 +57,7 @@ export default function PlatbyDodavatelumPage() {
     const [y, mm] = month.split('-').map(Number)
     const monthStart = new Date(y, mm - 1, 1)
     const monthEnd = new Date(y, mm, 0)
-    const map = new Map<number, { id:number, jmeno:string, sazba:number, hodiny:number }>()
+    const map = new Map<number, { id: number, jmeno: string, sazba: number, hodiny: number }>()
     prace.forEach((r) => {
       const d = new Date(r.datum)
       if (d >= monthStart && d <= monthEnd) {
@@ -84,14 +85,14 @@ export default function PlatbyDodavatelumPage() {
       .map(i => ({ id: i.id, jmeno: i.jmeno, sazba: i.sazba, hodiny: i.hodiny, castka: Math.round(i.hodiny * i.sazba * 100) / 100, hasHours: (i.hodiny > 0) }))
   }, [prace, pracovnici, month])
 
-  async function reconcile(supplierId:number) {
+  async function reconcile(supplierId: number) {
     if (!confirm('Opravdu označit jako zaplaceno pro vybraný měsíc?')) return
     setLoading(true)
     const entry = aggregates.find(a => a.id === supplierId)
     if (!entry) { alert('Dodavatel nenalezen'); setLoading(false); return }
     // připravíme payload — předpoklad: tabulka platby má sloupce: dodavatel_id, mesic (date), hodiny, sazba, castka, zaplaceno (boolean)
     const [y, mm] = month.split('-').map(Number)
-    const mesic = `${y}-${String(mm).padStart(2,'0')}-01`
+    const mesic = `${y}-${String(mm).padStart(2, '0')}-01`
 
     // Použijeme upsert s onConflict (dodavatel_id, mesic) -> pokud již platba existuje, aktualizujeme ji.
     const payload = {
@@ -126,13 +127,13 @@ export default function PlatbyDodavatelumPage() {
     setLoading(false)
   }
 
-  function isPaid(supplierId:number) {
+  function isPaid(supplierId: number) {
     // zjednodušeně: hledáme platbu se stejným dodavatelem v platby[] (pro zvolený měsíc)
     return platby.some(p => Number(p.dodavatel_id) === supplierId)
   }
 
   // simple currency formatter
-  const currency = (v:number) => new Intl.NumberFormat('cs-CZ', { style:'currency', currency:'CZK', maximumFractionDigits:0 }).format(v)
+  const currency = (v: number) => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(v)
 
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto">
@@ -140,7 +141,7 @@ export default function PlatbyDodavatelumPage() {
 
       <div className="mb-4 flex flex-col sm:flex-row gap-2 items-start sm:items-center">
         <label className="text-sm text-gray-600 mr-2">Vyberte měsíc</label>
-        <input type="month" value={month} onChange={e => { setMonth(e.target.value); fetchPlatbyForMonth(e.target.value) }} className="border p-2 rounded" />
+        <input type="month" value={month} onChange={e => { setMonth(e.target.value); fetchPlatbyForMonth(e.target.value) }} className="border p-2 rounded" min="2025-01" />
         <div className="text-sm text-gray-500 ml-4">{status}</div>
       </div>
 

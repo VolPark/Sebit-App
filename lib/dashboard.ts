@@ -57,8 +57,16 @@ export async function getDashboardData(
     const monthlyData: MonthlyData[] = [];
     const now = new Date();
 
+    // We only want to show data from 2025 onwards
+    // For last 12 months, if that goes back to 2024, we should stop at Jan 2025
+    const limitDate = new Date(2025, 0, 1); // Jan 1, 2025
+
     for (let i = 11; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+
+      // Skip months before Jan 2025
+      if (date < limitDate) continue;
+
       const year = date.getFullYear();
       const month = date.getMonth();
 
@@ -393,6 +401,10 @@ export async function getDetailedStats(
 
   if (period === 'last12months') {
     startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    const limitDate = new Date(2025, 0, 1);
+    if (startDate < limitDate) {
+      startDate = limitDate;
+    }
     endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   } else {
     const year = period.year;

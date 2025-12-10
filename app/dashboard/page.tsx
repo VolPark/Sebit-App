@@ -300,7 +300,14 @@ export default function DashboardPage() {
 
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
-    return Array.from({ length: 5 }, (_, i) => currentYear - i);
+    const startYear = 2025;
+    const years = [];
+    for (let y = currentYear; y >= startYear; y--) {
+      years.push(y);
+    }
+    // If current year is before 2025 (unlikely based on requirements, but safe), ensure 2025 is there
+    if (years.length === 0) years.push(2025);
+    return years;
   }, []);
 
   useEffect(() => {
