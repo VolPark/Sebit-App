@@ -46,8 +46,9 @@ const getISODateRange = (startDate: Date, endDate: Date) => {
 };
 
 // Main data fetching function
+// Main data fetching function
 export async function getDashboardData(
-  period: 'month' | 'last12months' | { year: number },
+  period: 'month' | 'last12months' | { year: number; month?: number },
   filters: { pracovnikId?: number | null, klientId?: number | null }
 ): Promise<DashboardData> {
 
@@ -192,7 +193,9 @@ export async function getDashboardData(
     const clientMap = new Map<number, { name: string, total: number }>();
     for (const a of aggregatedAkce) {
       if (a.klient_id && a.klienti) {
-        const current = clientMap.get(a.klient_id) || { name: a.klienti.nazev, total: 0 };
+        // @ts-ignore
+        const clientName = Array.isArray(a.klienti) ? a.klienti[0]?.nazev : a.klienti?.nazev;
+        const current = clientMap.get(a.klient_id) || { name: clientName || 'Neznámý', total: 0 };
         current.total += a.cena_klient || 0;
         clientMap.set(a.klient_id, current);
       }
@@ -203,7 +206,9 @@ export async function getDashboardData(
     const workerMap = new Map<number, { name: string, total: number }>();
     for (const p of aggregatedPrace) {
       if (p.pracovnik_id && p.pracovnici) {
-        const current = workerMap.get(p.pracovnik_id) || { name: p.pracovnici.jmeno, total: 0 };
+        // @ts-ignore
+        const workerName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
+        const current = workerMap.get(p.pracovnik_id) || { name: workerName || 'Neznámý', total: 0 };
         current.total += p.pocet_hodin || 0;
         workerMap.set(p.pracovnik_id, current);
       }
@@ -228,25 +233,41 @@ export async function getDashboardData(
     };
 
   } else {
-    // --- Logic for Single Period (This Month or Year) ---
+    // --- Logic for Single Period (This Month, Year, or Specific Month in Year) ---
     const now = new Date();
     let startDate: Date;
-    let endDate: Date = new Date();
+    let endDate: Date;
 
     if (period === 'month') {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    } else { // 'year'
+    } else { // 'year' or { year, ?month }
       const year = typeof period === 'object' ? period.year : now.getFullYear();
-      startDate = new Date(year, 0, 1);
-      endDate = new Date(year, 11, 31);
+      if (typeof period === 'object' && period.month !== undefined && period.month !== null) {
+        startDate = new Date(year, period.month, 1);
+        endDate = new Date(year, period.month + 1, 0);
+      } else {
+        startDate = new Date(year, 0, 1);
+        endDate = new Date(year, 11, 31);
+      }
     }
     const { start, end } = getISODateRange(startDate, endDate);
 
     let akceQuery = supabase.from('akce').select('cena_klient, material_my, material_klient, odhad_hodin, klient_id, klienti(nazev)').gte('datum', start).lte('datum', end);
     if (filters.klientId) akceQuery = akceQuery.eq('klient_id', filters.klientId);
 
-    let mzdyQuery = supabase.from('mzdy').select('celkova_castka, pracovnik_id').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
+    // Mzdy query needs to handle month ranges if specific month selected, otherwise year filter
+    let mzdyQuery = supabase.from('mzdy').select('celkova_castka, pracovnik_id');
+
+    if (period === 'month' || (typeof period === 'object' && period.month !== undefined && period.month !== null)) {
+      // Specific month - either current month or selected month
+      const mDate = startDate; // startDate is correctly set above for both cases
+      mzdyQuery = mzdyQuery.eq('rok', mDate.getFullYear()).eq('mesic', mDate.getMonth() + 1);
+    } else {
+      // Whole year range
+      mzdyQuery = mzdyQuery.gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
+    }
+
     if (filters.pracovnikId) mzdyQuery = mzdyQuery.eq('pracovnik_id', filters.pracovnikId);
 
     let praceQuery = supabase.from('prace').select('pocet_hodin, pracovnik_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
@@ -274,7 +295,7 @@ export async function getDashboardData(
 
     let averageMonthlyWage = 0;
     if (uniqueEmployeeCount > 0) {
-      if (period === 'month') {
+      if (period === 'month' || (typeof period === 'object' && period.month !== undefined)) {
         averageMonthlyWage = totalLaborCost / uniqueEmployeeCount;
       } else { // year
         const averageYearlySalary = totalLaborCost / uniqueEmployeeCount;
@@ -289,7 +310,9 @@ export async function getDashboardData(
     const clientMap = new Map<number, { name: string, total: number }>();
     for (const a of akceData) {
       if (a.klient_id && a.klienti) {
-        const current = clientMap.get(a.klient_id) || { name: a.klienti.nazev, total: 0 };
+        // @ts-ignore
+        const clientName = Array.isArray(a.klienti) ? a.klienti[0]?.nazev : a.klienti?.nazev;
+        const current = clientMap.get(a.klient_id) || { name: clientName || 'Neznámý', total: 0 };
         current.total += a.cena_klient || 0;
         clientMap.set(a.klient_id, current);
       }
@@ -300,7 +323,9 @@ export async function getDashboardData(
     const workerMap = new Map<number, { name: string, total: number }>();
     for (const p of praceData) {
       if (p.pracovnik_id && p.pracovnici) {
-        const current = workerMap.get(p.pracovnik_id) || { name: p.pracovnici.jmeno, total: 0 };
+        // @ts-ignore
+        const workerName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
+        const current = workerMap.get(p.pracovnik_id) || { name: workerName || 'Neznámý', total: 0 };
         current.total += p.pocet_hodin || 0;
         workerMap.set(p.pracovnik_id, current);
       }
@@ -360,19 +385,24 @@ export interface ActionStats {
 }
 
 export async function getDetailedStats(
-  period: 'last12months' | { year: number }
+  period: 'last12months' | { year: number; month?: number }
 ) {
   const now = new Date();
   let startDate: Date;
-  let endDate: Date = new Date();
+  let endDate: Date;
 
   if (period === 'last12months') {
     startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
     endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   } else {
     const year = period.year;
-    startDate = new Date(year, 0, 1);
-    endDate = new Date(year, 11, 31);
+    if (period.month !== undefined && period.month !== null) {
+      startDate = new Date(year, period.month, 1);
+      endDate = new Date(year, period.month + 1, 0);
+    } else {
+      startDate = new Date(year, 0, 1);
+      endDate = new Date(year, 11, 31);
+    }
   }
 
   const start = startDate.toISOString();
@@ -382,7 +412,7 @@ export async function getDetailedStats(
     supabase.from('pracovnici').select('*'),
     supabase.from('klienti').select('*'),
     supabase.from('prace').select('*').gte('datum', start).lte('datum', end),
-    supabase.from('mzdy').select('*').gte('rok', startDate.getFullYear() - 1).lte('rok', endDate.getFullYear() + 1),
+    supabase.from('mzdy').select('*').gte('rok', startDate.getFullYear() - 1).lte('rok', endDate.getFullYear() + 1), // Fetch broader range to be safe
     supabase.from('akce').select('*').gte('datum', start).lte('datum', end) // We need all actions to map ID -> Client
   ]);
 
@@ -412,9 +442,15 @@ export async function getDetailedStats(
   // Process Workers Stats
   const workerStats: WorkerStats[] = workers.map(w => {
     const wPrace = prace.filter(p => p.pracovnik_id === w.id);
+
+    // Filter wages to only include those in the current period
     const wMzdy = mzdy.filter(m => {
       if (m.pracovnik_id !== w.id) return false;
       const mDate = new Date(m.rok, m.mesic - 1, 1);
+      // Check intersection of month with period
+      // Since mzdy are monthly, we check if the month is within [startDate, endDate]
+      // Because start/end dates for 'month' period are 1st to last day, this works.
+      // For 'year' it also works.
       return mDate >= startDate && mDate <= endDate;
     });
 
@@ -429,7 +465,9 @@ export async function getDetailedStats(
       // If total hours > 0, calculate real rate. Else use base rate.
       avgHourlyRate: totalHours > 0 ? totalWages / totalHours : (workerBaseRateMap.get(w.id) || 0)
     };
-  }).sort((a, b) => b.totalHours - a.totalHours);
+  })
+    .filter(w => w.totalHours > 0 || w.totalWages > 0) // Filter out inactive workers
+    .sort((a, b) => b.totalHours - a.totalHours);
 
 
   // Process Clients (Labor Cost Calculation)

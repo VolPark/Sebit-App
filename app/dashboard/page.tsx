@@ -20,7 +20,7 @@ const KPICard = ({ title, value, helpText, percentage, percentageColor }: { titl
   );
 };
 
-const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, clients, year, setYear, availableYears, showFilters }: any) => (
+const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, clients, year, setYear, availableYears, showFilters, month, setMonth }: any) => (
   <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
     <div className="p-1 bg-gray-100 rounded-full flex items-center w-fit">
       {(['last12months', 'year'] as const).map(p => (
@@ -36,20 +36,32 @@ const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, cl
 
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {period === 'year' && (
-        <select
-          value={year}
-          onChange={e => setYear(Number(e.target.value))}
-          className="w-full rounded-lg bg-white border-slate-300 p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30"
-        >
-          {availableYears.map((y: number) => <option key={y} value={y}>{y}</option>)}
-        </select>
+        <div className="col-span-1 sm:col-span-2 grid grid-cols-2 gap-2">
+          <select
+            value={year}
+            onChange={e => setYear(Number(e.target.value))}
+            className="w-full rounded-lg bg-white border-slate-300 p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30"
+          >
+            {availableYears.map((y: number) => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <select
+            value={month}
+            onChange={e => setMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            className="w-full rounded-lg bg-white border-slate-300 p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30"
+          >
+            <option value="all">Celý rok</option>
+            {['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'].map((m, i) => (
+              <option key={i} value={i}>{m}</option>
+            ))}
+          </select>
+        </div>
       )}
       {showFilters && (
         <>
           <select
             value={filters.pracovnikId || ''}
             onChange={e => setFilters({ ...filters, pracovnikId: e.target.value ? Number(e.target.value) : null })}
-            className="w-full rounded-lg bg-white border-slate-300 p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 sm:col-span-1"
+            className={`w-full rounded-lg bg-white border-slate-300 p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 sm:col-span-1 ${period !== 'year' ? 'col-start-1' : ''}`}
           >
             <option value="">Všichni pracovníci</option>
             {workers.map((w: FilterOption) => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -279,6 +291,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'last12months' | 'year'>('last12months');
   const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState<number | 'all'>('all'); // NEW: Month state
   const [filters, setFilters] = useState<{ pracovnikId?: number | null, klientId?: number | null }>({});
 
   const [workers, setWorkers] = useState<FilterOption[]>([]);
@@ -303,7 +316,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadDashboard() {
       setLoading(true);
-      const periodParam = period === 'year' ? { year } : period;
+      const periodParam = period === 'year' ? { year, month: month === 'all' ? undefined : month } : period;
 
       const [dashboardData, stats] = await Promise.all([
         getDashboardData(periodParam, filters),
@@ -317,7 +330,7 @@ export default function DashboardPage() {
       setLoading(false);
     }
     loadDashboard();
-  }, [period, filters, year]);
+  }, [period, filters, year, month]);
 
   const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), []);
 
@@ -343,11 +356,17 @@ export default function DashboardPage() {
 
     let helpText: string;
     let titleSuffix: string = '';
+
+    // Helper to get month name by index
+    const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
+
     if (selectedMonth) {
       helpText = `Data za ${selectedMonth.month} ${selectedMonth.year}`;
     } else if (period === 'last12months') {
       helpText = "Za posledních 12 měsíců";
       titleSuffix = 'Celkové '
+    } else if (month !== 'all' && typeof month === 'number') {
+      helpText = `Data za ${monthNames[month]} ${year}`;
     } else {
       helpText = `Data za rok ${year}`;
     }
@@ -389,6 +408,7 @@ export default function DashboardPage() {
         workers={workers} clients={clients}
         year={year} setYear={setYear} availableYears={availableYears}
         showFilters={view === 'firma'}
+        month={month} setMonth={setMonth}
       />
 
       {loading || !data || !detailedStats ? (
