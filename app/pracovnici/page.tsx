@@ -32,7 +32,7 @@ export default function PracovniciPage() {
       .select('*')
       .eq('is_active', !showInactive)
       .order('jmeno')
-      
+
     if (data) setPracovnici(data)
     if (error) {
       console.error('Chyba při načítání pracovníků:', error)
@@ -41,24 +41,54 @@ export default function PracovniciPage() {
     setLoading(false)
   }
 
+  // Modal State
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalConfig, setModalConfig] = useState<{
+    type: 'DELETE' | 'TOGGLE' | null,
+    id: number | null,
+    title: string,
+    message: string,
+    actionLabel: string,
+    actionClass: string,
+    data?: any
+  }>({
+    type: null,
+    id: null,
+    title: '',
+    message: '',
+    actionLabel: '',
+    actionClass: '',
+  })
+
   async function pridatPracovnika() {
-    if (!jmeno || !hodinovaMzda) return alert('Vyplňte jméno i hodinovou sazbu.')
+    if (!jmeno || !hodinovaMzda) {
+      setStatusMessage('Chyba: Vyplňte jméno i hodinovou sazbu.')
+      return
+    }
     setLoading(true)
-    
+
+    // Robust parseFloat
+    const sazba = parseFloat(hodinovaMzda.replace(',', '.'))
+    if (isNaN(sazba)) {
+      setStatusMessage('Chyba: Neplatná hodinová sazba.')
+      setLoading(false)
+      return
+    }
+
     const { error } = await supabase
       .from('pracovnici')
-      .insert({ 
-        jmeno: jmeno, 
-        hodinova_mzda: parseFloat(hodinovaMzda)
+      .insert({
+        jmeno: jmeno,
+        hodinova_mzda: sazba
       })
 
     if (!error) {
       setJmeno('')
       setHodinovaMzda('')
-      setStatusMessage('Pracovník přidán')
+      setStatusMessage('Pracovník úspěšně přidán')
       fetchData()
     } else {
-      alert('Nepodařilo se přidat pracovníka: ' + error.message)
+      setStatusMessage('Nepodařilo se přidat pracovníka: ' + error.message)
     }
     setLoading(false)
   }
@@ -76,9 +106,9 @@ export default function PracovniciPage() {
   async function saveEdit() {
     if (!editingId) return
     setLoading(true)
-    const { error } = await supabase.from('pracovnici').update({ 
-      jmeno: editJmeno, 
-      hodinova_mzda: parseFloat(editHodinovaMzda) || 0
+    const { error } = await supabase.from('pracovnici').update({
+      jmeno: editJmeno,
+      hodinova_mzda: parseFloat(editHodinovaMzda.replace(',', '.')) || 0
     }).eq('id', editingId)
 
     if (!error) {
@@ -86,49 +116,80 @@ export default function PracovniciPage() {
       cancelEdit()
       fetchData()
     } else {
-      alert('Nepodařilo se uložit změny: ' + error.message)
+      setStatusMessage('Nepodařilo se uložit změny: ' + error.message)
     }
     setLoading(false)
   }
 
-  async function deletePracovnik(id: number) {
-    if (!confirm('Opravdu smazat pracovníka? Tato akce může ovlivnit historické výkazy.')) return
-    setLoading(true)
-    const { error } = await supabase.from('pracovnici').delete().eq('id', Number(id))
-    if (error) {
-      alert('Nepodařilo se smazat pracovníka: ' + error.message)
-    } else {
-      setStatusMessage('Pracovník smazán')
-      fetchData()
-    }
-    setLoading(false)
+  // OLD: deletePracovnik with confirm -> NEW: openDeleteModal
+  function openDeleteModal(id: number) {
+    setModalConfig({
+      type: 'DELETE',
+      id,
+      title: 'Opravdu smazat pracovníka?',
+      message: 'Tato akce může ovlivnit historické výkazy. Tuto akci nelze vrátit.',
+      actionLabel: 'Smazat pracovníka',
+      actionClass: 'bg-red-600 hover:bg-red-700'
+    })
+    setModalOpen(true)
   }
-  
-  async function toggleActive(id: number, currentStatus: boolean) {
+
+  function openToggleModal(id: number, currentStatus: boolean) {
     const actionText = currentStatus ? 'ukončit' : 'aktivovat';
-    if (!confirm(`Opravdu chcete ${actionText} tohoto pracovníka?`)) return
-    
-    const { error } = await supabase
-      .from('pracovnici')
-      .update({ is_active: !currentStatus })
-      .eq('id', id)
-      
-    if (error) {
-      alert(`Nepodařilo se ${actionText} pracovníka: ` + error.message)
-    } else {
-      setStatusMessage(`Pracovník byl ${actionText}ován.`)
-      fetchData()
+    setModalConfig({
+      type: 'TOGGLE',
+      id,
+      title: `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} pracovníka?`,
+      message: `Opravdu chcete ${actionText} tohoto pracovníka?`,
+      actionLabel: currentStatus ? 'Ukončit spolupráci' : 'Aktivovat',
+      actionClass: currentStatus ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700',
+      data: { currentStatus }
+    })
+    setModalOpen(true)
+  }
+
+  async function confirmAction() {
+    if (!modalConfig.id) return
+    setLoading(true)
+
+    if (modalConfig.type === 'DELETE') {
+      const { error } = await supabase.from('pracovnici').delete().eq('id', modalConfig.id)
+      if (error) {
+        setStatusMessage('Nepodařilo se smazat pracovníka: ' + error.message)
+      } else {
+        setStatusMessage('Pracovník smazán')
+        fetchData()
+      }
+    } else if (modalConfig.type === 'TOGGLE') {
+      const { error } = await supabase
+        .from('pracovnici')
+        .update({ is_active: !modalConfig.data.currentStatus })
+        .eq('id', modalConfig.id)
+
+      if (error) {
+        setStatusMessage(`Nepodařilo se změnit stav pracovníka: ` + error.message)
+      } else {
+        setStatusMessage(`Stav pracovníka byl změněn.`)
+        fetchData()
+      }
     }
+
+    setModalOpen(false)
+    setLoading(false)
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto relative">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
         <h2 className="text-2xl font-bold text-black">Správa pracovníků</h2>
       </div>
 
-      <div role="status" aria-live="polite" className="sr-only">{statusMessage}</div>
-      
+      {statusMessage && (
+        <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {statusMessage}
+        </div>
+      )}
+
       {/* Form to add new worker */}
       <div className="mb-8">
         <div className="bg-white/95 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
@@ -148,7 +209,7 @@ export default function PracovniciPage() {
         </div>
       </div>
 
-       {/* Table of workers */}
+      {/* Table of workers */}
       <div className="overflow-x-auto">
         <div className="flex justify-end mb-4">
           <label className="inline-flex items-center cursor-pointer">
@@ -168,7 +229,7 @@ export default function PracovniciPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {loading && (
+            {loading && !modalOpen && (
               <tr><td colSpan={3} className="p-4 text-center">Načítám...</td></tr>
             )}
             {!loading && pracovnici.length === 0 && (
@@ -194,9 +255,9 @@ export default function PracovniciPage() {
                     <td className={`p-3 font-medium ${!p.is_active ? 'line-through' : ''}`}>{p.jmeno}</td>
                     <td className="p-3">{p.hodinova_mzda} Kč/h</td>
                     <td className="p-3 text-right">
-                       <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => toggleActive(p.id, p.is_active)} 
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openToggleModal(p.id, p.is_active)}
                           className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-colors ${p.is_active ? 'bg-red-100/80 text-red-800 hover:bg-red-100' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
                         >
                           {p.is_active ? 'Ukončit' : 'Aktivovat'}
@@ -228,7 +289,7 @@ export default function PracovniciPage() {
                                   </Menu.Item>
                                   <Menu.Item>
                                     {({ active }) => (
-                                      <button onClick={() => deletePracovnik(p.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
+                                      <button onClick={() => openDeleteModal(p.id)} className={`${active ? 'bg-gray-100 text-red-700' : 'text-red-600'} group flex items-center w-full px-4 py-2 text-sm`}>
                                         Smazat
                                       </button>
                                     )}
@@ -247,6 +308,31 @@ export default function PracovniciPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Custom Confirmation Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{modalConfig.title}</h3>
+            <p className="text-gray-600 mb-6">{modalConfig.message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setModalOpen(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition"
+              >
+                Zrušit
+              </button>
+              <button
+                onClick={confirmAction}
+                disabled={loading}
+                className={`px-4 py-2 text-white rounded-md shadow-sm transition flex items-center ${modalConfig.actionClass}`}
+              >
+                {loading ? 'Pracuji...' : modalConfig.actionLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
