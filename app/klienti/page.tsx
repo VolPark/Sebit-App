@@ -35,11 +35,11 @@ export default function KlientiPage() {
   async function pridatKlienta() {
     if (!nazev) return alert('Vyplňte alespoň název klienta.')
     setLoading(true)
-    
+
     const { error } = await supabase
       .from('klienti')
-      .insert({ 
-        nazev: nazev, 
+      .insert({
+        nazev: nazev,
         poznamka: poznamka || null
       })
 
@@ -67,8 +67,8 @@ export default function KlientiPage() {
   async function saveEdit() {
     if (!editingId) return
     setLoading(true)
-    const { error } = await supabase.from('klienti').update({ 
-      nazev: editNazev, 
+    const { error } = await supabase.from('klienti').update({
+      nazev: editNazev,
       poznamka: editPoznamka || null
     }).eq('id', editingId)
 
@@ -82,28 +82,51 @@ export default function KlientiPage() {
     setLoading(false)
   }
 
-  async function deleteKlient(id: number) {
-    if (!confirm('Opravdu smazat klienta? Tuto akci nelze vrátit. Ujistěte se, že klient nemá žádné přiřazené výkazy nebo akce.')) return
+  // State for delete confirmation
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+
+  // Replaced deleteKlient to open modal instead of confirm()
+  function openDeleteModal(id: number) {
+    setDeleteId(id)
+  }
+
+  function closeDeleteModal() {
+    setDeleteId(null)
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return
     setLoading(true)
-    const { error } = await supabase.from('klienti').delete().eq('id', Number(id))
+    const { error } = await supabase.from('klienti').delete().eq('id', deleteId)
+
     if (error) {
       console.error('Chyba při mazání klienta', error)
-      alert('Nepodařilo se smazat klienta: ' + error.message)
+      // Check for foreign key constraint violation (typical for PostgreSQL)
+      if (error.code === '23503') {
+        setStatusMessage('Nelze smazat: Klient má přiřazené výkazy nebo akce. Nejdříve promažte související záznamy.')
+      } else {
+        setStatusMessage('Nepodařilo se smazat klienta: ' + error.message)
+      }
     } else {
       setStatusMessage('Klient smazán')
       fetchData()
+      closeDeleteModal()
     }
     setLoading(false)
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto relative">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
         <h2 className="text-2xl font-bold text-black">Správa klientů</h2>
       </div>
 
-      <div role="status" aria-live="polite" className="sr-only">{statusMessage}</div>
-      
+      {statusMessage && (
+        <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nelze') || statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {statusMessage}
+        </div>
+      )}
+
       {/* Form to add new client */}
       <div className="mb-8">
         <div className="bg-white/95 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
@@ -123,7 +146,7 @@ export default function KlientiPage() {
         </div>
       </div>
 
-       {/* Table of clients */}
+      {/* Table of clients */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead className="bg-gray-100 text-gray-600 border-b">
@@ -134,7 +157,7 @@ export default function KlientiPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {loading && (
+            {loading && !deleteId && (
               <tr><td colSpan={3} className="p-4 text-center">Načítám...</td></tr>
             )}
             {!loading && klienti.length === 0 && (
@@ -165,7 +188,7 @@ export default function KlientiPage() {
                     </td>
                     <td className="p-3 text-right">
                       <button onClick={() => startEdit(k)} className="text-sm text-red-600 hover:underline mr-4">Upravit</button>
-                      <button onClick={() => deleteKlient(k.id)} className="text-sm text-red-500 hover:underline">Smazat</button>
+                      <button onClick={() => openDeleteModal(k.id)} className="text-sm text-red-500 hover:underline">Smazat</button>
                     </td>
                   </tr>
                 )}
@@ -174,6 +197,33 @@ export default function KlientiPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Custom Delete Confirmation Modal */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Opravdu smazat klienta?</h3>
+            <p className="text-gray-600 mb-6">
+              Tuto akci nelze vrátit. Pokud má klient přiřazené výkazy nebo akce, smazání se nemusí podařit.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={closeDeleteModal}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition"
+              >
+                Zrušit
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={loading}
+                className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition flex items-center"
+              >
+                {loading ? 'Mažu...' : 'Smazat klienta'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
