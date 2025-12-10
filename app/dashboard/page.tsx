@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react';
 import { getDashboardData, getDetailedStats, DashboardData, MonthlyData, WorkerStats, ClientStats } from '@/lib/dashboard';
 import { supabase } from '@/lib/supabase';
 import BarChart from '@/components/BarChart';
+import DashboardSkeleton from '@/components/DashboardSkeleton';
 
 type FilterOption = { id: number; name: string };
 
@@ -391,7 +392,7 @@ export default function DashboardPage() {
       />
 
       {loading || !data || !detailedStats ? (
-        <div className="text-center p-12 text-gray-500">Načítám data dashboardu...</div>
+        <DashboardSkeleton view={view} />
       ) : (
         <>
           {view === 'firma' && (
