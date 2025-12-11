@@ -284,19 +284,49 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
 };
 
 export default function DashboardPage() {
-  const [view, setView] = useState<'firma' | 'workers' | 'clients'>('firma');
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [authError, setAuthError] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
+  // Dashboard State
+  const [view, setView] = useState<'firma' | 'workers' | 'clients'>('firma');
   const [data, setData] = useState<DashboardData | null>(null);
   const [detailedStats, setDetailedStats] = useState<{ workers: WorkerStats[], clients: ClientStats[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'last12months' | 'year'>('last12months');
   const [year, setYear] = useState(new Date().getFullYear());
-  const [month, setMonth] = useState<number | 'all'>('all'); // NEW: Month state
+  const [month, setMonth] = useState<number | 'all'>('all');
   const [filters, setFilters] = useState<{ pracovnikId?: number | null, klientId?: number | null }>({});
-
   const [workers, setWorkers] = useState<FilterOption[]>([]);
   const [clients, setClients] = useState<FilterOption[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<MonthlyData | null>(null);
+
+  const CORRECT_PIN = "1234"; // Simple hardcoded PIN
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const verified = localStorage.getItem('sebit_dashboard_auth');
+      if (verified === 'true') {
+        setIsAuthenticated(true);
+      }
+      setIsAuthChecking(false);
+    };
+    checkAuth();
+  }, []);
+
+  const handlePinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinInput === CORRECT_PIN) {
+      localStorage.setItem('sebit_dashboard_auth', 'true');
+      setIsAuthenticated(true);
+      setAuthError(false);
+    } else {
+      setAuthError(true);
+      setPinInput('');
+    }
+  };
 
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -305,12 +335,13 @@ export default function DashboardPage() {
     for (let y = currentYear; y >= startYear; y--) {
       years.push(y);
     }
-    // If current year is before 2025 (unlikely based on requirements, but safe), ensure 2025 is there
     if (years.length === 0) years.push(2025);
     return years;
   }, []);
 
   useEffect(() => {
+    if (!isAuthenticated) return; // Don't fetch if not auth
+
     async function loadFilters() {
       const { data: workerData } = await supabase.from('pracovnici').select('id, jmeno').order('jmeno');
       const { data: clientData } = await supabase.from('klienti').select('id, nazev').order('nazev');
@@ -318,9 +349,11 @@ export default function DashboardPage() {
       setClients(clientData?.map(c => ({ id: c.id, name: c.nazev })) || []);
     }
     loadFilters();
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return; // Don't fetch if not auth
+
     async function loadDashboard() {
       setLoading(true);
       const periodParam = period === 'year' ? { year, month: month === 'all' ? undefined : month } : period;
@@ -337,7 +370,7 @@ export default function DashboardPage() {
       setLoading(false);
     }
     loadDashboard();
-  }, [period, filters, year, month]);
+  }, [period, filters, year, month, isAuthenticated]);
 
   const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), []);
 
@@ -363,8 +396,6 @@ export default function DashboardPage() {
 
     let helpText: string;
     let titleSuffix: string = '';
-
-    // Helper to get month name by index
     const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
 
     if (selectedMonth) {
@@ -388,9 +419,84 @@ export default function DashboardPage() {
     );
   }
 
+  // Auth Loading State
+  if (isAuthChecking) {
+    return <div className="flex justify-center items-center h-screen bg-gray-50 dark:bg-slate-950"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#E30613]"></div></div>;
+  }
+
+  // Not Authenticated - Show PIN Screen
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col justify-center items-center h-[calc(100vh-100px)] bg-gray-50 dark:bg-slate-950 px-4">
+        <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-[#E30613]">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Zabezpečená sekce</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Pro přístup k dashboardu zadejte PIN</p>
+          </div>
+
+          <form onSubmit={handlePinSubmit} className="space-y-4">
+            <div>
+              <input
+                type="password"
+                inputMode="numeric"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                placeholder="Zadejte PIN kód"
+                className={`w-full text-center text-2xl tracking-widest font-bold py-3 px-4 rounded-lg border ${authError ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-600 focus:border-[#E30613] focus:ring-[#E30613]/30'} focus:ring-2 outline-none dark:bg-slate-950 dark:text-white transition-all`}
+                autoFocus
+              />
+              {authError && <p className="text-red-500 text-sm text-center mt-2 font-medium">Nesprávný PIN kód</p>}
+            </div>
+            <button
+              type="submit"
+              className="w-full bg-[#E30613] hover:bg-[#C00000] text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95"
+            >
+              Odemknout
+            </button>
+          </form>
+
+          <div className="mt-6 p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-lg">
+            <div className="flex gap-2 items-start justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5">
+                <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+              </svg>
+              <p className="text-xs text-red-600 dark:text-red-400 font-medium text-left">
+                Bezpečnostní upozornění: Všechny přístupy jsou zaznamenávány a neúspěšné pokusy jsou reportovány majiteli.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 text-center">
+            <p className="text-xs text-gray-400">Výchozí PIN pro majitele je "1234"</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto w-full p-4 md:p-8">
-      <h2 className="text-3xl font-bold mb-6 text-black">Dashboard</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold text-black">Dashboard</h2>
+        <button
+          onClick={() => {
+            localStorage.removeItem('sebit_dashboard_auth');
+            setIsAuthenticated(false);
+          }}
+          className="text-sm text-gray-500 hover:text-[#E30613] flex items-center gap-1 transition-colors"
+          title="Uzamknout dashboard"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+          <span className="hidden sm:inline">Uzamknout</span>
+        </button>
+      </div>
 
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6 w-fit">
         {[
