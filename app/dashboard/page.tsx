@@ -14,7 +14,7 @@ const KPICard = ({ title, value, helpText, percentage, percentageColor }: { titl
         <p className="text-sm font-semibold text-gray-500 uppercase">{title}</p>
         {percentage && <span className={`text-lg font-bold ${percentageColor}`}>{percentage}</span>}
       </div>
-      <p className="text-4xl font-bold mt-2 text-[#333333]">{value}</p>
+      <p className="text-2xl md:text-3xl font-bold mt-2 text-[#333333]">{value}</p>
       {helpText && <p className="text-xs text-gray-400 mt-1">{helpText}</p>}
     </div>
   );
@@ -86,7 +86,7 @@ const AdditionalKpis = ({ data, currency }: { data: DashboardData, currency: Int
     <KPICard title="Prům. Sazba Firmy" value={currency.format(data.avgCompanyRate) + '/h'} />
     <div className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80">
       <p className="text-sm font-semibold text-gray-500 uppercase">PRŮM. HODINOVÁ MZDA</p>
-      <p className="text-4xl font-bold mt-2 text-[#333333]">{currency.format(data.averageHourlyWage)}<span className="text-2xl text-gray-400">/h</span></p>
+      <p className="text-2xl md:text-3xl font-bold mt-2 text-[#333333]">{currency.format(data.averageHourlyWage)}<span className="text-xl text-gray-400">/h</span></p>
       <p className="text-sm text-gray-500 mt-1">
         Prům. měsíční: {currency.format(data.averageMonthlyWage)}
       </p>
@@ -354,8 +354,8 @@ export default function DashboardPage() {
   const renderKpis = (d: DashboardData | MonthlyData | null) => {
     if (!d) return null;
 
-    const grossProfit = 'grossProfit' in d ? d.grossProfit : (d.totalRevenue - d.totalCosts);
-    const materialProfit = 'materialProfit' in d ? d.materialProfit : 0;
+    const grossProfit = d.grossProfit;
+    const materialProfit = d.materialProfit;
 
     const costsPercentage = d.totalRevenue > 0 ? `${(d.totalCosts / d.totalRevenue * 100).toFixed(0)}%` : `0%`;
     const profitPercentage = d.totalRevenue > 0 ? `${(grossProfit / d.totalRevenue * 100).toFixed(0)}%` : `0%`;
