@@ -19,7 +19,7 @@ export default function DashboardSkeleton({ view }: DashboardSkeletonProps) {
                     </div>
                     <div className="flex items-end justify-between h-64 gap-2">
                         {[...Array(12)].map((_, i) => (
-                            <Skeleton key={i} className="w-full rounded-t-md" style={{ height: `${Math.random() * 50 + 30}%` }} />
+                            <Skeleton key={i} className="w-full rounded-t-md" style={{ height: `${30 + (i * 7) % 50}%` }} />
                         ))}
                     </div>
                 </div>
