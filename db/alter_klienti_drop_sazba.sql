@@ -1,2 +1,0 @@
-ALTER TABLE klienti
-DROP COLUMN sazba;
