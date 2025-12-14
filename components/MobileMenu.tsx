@@ -51,6 +51,7 @@ export default function MobileMenu() {
               <Link href="/akce" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/akce' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Akce</Link>
               <Link href="/vykazy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/vykazy' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Výkazy</Link>
               <Link href="/mzdy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/mzdy' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Mzdy</Link>
+              <Link href="/naklady" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/naklady' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Náklady</Link>
             </div>
           </div>
         )}

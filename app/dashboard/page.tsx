@@ -177,29 +177,32 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
       <table className="w-full text-left text-sm">
         <thead className="bg-gray-100 text-gray-600 border-b">
           <tr>
-            <th className="p-4 whitespace-nowrap w-8"></th>
-            <th className="p-4 whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('name')}>
+            <th className="p-3 whitespace-nowrap w-8"></th>
+            <th className="p-3 whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('name')}>
               <div className="flex items-center gap-1">Klient {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
             </th>
-            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('totalHours')}>
-              <div className="flex items-center justify-end gap-1">Počet hodin {sortConfig?.key === 'totalHours' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('totalHours')}>
+              <div className="flex items-center justify-end gap-1">Hodiny {sortConfig?.key === 'totalHours' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
             </th>
-            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('revenue')}>
+            <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('revenue')}>
               <div className="flex items-center justify-end gap-1">Příjmy {sortConfig?.key === 'revenue' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
             </th>
-            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('materialCost')}>
-              <div className="flex items-center justify-end gap-1">Náklady (Mat.) {sortConfig?.key === 'materialCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('materialCost')}>
+              <div className="flex items-center justify-end gap-1">Materiál {sortConfig?.key === 'materialCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
             </th>
-            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('laborCost')}>
-              <div className="flex items-center justify-end gap-1">Náklady (Práce) {sortConfig?.key === 'laborCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('laborCost')}>
+              <div className="flex items-center justify-end gap-1">Mzdy {sortConfig?.key === 'laborCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
             </th>
-            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('totalCost')}>
-              <div className="flex items-center justify-end gap-1">Celkem Náklady {sortConfig?.key === 'totalCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('overheadCost')}>
+              <div className="flex items-center justify-end gap-1">Režie {sortConfig?.key === 'overheadCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
             </th>
-            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('profit')}>
+            <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('totalCost')}>
+              <div className="flex items-center justify-end gap-1">Náklady {sortConfig?.key === 'totalCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+            </th>
+            <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('profit')}>
               <div className="flex items-center justify-end gap-1">Zisk {sortConfig?.key === 'profit' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
             </th>
-            <th className="p-4 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('margin')}>
+            <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('margin')}>
               <div className="flex items-center justify-end gap-1">Marže {sortConfig?.key === 'margin' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
             </th>
           </tr>
@@ -208,7 +211,7 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
           {sortedData.map(c => (
             <Fragment key={c.id}>
               <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleClient(c.id)}>
-                <td className="p-4 text-center">
+                <td className="p-3 text-center">
                   <button className="text-gray-400 hover:text-gray-600 transition-colors">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -222,27 +225,29 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
                     </svg>
                   </button>
                 </td>
-                <td className="p-4 font-medium text-gray-900">{c.name}</td>
-                <td className="p-4 text-right font-medium">{c.totalHours.toLocaleString('cs-CZ')} h</td>
-                <td className="p-4 text-right font-medium">{currency(c.revenue)}</td>
-                <td className="p-4 text-right text-gray-600">{currency(c.materialCost)}</td>
-                <td className="p-4 text-right text-gray-600">{currency(c.laborCost)}</td>
-                <td className="p-4 text-right text-red-600 font-medium">{currency(c.totalCost)}</td>
-                <td className={`p-4 text-right font-bold ${c.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{currency(c.profit)}</td>
-                <td className={`p-4 text-right ${c.margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{c.margin.toFixed(1)}%</td>
+                <td className="p-3 font-medium text-gray-900">{c.name}</td>
+                <td className="p-3 text-right font-medium">{c.totalHours.toLocaleString('cs-CZ')} h</td>
+                <td className="p-3 text-right font-medium">{currency(c.revenue)}</td>
+                <td className="p-3 text-right text-gray-600">{currency(c.materialCost)}</td>
+                <td className="p-3 text-right text-gray-600">{currency(c.laborCost)}</td>
+                <td className="p-3 text-right text-gray-600">{currency(c.overheadCost)}</td>
+                <td className="p-3 text-right text-red-600 font-medium">{currency(c.totalCost)}</td>
+                <td className={`p-3 text-right font-bold ${c.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{currency(c.profit)}</td>
+                <td className={`p-3 text-right ${c.margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{c.margin.toFixed(1)}%</td>
               </tr>
               {expandedClients.has(c.id) && (
                 <tr className="bg-gray-50/50">
-                  <td colSpan={9} className="p-0">
+                  <td colSpan={10} className="p-0">
                     <div className="py-2 pl-4 pr-4 border-b border-gray-100 shadow-inner bg-gray-50">
                       <table className="w-full text-xs">
                         <thead className="text-gray-500 border-b border-gray-200">
                           <tr>
                             <th className="py-2 pl-10 text-left font-medium uppercase tracking-wider">Akce</th>
-                            <th className="py-2 text-right font-medium uppercase tracking-wider">Počet hodin</th>
+                            <th className="py-2 text-right font-medium uppercase tracking-wider">Hodiny</th>
                             <th className="py-2 text-right font-medium uppercase tracking-wider">Příjmy</th>
                             <th className="py-2 text-right font-medium uppercase tracking-wider">Materiál</th>
-                            <th className="py-2 text-right font-medium uppercase tracking-wider">Práce</th>
+                            <th className="py-2 text-right font-medium uppercase tracking-wider">Mzdy</th>
+                            <th className="py-2 text-right font-medium uppercase tracking-wider">Režie</th>
                             <th className="py-2 text-right font-medium uppercase tracking-wider">Náklady</th>
                             <th className="py-2 text-right font-medium uppercase tracking-wider">Zisk</th>
                             <th className="py-2 text-right font-medium uppercase tracking-wider">Marže</th>
@@ -258,6 +263,7 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
                               <td className="py-2 text-right text-gray-600">{currency(action.revenue)}</td>
                               <td className="py-2 text-right text-gray-500">{currency(action.materialCost)}</td>
                               <td className="py-2 text-right text-gray-500">{currency(action.laborCost)}</td>
+                              <td className="py-2 text-right text-gray-500">{currency(action.overheadCost)}</td>
                               <td className="py-2 text-right text-red-500">{currency(action.totalCost)}</td>
                               <td className={`py-2 text-right font-medium ${action.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{currency(action.profit)}</td>
                               <td className={`py-2 text-right ${action.margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{action.margin.toFixed(1)}%</td>
@@ -265,7 +271,7 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
                           ))}
                           {c.actions.length === 0 && (
                             <tr>
-                              <td colSpan={8} className="py-4 text-center text-gray-400 italic">Žádné akce pro toto období</td>
+                              <td colSpan={9} className="py-4 text-center text-gray-400 italic">Žádné akce pro toto období</td>
                             </tr>
                           )}
                         </tbody>
@@ -276,7 +282,7 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
               )}
             </Fragment>
           ))}
-          {sortedData.length === 0 && <tr><td colSpan={9} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
+          {sortedData.length === 0 && <tr><td colSpan={10} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
         </tbody>
       </table>
     </div>
@@ -525,7 +531,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full p-4 md:p-8">
+    <div className="w-full px-4 md:px-6 mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold text-black">Dashboard</h2>
         <button

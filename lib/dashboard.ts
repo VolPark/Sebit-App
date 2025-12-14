@@ -149,7 +149,21 @@ export async function getDashboardData(
         }
       }
 
-      const totalCosts = totalMaterialCost + totalLaborCost;
+      // --- Fixed Costs (Overhead) ---
+      const { data: fixedCosts } = await supabase
+        .from('fixed_costs')
+        .select('castka')
+        .eq('rok', year)
+        .eq('mesic', month + 1);
+
+      const totalFixedCosts = fixedCosts?.reduce((sum, fc) => sum + (Number(fc.castka) || 0), 0) ?? 0;
+
+      let displayedFixedCosts = 0;
+      if (!filters.klientId && !filters.pracovnikId) {
+        displayedFixedCosts = totalFixedCosts;
+      }
+
+      const totalCosts = totalMaterialCost + totalLaborCost + displayedFixedCosts;
       const grossProfit = totalRevenue - totalCosts;
 
       monthlyData.push({
@@ -266,14 +280,17 @@ export async function getDashboardData(
 
     // Mzdy query needs to handle month ranges if specific month selected, otherwise year filter
     let mzdyQuery = supabase.from('mzdy').select('celkova_castka, pracovnik_id');
+    let fixedCostsQuery = supabase.from('fixed_costs').select('castka'); // NEW
 
     if (period === 'month' || (typeof period === 'object' && period.month !== undefined && period.month !== null)) {
       // Specific month - either current month or selected month
       const mDate = startDate; // startDate is correctly set above for both cases
       mzdyQuery = mzdyQuery.eq('rok', mDate.getFullYear()).eq('mesic', mDate.getMonth() + 1);
+      fixedCostsQuery = fixedCostsQuery.eq('rok', mDate.getFullYear()).eq('mesic', mDate.getMonth() + 1);
     } else {
       // Whole year range
       mzdyQuery = mzdyQuery.gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
+      fixedCostsQuery = fixedCostsQuery.gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
     }
 
     if (filters.pracovnikId) mzdyQuery = mzdyQuery.eq('pracovnik_id', filters.pracovnikId);
@@ -282,18 +299,63 @@ export async function getDashboardData(
     if (filters.pracovnikId) praceQuery = praceQuery.eq('pracovnik_id', filters.pracovnikId);
     if (filters.klientId) praceQuery = praceQuery.eq('klient_id', filters.klientId);
 
-    const [akceResult, mzdyResult, praceResult] = await Promise.all([akceQuery, mzdyQuery, praceQuery]);
+    const [akceResult, mzdyResult, praceResult, fixedCostsResult] = await Promise.all([akceQuery, mzdyQuery, praceQuery, fixedCostsQuery]);
 
     const akceData = akceResult.data || [];
     const mzdyData = mzdyResult.data || [];
     const praceData = praceResult.data || [];
+    const fixedCostsData = fixedCostsResult.data || [];
 
     const totalRevenue = akceData.reduce((sum, a) => sum + (a.cena_klient || 0), 0);
     const totalMaterialCost = akceData.reduce((sum, a) => sum + (a.material_my || 0), 0);
     const totalMaterialKlient = akceData.reduce((sum, a) => sum + (a.material_klient || 0), 0);
     const materialProfit = akceData.reduce((sum, a) => sum + ((a.material_klient || 0) - (a.material_my || 0)), 0);
     const totalLaborCost = mzdyData.reduce((sum, m) => sum + (m.celkova_castka || 0), 0);
-    const totalCosts = totalMaterialCost + totalLaborCost;
+    const totalFixedCosts = fixedCostsData.reduce((sum, fc) => sum + (Number(fc.castka) || 0), 0);
+
+    // IMPORTANT: If client filter is active, we should theoretically prorate overhead too, 
+    // but for the top-level Overview card "Total Costs" usually implies Company Costs.
+    // However, if I filter by Client, I expect to see costs related to that client.
+    // Implementing Prorated Overhead for Dashboard Overview is complex here because we don't have the granular hour loop.
+    // DECISION: For now, simply Add Fixed Costs globally if NO filter. If Filter active, we skip Fixed Costs in "Total" card?
+    // OR we do a simpler approximation: TotalOverhead * (ClientHours / TotalHours).
+    // Let's implement the approximation if simple, or just add all if no filter.
+    // Given the complexity of getDashboardData vs getDetailedStats, let's keep it simple: 
+    // If NO FILTERS -> Show full Fixed Costs.
+    // If FILTER -> Don't show Fixed Costs in the "Total" card (because it's confusing to show full rent for one client filter).
+
+    let displayedFixedCosts = 0;
+    if (!filters.klientId && !filters.pracovnikId) {
+      displayedFixedCosts = totalFixedCosts;
+    } else {
+      // If we want to be fancy, we could calculate share, but let's stick to "Company View = Full Costs", "Filtered View = Direct Costs" for now to avoid confusion,
+      // unless requested. Actually, user asked "how it propagates".
+      // In "getDetailedStats" (Analysis view), it IS propagated. 
+      // Here in "getDashboardData" (Overview cards), it's safer to only show overhead when viewing the whole company.
+      displayedFixedCosts = 0; // Or keep it 0 if filtered.
+      if (!filters.klientId && !filters.pracovnikId) displayedFixedCosts = totalFixedCosts;
+    }
+
+    // Wait, actually, if I look at "This Month" for "Client A", I might want to see my net profit including overhead load.
+    // Let's try to calculate the Ratio if possible. 
+    // We have `totalHours` (filtered). We would need `globalTotalHours` to get the ratio.
+    // That requires an extra query.
+    // For now, let's stick to: Overhead is visible in "Company" view. Hidden in "Filtered" view on the main cards. 
+    // This is a common pattern.
+
+    // Correction: In the 12-month loop above, I added `totalFixedCosts` unconditionally. 
+    // I should probably also check filters there. 
+    // BUT `getDashboardData` 12-month loop has `totalLaborCost` calculation that respects filters (prorated).
+    // So for consistency, I should probably try to prorate fixed costs too if possible, OR just only show them when no filter.
+    // Let's go with: Only show Fixed Costs when NO FILTERS are applied.
+
+    if (!filters.klientId && !filters.pracovnikId) {
+      displayedFixedCosts = totalFixedCosts;
+    } else {
+      displayedFixedCosts = 0;
+    }
+
+    const totalCosts = totalMaterialCost + totalLaborCost + displayedFixedCosts;
     const totalHours = praceData.reduce((sum, p) => sum + (p.pocet_hodin || 0), 0);
     const totalEstimatedHours = akceData.reduce((sum, a) => sum + (a.odhad_hodin || 0), 0);
 
@@ -372,6 +434,7 @@ export interface ClientStats {
   revenue: number;
   materialCost: number;
   laborCost: number;
+  overheadCost: number; // NEW
   totalCost: number;
   profit: number;
   margin: number;
@@ -385,6 +448,7 @@ export interface ActionStats {
   revenue: number;
   materialCost: number;
   laborCost: number;
+  overheadCost: number; // NEW
   totalCost: number;
   profit: number;
   margin: number;
@@ -420,12 +484,13 @@ export async function getDetailedStats(
   const start = startDate.toISOString();
   const end = endDate.toISOString();
 
-  const [workersRes, clientsRes, praceRes, mzdyRes, akceRes] = await Promise.all([
+  const [workersRes, clientsRes, praceRes, mzdyRes, akceRes, fixedCostsRes] = await Promise.all([
     supabase.from('pracovnici').select('*'),
     supabase.from('klienti').select('*'),
     supabase.from('prace').select('*').gte('datum', start).lte('datum', end),
-    supabase.from('mzdy').select('*').gte('rok', startDate.getFullYear() - 1).lte('rok', endDate.getFullYear() + 1), // Fetch broader range to be safe
-    supabase.from('akce').select('*').gte('datum', start).lte('datum', end) // We need all actions to map ID -> Client
+    supabase.from('mzdy').select('*').gte('rok', startDate.getFullYear() - 1).lte('rok', endDate.getFullYear() + 1),
+    supabase.from('akce').select('*').gte('datum', start).lte('datum', end),
+    supabase.from('fixed_costs').select('*').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear())
   ]);
 
   const workers = workersRes.data || [];
@@ -433,6 +498,7 @@ export async function getDetailedStats(
   const prace = praceRes.data || [];
   const mzdy = mzdyRes.data || [];
   const akce = akceRes.data || [];
+  const fixedCosts = fixedCostsRes?.data || [];
 
   // 1. Build Map: Worker ID -> Base Hourly Rate
   const workerBaseRateMap = new Map<number, number>();
@@ -443,7 +509,6 @@ export async function getDetailedStats(
   });
 
   // 2. Build Map: Action ID -> Client ID
-  // This allows us to find the client even if the 'prace' record only has an 'akce_id'
   const actionClientMap = new Map<number, number>();
   akce.forEach(a => {
     if (a.klient_id) {
@@ -451,18 +516,39 @@ export async function getDetailedStats(
     }
   });
 
+  // --- NEW: Calculate Overhead Rates (Month by Month) ---
+  const monthlyOverheadRate = new Map<string, number>(); // "YYYY-M" -> rate per hour
+
+  // A. Sum Fixed Costs per Month
+  const monthlyFixedCosts = new Map<string, number>();
+  fixedCosts.forEach(fc => {
+    const key = `${fc.rok}-${fc.mesic}`;
+    monthlyFixedCosts.set(key, (monthlyFixedCosts.get(key) || 0) + (Number(fc.castka) || 0));
+  });
+
+  // B. Sum Total Hours per Month (Global)
+  const monthlyTotalHours = new Map<string, number>();
+  prace.forEach(p => {
+    const d = new Date(p.datum);
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+    monthlyTotalHours.set(key, (monthlyTotalHours.get(key) || 0) + (Number(p.pocet_hodin) || 0));
+  });
+
+  // C. Calculate Rate
+  monthlyFixedCosts.forEach((cost, key) => {
+    const hours = monthlyTotalHours.get(key) || 0;
+    if (hours > 0) {
+      monthlyOverheadRate.set(key, cost / hours);
+    }
+  });
+
+
   // Process Workers Stats
   const workerStats: WorkerStats[] = workers.map(w => {
     const wPrace = prace.filter(p => p.pracovnik_id === w.id);
-
-    // Filter wages to only include those in the current period
     const wMzdy = mzdy.filter(m => {
       if (m.pracovnik_id !== w.id) return false;
       const mDate = new Date(m.rok, m.mesic - 1, 1);
-      // Check intersection of month with period
-      // Since mzdy are monthly, we check if the month is within [startDate, endDate]
-      // Because start/end dates for 'month' period are 1st to last day, this works.
-      // For 'year' it also works.
       return mDate >= startDate && mDate <= endDate;
     });
 
@@ -474,21 +560,17 @@ export async function getDetailedStats(
       name: w.jmeno,
       totalHours,
       totalWages,
-      // If total hours > 0, calculate real rate. Else use base rate.
       avgHourlyRate: totalHours > 0 ? totalWages / totalHours : (workerBaseRateMap.get(w.id) || 0)
     };
   })
-    .filter(w => w.totalHours > 0 || w.totalWages > 0) // Filter out inactive workers
+    .filter(w => w.totalHours > 0 || w.totalWages > 0)
     .sort((a, b) => b.totalHours - a.totalHours);
 
 
-  // Process Clients (Labor Cost Calculation)
+  // Process Clients (Labor & Overhead Cost Calculation)
 
-  // 3. Calculate Real Monthly Rates from Mzdy (Payroll)
-  // key: "workerId-year-month" -> rate
+  // 3. Calculate Real Monthly Rates from Mzdy
   const workerRealMonthlyRates = new Map<string, number>();
-
-  // First, sum hours per worker per month to calculate the rate
   const workerMonthHours = new Map<string, number>();
   prace.forEach(p => {
     const d = new Date(p.datum);
@@ -506,43 +588,44 @@ export async function getDetailedStats(
 
   // 4. Aggregate Costs per Client
   const clientLaborCosts = new Map<number, number>();
+  const clientOverheadCosts = new Map<number, number>(); // NEW
   const clientHours = new Map<number, number>();
   const actionLaborCosts = new Map<number, number>();
+  const actionOverheadCosts = new Map<number, number>(); // NEW
   const actionHours = new Map<number, number>();
 
   prace.forEach(p => {
-    // Determine Client ID: Try direct link first, then via Action
     let clientId = p.klient_id;
     if (!clientId && p.akce_id) {
       clientId = actionClientMap.get(p.akce_id);
     }
-
-    if (!clientId) return; // Skip if orphan (no client found)
+    if (!clientId) return;
 
     const d = new Date(p.datum);
+    const hours = Number(p.pocet_hodin) || 0;
 
-    // Determine Rate
-    // A: Try specific monthly rate (from finalized payroll)
+    // Labor Cost
     const rateKey = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
     let rate = workerRealMonthlyRates.get(rateKey);
-
-    // B: Fallback to Base Rate (from Worker profile)
     if (rate === undefined || rate === null) {
       rate = workerBaseRateMap.get(p.pracovnik_id);
     }
-
-    // C: Final safety fallback
     if (!rate) rate = 0;
+    const laborCost = hours * rate;
 
-    const hours = Number(p.pocet_hodin) || 0;
-    const cost = hours * rate;
+    // Overhead Cost
+    const overheadKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
+    const overheadRate = Number(monthlyOverheadRate.get(overheadKey)) || 0;
+    const safeHours = Number(hours) || 0;
+    const overheadCost = safeHours * overheadRate;
 
-    clientLaborCosts.set(clientId, (clientLaborCosts.get(clientId) || 0) + cost);
+    clientLaborCosts.set(clientId, (clientLaborCosts.get(clientId) || 0) + laborCost);
+    clientOverheadCosts.set(clientId, (clientOverheadCosts.get(clientId) || 0) + overheadCost);
     clientHours.set(clientId, (clientHours.get(clientId) || 0) + hours);
 
-    // Track costs per Action if available
     if (p.akce_id) {
-      actionLaborCosts.set(p.akce_id, (actionLaborCosts.get(p.akce_id) || 0) + cost);
+      actionLaborCosts.set(p.akce_id, (actionLaborCosts.get(p.akce_id) || 0) + laborCost);
+      actionOverheadCosts.set(p.akce_id, (actionOverheadCosts.get(p.akce_id) || 0) + overheadCost);
       actionHours.set(p.akce_id, (actionHours.get(p.akce_id) || 0) + hours);
     }
   });
@@ -552,24 +635,26 @@ export async function getDetailedStats(
     const revenue = cAkce.reduce((sum, a) => sum + (Number(a.cena_klient) || 0), 0);
     const materialCost = cAkce.reduce((sum, a) => sum + (Number(a.material_my) || 0), 0);
     const laborCost = clientLaborCosts.get(c.id) || 0;
-    const totalCost = materialCost + laborCost;
+    const overheadCost = clientOverheadCosts.get(c.id) || 0;
+    const totalCost = materialCost + laborCost + overheadCost;
 
-    // Calculate stats for each action of this client
     const actions: ActionStats[] = cAkce.map(a => {
       const aRevenue = Number(a.cena_klient) || 0;
       const aMaterialCost = Number(a.material_my) || 0;
       const aLaborCost = actionLaborCosts.get(a.id) || 0;
-      const aTotalCost = aMaterialCost + aLaborCost;
+      const aOverheadCost = actionOverheadCosts.get(a.id) || 0;
+      const aTotalCost = aMaterialCost + aLaborCost + aOverheadCost;
       const aProfit = aRevenue - aTotalCost;
       const aMargin = aRevenue > 0 ? ((aRevenue - aTotalCost) / aRevenue) * 100 : 0;
 
       return {
         id: a.id,
-        name: a.nazev, // Assuming 'nazev' exists on akce
+        name: a.nazev,
         revenue: aRevenue,
         materialCost: aMaterialCost,
         laborCost: aLaborCost,
         totalCost: aTotalCost,
+        overheadCost: aOverheadCost,
         profit: aProfit,
         margin: aMargin,
         totalHours: actionHours.get(a.id) || 0,
@@ -583,6 +668,7 @@ export async function getDetailedStats(
       revenue,
       materialCost,
       laborCost,
+      overheadCost,
       totalCost,
       profit: revenue - totalCost,
       margin: revenue > 0 ? ((revenue - totalCost) / revenue) * 100 : 0,

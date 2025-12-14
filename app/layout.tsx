@@ -11,6 +11,7 @@ export const metadata = {
 }
 
 import FaceAuthProvider from '@/components/FaceAuthProvider';
+import FixedCostsAutomator from '@/components/FixedCostsAutomator';
 
 // ... (imports)
 
@@ -23,6 +24,7 @@ export default function RootLayout({
     <html lang="cs" suppressHydrationWarning>
       <body className={`${inter.className} bg-white min-h-screen flex flex-col text-[#333333]`}>
         <FaceAuthProvider>
+          <FixedCostsAutomator />
           {/* SKIP LINK for A11y */}
           <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-white px-3 py-2 rounded shadow-md z-50">
             Přejít na obsah

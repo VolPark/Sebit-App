@@ -123,3 +123,17 @@ CREATE INDEX idx_prace_klient_org ON public.prace USING btree (organization_id, 
 CREATE INDEX idx_prace_pracovnik_org ON public.prace USING btree (organization_id, pracovnik_id);
 
 CREATE INDEX idx_pracovnici_org_id_slozeny ON public.pracovnici USING btree (organization_id, id);
+
+CREATE TABLE public.fixed_costs (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  nazev text NOT NULL,
+  castka numeric NOT NULL DEFAULT 0,
+  rok integer NOT NULL,
+  mesic integer NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  CONSTRAINT fixed_costs_pkey PRIMARY KEY (id),
+  CONSTRAINT fixed_costs_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+);
+
+CREATE INDEX idx_fixed_costs_org_rok_mesic ON public.fixed_costs USING btree (organization_id, rok, mesic);

@@ -47,6 +47,7 @@ export default function Header() {
           <NavLink href="/akce" pathname={pathname}>Akce</NavLink>
           <NavLink href="/vykazy" pathname={pathname}>Výkazy</NavLink>
           <NavLink href="/mzdy" pathname={pathname}>Mzdy</NavLink>
+          <NavLink href="/naklady" pathname={pathname}>Náklady</NavLink>
         </div>
 
         {/* RIGHT: Avatar (desktop) + Hamburger (mobile) */}
