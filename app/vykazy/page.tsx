@@ -3,8 +3,11 @@ import { useState, useEffect, useMemo, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/formatDate'
 import ComboBox from '@/components/ComboBox'
+import { useCompany } from '@/context/CompanyContext'
 
 export default function VykazyPage() {
+  const { selectedCompany } = useCompany();
+  const [isCompanyLoading, setIsCompanyLoading] = useState(true);
   // Stavy pro data z databáze
   const [vykazy, setVykazy] = useState<any[]>([])
   const [klienti, setKlienti] = useState<any[]>([])
@@ -47,16 +50,20 @@ export default function VykazyPage() {
   })
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    if (selectedCompany) {
+      setIsCompanyLoading(false);
+      fetchData();
+    }
+  }, [selectedCompany]);
 
   async function fetchData() {
+    if (!selectedCompany) return;
     setLoading(true)
     // 1. Načteme klienty a pracovníky do výběrových menu
-    const { data: kData } = await supabase.from('klienti').select('*')
-    const { data: pData } = await supabase.from('pracovnici').select('*').eq('is_active', true)
+    const { data: kData } = await supabase.from('klienti').select('*').eq('firma_id', selectedCompany.id);
+    const { data: pData } = await supabase.from('pracovnici').select('*').eq('is_active', true).eq('firma_id', selectedCompany.id);
     // Filter actions >= 2025-01-01
-    const { data: aData } = await supabase.from('akce').select('*').eq('is_completed', false).gte('datum', '2025-01-01').order('datum', { ascending: false })
+    const { data: aData } = await supabase.from('akce').select('*').eq('is_completed', false).gte('datum', '2025-01-01').order('datum', { ascending: false }).eq('firma_id', selectedCompany.id);
     if (kData) setKlienti(kData)
     if (pData) setPracovnici(pData)
     if (aData) { setAllAkce(aData); setActionOptions(aData) } // inicialně zobrazíme všechny akce
@@ -69,6 +76,7 @@ export default function VykazyPage() {
       .select('*, klienti(id, nazev, sazba), pracovnici(id, jmeno, hodinova_mzda), akce(id, nazev, klient_id, klienti(nazev))')
       .gte('datum', '2025-01-01')
       .order('datum', { ascending: false })
+      .eq('firma_id', selectedCompany.id);
 
     if (vData) setVykazy(vData)
     if (error) console.error(error)
@@ -116,7 +124,8 @@ export default function VykazyPage() {
       klient_id: selectedKlient?.id || null,
       pocet_hodin: parseFloat(hodiny),
       popis: popis,
-      akce_id: selectedAkce.id
+      akce_id: selectedAkce.id,
+      firma_id: selectedCompany.id
     }
 
     const { error } = await supabase.from('prace').insert(payload)
@@ -164,7 +173,8 @@ export default function VykazyPage() {
       klient_id: selectedKlient?.id,
       akce_id: selectedAkce?.id,
       popis: popis,
-      pocet_hodin: parseFloat(hodiny || '0')
+      pocet_hodin: parseFloat(hodiny || '0'),
+      firma_id: selectedCompany.id
     }).eq('id', editingId)
     if (!error) {
       setStatusMessage('Výkaz upraven')
@@ -303,9 +313,19 @@ export default function VykazyPage() {
   const formattedPracovnici = useMemo(() => pracovnici.map(p => ({ id: p.id, name: p.jmeno })), [pracovnici]);
   const formattedKlienti = useMemo(() => klienti.map(k => ({ id: k.id, name: k.nazev })), [klienti]);
 
+  if (isCompanyLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-2xl font-bold">Načítání...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto dark:text-gray-100">
-      <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">Výkazy práce</h2>
+      <h2 className="text-2xl font-bold mb-4 text-black dark:text-white">
+        Výkazy práce pro: {selectedCompany ? selectedCompany.name : 'Načítání...'}
+      </h2>
 
       {statusMessage && (
         <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-200' : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-200'}`}>

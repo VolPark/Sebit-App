@@ -11,6 +11,7 @@ export const metadata = {
 }
 
 import FaceAuthProvider from '@/components/FaceAuthProvider';
+import { CompanyProvider } from '@/context/CompanyContext';
 
 // ... (imports)
 
@@ -22,11 +23,12 @@ export default function RootLayout({
   return (
     <html lang="cs" suppressHydrationWarning>
       <body className={`${inter.className} bg-white min-h-screen flex flex-col text-[#333333]`}>
-        <FaceAuthProvider>
-          {/* SKIP LINK for A11y */}
-          <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-white px-3 py-2 rounded shadow-md z-50">
-            Přejít na obsah
-          </a>
+        <CompanyProvider>
+          <FaceAuthProvider>
+            {/* SKIP LINK for A11y */}
+            <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-white px-3 py-2 rounded shadow-md z-50">
+              Přejít na obsah
+            </a>
 
           <Header />
 
@@ -40,6 +42,7 @@ export default function RootLayout({
             <p>© 2025 Firemní Systém &bull; <span className="hover:text-gray-600 cursor-pointer transition-colors">Podmínky</span> &bull; <span className="hover:text-gray-600 cursor-pointer transition-colors">Soukromí</span></p>
           </footer>
         </FaceAuthProvider>
+      </CompanyProvider>
       </body>
     </html>
   )
