@@ -9,25 +9,25 @@ type FilterOption = { id: number; name: string };
 
 const KPICard = ({ title, value, helpText, percentage, percentageColor }: { title: string, value: string, helpText?: string, percentage?: string, percentageColor?: string }) => {
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80">
+    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
       <div className="flex justify-between items-start">
-        <p className="text-sm font-semibold text-gray-500 uppercase">{title}</p>
+        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">{title}</p>
         {percentage && <span className={`text-lg font-bold ${percentageColor}`}>{percentage}</span>}
       </div>
-      <p className="text-2xl md:text-3xl font-bold mt-2 text-[#333333]">{value}</p>
-      {helpText && <p className="text-xs text-gray-400 mt-1">{helpText}</p>}
+      <p className="text-2xl md:text-3xl font-bold mt-2 text-[#333333] dark:text-white">{value}</p>
+      {helpText && <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">{helpText}</p>}
     </div>
   );
 };
 
 const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, clients, year, setYear, availableYears, showFilters, month, setMonth }: any) => (
   <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-    <div className="p-1 bg-gray-100 rounded-full flex items-center w-fit">
+    <div className="p-1 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center w-fit">
       {(['last12months', 'year'] as const).map(p => (
         <button
           key={p}
           onClick={() => setPeriod(p)}
-          className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${period === p ? 'bg-white shadow text-black' : 'text-gray-600 hover:bg-white/60'}`}
+          className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${period === p ? 'bg-white dark:bg-slate-700 shadow text-black dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-slate-700/50'}`}
         >
           {p === 'last12months' ? 'Posl. 12 měsíců' : 'Roční přehled'}
         </button>
@@ -40,14 +40,14 @@ const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, cl
           <select
             value={year}
             onChange={e => setYear(Number(e.target.value))}
-            className="w-full rounded-lg bg-white border-slate-300 p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30"
+            className="w-full rounded-lg bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 dark:text-white p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30"
           >
             {availableYears.map((y: number) => <option key={y} value={y}>{y}</option>)}
           </select>
           <select
             value={month}
             onChange={e => setMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="w-full rounded-lg bg-white border-slate-300 p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30"
+            className="w-full rounded-lg bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 dark:text-white p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30"
           >
             <option value="all">Celý rok</option>
             {['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'].map((m, i) => (
@@ -61,7 +61,7 @@ const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, cl
           <select
             value={filters.pracovnikId || ''}
             onChange={e => setFilters({ ...filters, pracovnikId: e.target.value ? Number(e.target.value) : null })}
-            className={`w-full rounded-lg bg-white border-slate-300 p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 sm:col-span-1 ${period !== 'year' ? 'col-start-1' : ''}`}
+            className={`w-full rounded-lg bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 dark:text-white p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 sm:col-span-1 ${period !== 'year' ? 'col-start-1' : ''}`}
           >
             <option value="">Všichni pracovníci</option>
             {workers.map((w: FilterOption) => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -69,7 +69,7 @@ const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, cl
           <select
             value={filters.klientId || ''}
             onChange={e => setFilters({ ...filters, klientId: e.target.value ? Number(e.target.value) : null })}
-            className="w-full rounded-lg bg-white border-slate-300 p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 sm:col-span-1"
+            className="w-full rounded-lg bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 dark:text-white p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 sm:col-span-1"
           >
             <option value="">Všichni klienti</option>
             {clients.map((c: FilterOption) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -100,9 +100,9 @@ const AdditionalKpis = ({ data, currency }: { data: DashboardData, currency: Int
 );
 
 const WorkersTable = ({ data }: { data: WorkerStats[] }) => (
-  <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200/80 overflow-hidden overflow-x-auto">
+  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 overflow-hidden overflow-x-auto">
     <table className="w-full text-left text-sm">
-      <thead className="bg-gray-50 border-b text-gray-600">
+      <thead className="bg-gray-50 dark:bg-slate-800 border-b dark:border-slate-700 text-gray-600 dark:text-gray-400">
         <tr>
           <th className="p-4 whitespace-nowrap">Jméno</th>
           <th className="p-4 text-right whitespace-nowrap">Odpracováno</th>
@@ -110,13 +110,13 @@ const WorkersTable = ({ data }: { data: WorkerStats[] }) => (
           <th className="p-4 text-right whitespace-nowrap">Prům. sazba</th>
         </tr>
       </thead>
-      <tbody className="divide-y divide-slate-100">
+      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
         {data.map(w => (
-          <tr key={w.id} className="hover:bg-gray-50">
-            <td className="p-4 font-medium text-gray-900">{w.name}</td>
-            <td className="p-4 text-right">{w.totalHours.toLocaleString('cs-CZ')} h</td>
-            <td className="p-4 text-right">{w.totalWages.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</td>
-            <td className="p-4 text-right">{w.avgHourlyRate.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h</td>
+          <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+            <td className="p-4 font-medium text-gray-900 dark:text-white">{w.name}</td>
+            <td className="p-4 text-right dark:text-gray-300">{w.totalHours.toLocaleString('cs-CZ')} h</td>
+            <td className="p-4 text-right dark:text-gray-300">{w.totalWages.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</td>
+            <td className="p-4 text-right dark:text-gray-300">{w.avgHourlyRate.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h</td>
           </tr>
         ))}
         {data.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
@@ -173,9 +173,9 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
   const currency = (val: number) => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(val);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200/80 overflow-hidden overflow-x-auto">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 overflow-hidden overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="bg-gray-100 text-gray-600 border-b">
+        <thead className="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 border-b dark:border-slate-700">
           <tr>
             <th className="p-3 whitespace-nowrap w-8"></th>
             <th className="p-3 whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('name')}>
@@ -210,9 +210,9 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
         <tbody className="divide-y divide-slate-100">
           {sortedData.map(c => (
             <Fragment key={c.id}>
-              <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleClient(c.id)}>
+              <tr className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => toggleClient(c.id)}>
                 <td className="p-3 text-center">
-                  <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
@@ -225,22 +225,22 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
                     </svg>
                   </button>
                 </td>
-                <td className="p-3 font-medium text-gray-900">{c.name}</td>
-                <td className="p-3 text-right font-medium">{c.totalHours.toLocaleString('cs-CZ')} h</td>
-                <td className="p-3 text-right font-medium">{currency(c.revenue)}</td>
-                <td className="p-3 text-right text-gray-600">{currency(c.materialCost)}</td>
-                <td className="p-3 text-right text-gray-600">{currency(c.laborCost)}</td>
-                <td className="p-3 text-right text-gray-600">{currency(c.overheadCost)}</td>
-                <td className="p-3 text-right text-red-600 font-medium">{currency(c.totalCost)}</td>
-                <td className={`p-3 text-right font-bold ${c.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{currency(c.profit)}</td>
-                <td className={`p-3 text-right ${c.margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{c.margin.toFixed(1)}%</td>
+                <td className="p-3 font-medium text-gray-900 dark:text-white">{c.name}</td>
+                <td className="p-3 text-right font-medium dark:text-gray-200">{c.totalHours.toLocaleString('cs-CZ')} h</td>
+                <td className="p-3 text-right font-medium dark:text-gray-200">{currency(c.revenue)}</td>
+                <td className="p-3 text-right text-gray-600 dark:text-gray-400">{currency(c.materialCost)}</td>
+                <td className="p-3 text-right text-gray-600 dark:text-gray-400">{currency(c.laborCost)}</td>
+                <td className="p-3 text-right text-gray-600 dark:text-gray-400">{currency(c.overheadCost)}</td>
+                <td className="p-3 text-right text-red-600 dark:text-red-400 font-medium">{currency(c.totalCost)}</td>
+                <td className={`p-3 text-right font-bold ${c.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{currency(c.profit)}</td>
+                <td className={`p-3 text-right ${c.margin >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{c.margin.toFixed(1)}%</td>
               </tr>
               {expandedClients.has(c.id) && (
-                <tr className="bg-gray-50/50">
+                <tr className="bg-gray-50/50 dark:bg-slate-800/30">
                   <td colSpan={10} className="p-0">
-                    <div className="py-2 pl-4 pr-4 border-b border-gray-100 shadow-inner bg-gray-50">
+                    <div className="py-2 pl-4 pr-4 border-b border-gray-100 dark:border-slate-800 shadow-inner bg-gray-50 dark:bg-slate-900/50">
                       <table className="w-full text-xs">
-                        <thead className="text-gray-500 border-b border-gray-200">
+                        <thead className="text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-slate-700">
                           <tr>
                             <th className="py-2 pl-10 text-left font-medium uppercase tracking-wider">Akce</th>
                             <th className="py-2 text-right font-medium uppercase tracking-wider">Hodiny</th>
@@ -255,18 +255,18 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {c.actions.map(action => (
-                            <tr key={action.id} className="hover:bg-gray-100/50">
-                              <td className="py-2 pl-10 text-gray-700">
+                            <tr key={action.id} className="hover:bg-gray-100/50 dark:hover:bg-slate-700/50">
+                              <td className="py-2 pl-10 text-gray-700 dark:text-gray-300">
                                 <span className={action.isCompleted ? 'line-through text-gray-400' : ''}>{action.name}</span>
                               </td>
-                              <td className="py-2 text-right text-gray-600">{action.totalHours.toLocaleString('cs-CZ')} h</td>
-                              <td className="py-2 text-right text-gray-600">{currency(action.revenue)}</td>
-                              <td className="py-2 text-right text-gray-500">{currency(action.materialCost)}</td>
-                              <td className="py-2 text-right text-gray-500">{currency(action.laborCost)}</td>
-                              <td className="py-2 text-right text-gray-500">{currency(action.overheadCost)}</td>
-                              <td className="py-2 text-right text-red-500">{currency(action.totalCost)}</td>
-                              <td className={`py-2 text-right font-medium ${action.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{currency(action.profit)}</td>
-                              <td className={`py-2 text-right ${action.margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{action.margin.toFixed(1)}%</td>
+                              <td className="py-2 text-right text-gray-600 dark:text-gray-400">{action.totalHours.toLocaleString('cs-CZ')} h</td>
+                              <td className="py-2 text-right text-gray-600 dark:text-gray-400">{currency(action.revenue)}</td>
+                              <td className="py-2 text-right text-gray-500 dark:text-gray-500">{currency(action.materialCost)}</td>
+                              <td className="py-2 text-right text-gray-500 dark:text-gray-500">{currency(action.laborCost)}</td>
+                              <td className="py-2 text-right text-gray-500 dark:text-gray-500">{currency(action.overheadCost)}</td>
+                              <td className="py-2 text-right text-red-500 dark:text-red-400">{currency(action.totalCost)}</td>
+                              <td className={`py-2 text-right font-medium ${action.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{currency(action.profit)}</td>
+                              <td className={`py-2 text-right ${action.margin >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{action.margin.toFixed(1)}%</td>
                             </tr>
                           ))}
                           {c.actions.length === 0 && (
@@ -533,7 +533,7 @@ export default function DashboardPage() {
   return (
     <div className="w-full px-4 md:px-6 mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-black">Dashboard</h2>
+        <h2 className="text-3xl font-bold text-black dark:text-white">Dashboard</h2>
         <button
           onClick={() => {
             localStorage.removeItem('sebit_dashboard_auth');
@@ -549,7 +549,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6 w-fit">
+      <div className="flex space-x-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-lg mb-6 w-fit">
         {[
           { id: 'firma', label: 'Firma' },
           { id: 'workers', label: 'Zaměstnanci' },
@@ -559,7 +559,7 @@ export default function DashboardPage() {
           <button
             key={v.id}
             onClick={() => setView(v.id as any)}
-            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-all ${view === v.id ? 'bg-white shadow text-[#E30613]' : 'text-gray-500 hover:text-gray-700'
+            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-all ${view === v.id ? 'bg-white dark:bg-slate-700 shadow text-[#E30613]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
           >
             {v.label}
@@ -638,26 +638,26 @@ export default function DashboardPage() {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80">
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase">TOP Klienti</h3>
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
+                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">TOP Klienti</h3>
                   <ul className="mt-3 space-y-2">
                     {data.topClients.map(c => (
                       <li key={c.klient_id} className="flex justify-between items-center text-sm">
-                        <span className="font-medium">{c.nazev}</span>
-                        <span className="font-bold">{currency.format(c.total)}</span>
+                        <span className="font-medium dark:text-white">{c.nazev}</span>
+                        <span className="font-bold dark:text-gray-200">{currency.format(c.total)}</span>
                       </li>
                     ))}
                     {data.topClients.length === 0 && <li className="text-sm text-gray-400">Žádná data</li>}
                   </ul>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80">
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase">TOP Pracovníci</h3>
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
+                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">TOP Pracovníci</h3>
                   <ul className="mt-3 space-y-2">
                     {data.topWorkers.map(w => (
                       <li key={w.pracovnik_id} className="flex justify-between items-center text-sm">
-                        <span className="font-medium">{w.jmeno}</span>
-                        <span className="font-bold">{w.total.toLocaleString('cs-CZ')} h</span>
+                        <span className="font-medium dark:text-white">{w.jmeno}</span>
+                        <span className="font-bold dark:text-gray-200">{w.total.toLocaleString('cs-CZ')} h</span>
                       </li>
                     ))}
                     {data.topWorkers.length === 0 && <li className="text-sm text-gray-400">Žádná data</li>}
