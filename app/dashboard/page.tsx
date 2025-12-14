@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo, Fragment } from 'react';
-import { getDashboardData, getDetailedStats, DashboardData, MonthlyData, WorkerStats, ClientStats } from '@/lib/dashboard';
+import { getDashboardData, getDetailedStats, getExperimentalStats, DashboardData, MonthlyData, WorkerStats, ClientStats, ExperimentalStats, ProjectHealthStats } from '@/lib/dashboard';
 import { supabase } from '@/lib/supabase';
 import BarChart from '@/components/BarChart';
 import DashboardSkeleton from '@/components/DashboardSkeleton';
@@ -283,6 +283,48 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
   );
 };
 
+const ActiveProjectsTable = ({ data }: { data: ProjectHealthStats[] }) => {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200/80 overflow-hidden overflow-x-auto">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-gray-100 text-gray-600 border-b">
+          <tr>
+            <th className="p-4 whitespace-nowrap">Projekt / Akce</th>
+            <th className="p-4 whitespace-nowrap">Klient</th>
+            <th className="p-4 text-center whitespace-nowrap">Stav Rozpočtu</th>
+            <th className="p-4 text-right whitespace-nowrap">Odhad (h)</th>
+            <th className="p-4 text-right whitespace-nowrap">Realita (h)</th>
+            <th className="p-4 text-right whitespace-nowrap">WIP Náklady</th>
+            <th className="p-4 text-right whitespace-nowrap hidden sm:table-cell">Poslední aktivita</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {data.map(p => (
+            <tr key={p.id} className="hover:bg-gray-50">
+              <td className="p-4 font-medium text-gray-900">{p.name}</td>
+              <td className="p-4 text-gray-600">{p.clientName}</td>
+              <td className="p-4 align-middle">
+                <div className="w-full max-w-[140px] h-2.5 bg-gray-200 rounded-full mx-auto relative overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${p.status === 'critical' ? 'bg-red-500' : p.status === 'warning' ? 'bg-orange-400' : 'bg-green-500'}`}
+                    style={{ width: `${Math.min(p.budgetUsage * 100, 100)}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-center mt-1 text-gray-500">{(p.budgetUsage * 100).toFixed(0)}%</div>
+              </td>
+              <td className="p-4 text-right text-gray-600">{p.totalEstimatedHours.toLocaleString('cs-CZ')}</td>
+              <td className={`p-4 text-right font-medium ${p.status === 'critical' ? 'text-red-600' : 'text-gray-900'}`}>{p.totalActualHours.toLocaleString('cs-CZ')}</td>
+              <td className="p-4 text-right text-gray-600">{new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(p.wipValue)}</td>
+              <td className="p-4 text-right text-gray-400 text-xs hidden sm:table-cell">{p.lastActivity ? new Date(p.lastActivity).toLocaleDateString('cs-CZ') : '-'}</td>
+            </tr>
+          ))}
+          {data.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-gray-500">Žádné aktivní projekty</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 export default function DashboardPage() {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -291,9 +333,10 @@ export default function DashboardPage() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // Dashboard State
-  const [view, setView] = useState<'firma' | 'workers' | 'clients'>('firma');
+  const [view, setView] = useState<'firma' | 'workers' | 'clients' | 'experimental'>('firma');
   const [data, setData] = useState<DashboardData | null>(null);
   const [detailedStats, setDetailedStats] = useState<{ workers: WorkerStats[], clients: ClientStats[] } | null>(null);
+  const [experimentalData, setExperimentalData] = useState<ExperimentalStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'last12months' | 'year'>('last12months');
   const [year, setYear] = useState(new Date().getFullYear());
@@ -358,13 +401,15 @@ export default function DashboardPage() {
       setLoading(true);
       const periodParam = period === 'year' ? { year, month: month === 'all' ? undefined : month } : period;
 
-      const [dashboardData, stats] = await Promise.all([
+      const [dashboardData, stats, expStats] = await Promise.all([
         getDashboardData(periodParam, filters),
-        getDetailedStats(periodParam)
+        getDetailedStats(periodParam),
+        getExperimentalStats()
       ]);
 
       setData(dashboardData);
       setDetailedStats(stats);
+      setExperimentalData(expStats);
 
       setSelectedMonth(null);
       setLoading(false);
@@ -502,7 +547,8 @@ export default function DashboardPage() {
         {[
           { id: 'firma', label: 'Firma' },
           { id: 'workers', label: 'Zaměstnanci' },
-          { id: 'clients', label: 'Klienti' }
+          { id: 'clients', label: 'Klienti' },
+          { id: 'experimental', label: 'Experimentální' }
         ].map(v => (
           <button
             key={v.id}
@@ -524,7 +570,43 @@ export default function DashboardPage() {
         month={month} setMonth={setMonth}
       />
 
-      {loading || !data || !detailedStats ? (
+      {view === 'experimental' && experimentalData && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+          <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-800 text-sm mb-6 flex items-start gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 shrink-0 mt-0.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+            </svg>
+            <div>
+              <strong>Experimentální pohled:</strong> Tato sekce zobrazuje data pouze pro <u>neukončené</u> (běžící) akce, bez ohledu na zvolené časové období nahoře. Slouží pro operativní řízení.
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <KPICard
+              title="Hodnota Rozpracovanosti (WIP)"
+              value={currency.format(experimentalData.totalWipValue)}
+              helpText="Náklady (Práce + Materiál) v běžících projektech"
+            />
+            <KPICard
+              title="Potenciál Příjmů"
+              value={currency.format(experimentalData.totalRevenuePotential)}
+              helpText="Smluvní cena všech běžících projektů"
+            />
+            <KPICard
+              title="Rizikové Projekty"
+              value={String(experimentalData.projectsAtRisk)}
+              helpText="Projekty s čerpáním rozpočtu > 85%"
+              percentage={experimentalData.projectsAtRisk > 0 ? "Pozor" : "OK"}
+              percentageColor={experimentalData.projectsAtRisk > 0 ? "text-red-500" : "text-green-500"}
+            />
+          </div>
+
+          <h3 className="text-lg font-bold text-gray-800 mt-8 mb-4">Detail Projektů (Běžící)</h3>
+          <ActiveProjectsTable data={experimentalData.activeProjects} />
+        </div>
+      )}
+
+      {loading || !data || !detailedStats || (view === 'experimental' && !experimentalData) ? (
         <DashboardSkeleton view={view} />
       ) : (
         <>

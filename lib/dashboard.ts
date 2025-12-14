@@ -593,3 +593,126 @@ export async function getDetailedStats(
 
   return { workers: workerStats, clients: clientStats };
 }
+
+export interface ProjectHealthStats {
+  id: number;
+  name: string;
+  clientName: string;
+  totalEstimatedHours: number;
+  totalActualHours: number;
+  budgetUsage: number; // 0-1 (e.g. 0.8 for 80%)
+  wipValue: number; // Cost based value of work done
+  revenuePotential: number; // If fixed price: price * % completion (or just price if we assume full payment). Let's use Proportional.
+  status: 'ok' | 'warning' | 'critical';
+  lastActivity: string | null;
+}
+
+export interface ExperimentalStats {
+  activeProjects: ProjectHealthStats[];
+  totalWipValue: number; // Total cost invested in active projects
+  totalRevenuePotential: number; // Total projected revenue from active projects
+  projectsAtRisk: number; // Count of projects over budget or close to it
+}
+
+export async function getExperimentalStats(): Promise<ExperimentalStats> {
+  // 1. Fetch ALL uncompleted actions (Active Projects)
+  const { data: activeActions } = await supabase
+    .from('akce')
+    .select('*, klienti(nazev)')
+    .eq('is_completed', false)
+    .order('created_at', { ascending: false });
+
+  if (!activeActions || activeActions.length === 0) {
+    return {
+      activeProjects: [],
+      totalWipValue: 0,
+      totalRevenuePotential: 0,
+      projectsAtRisk: 0
+    };
+  }
+
+  // 2. Fetch ALL work logs for these actions
+  // We need to fetch 'prace' that are linked to these actions
+  const actionIds = activeActions.map(a => a.id);
+  const { data: workLogs } = await supabase
+    .from('prace')
+    .select('akce_id, pocet_hodin, datum, pracovnik_id')
+    .in('akce_id', actionIds);
+
+  // 3. Fetch Workers to get base rates for cost calculation
+  // (We could optimize this by fetching only relevant workers, but for now simple is fine)
+  const { data: workers } = await supabase.from('pracovnici').select('id, hodinova_mzda');
+  const workerRateMap = new Map<number, number>();
+  workers?.forEach(w => workerRateMap.set(w.id, Number(w.hodinova_mzda) || 0));
+
+  // 4. Aggregate data per project
+  const projectStats: ProjectHealthStats[] = activeActions.map(action => {
+    const projectLogs = workLogs?.filter(log => log.akce_id === action.id) || [];
+
+    let totalActualHours = 0;
+    let laborCost = 0;
+    let lastActivityDate: Date | null = null;
+
+    projectLogs.forEach(log => {
+      const hours = Number(log.pocet_hodin) || 0;
+      totalActualHours += hours;
+      const rate = workerRateMap.get(log.pracovnik_id || 0) || 0;
+      laborCost += hours * rate;
+
+      if (log.datum) {
+        const d = new Date(log.datum);
+        if (!lastActivityDate || d > lastActivityDate) {
+          lastActivityDate = d;
+        }
+      }
+    });
+
+    const totalEstimated = Number(action.odhad_hodin) || 0;
+    const materialCost = Number(action.material_my) || 0;
+    const totalCost = laborCost + materialCost; // This is WIP Value (Cost based)
+
+    // Budget Usage Logic
+    let budgetUsage = 0;
+    if (totalEstimated > 0) {
+      budgetUsage = totalActualHours / totalEstimated;
+    }
+
+    // Status Logic
+    let status: 'ok' | 'warning' | 'critical' = 'ok';
+    if (budgetUsage > 1.1) status = 'critical';
+    else if (budgetUsage > 0.85) status = 'warning';
+
+    // Revenue Potential
+    // Logic: If fixed price defined, how much of it have we "earned"?
+    // Simple approach: We count the full price as "Potential" if completed, but here it's WIP.
+    // Let's define Revenue Potential as the full fixed price, so we can see what's on the table.
+    // OR: completion * price. Let's use full fixed price for "Total Pipeline Value".
+    const revenuePotential = Number(action.cena_klient) || 0;
+
+    return {
+      id: action.id,
+      name: action.nazev,
+      // @ts-ignore
+      clientName: Array.isArray(action.klienti) ? action.klienti[0]?.nazev : action.klienti?.nazev || 'Neznámý',
+      totalEstimatedHours: totalEstimated,
+      totalActualHours,
+      budgetUsage,
+      wipValue: totalCost,
+      revenuePotential,
+      status,
+      lastActivity: lastActivityDate ? lastActivityDate.toISOString().split('T')[0] : null
+    };
+  });
+
+  // Calculate global stats
+  const totalWipValue = projectStats.reduce((sum, p) => sum + p.wipValue, 0);
+  const totalRevenuePotential = projectStats.reduce((sum, p) => sum + p.revenuePotential, 0);
+  const projectsAtRisk = projectStats.filter(p => p.status === 'critical' || p.status === 'warning').length;
+
+  return {
+    activeProjects: projectStats.sort((a, b) => b.budgetUsage - a.budgetUsage), // Sort by risk (highest usage first)
+    totalWipValue,
+    totalRevenuePotential,
+    projectsAtRisk
+  };
+}

@@ -53,7 +53,7 @@ CREATE TABLE public.mzdy (
   priplatek numeric,
   created_at timestamp with time zone DEFAULT now(),
   organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-  celkova_castka numeric DEFAULT ((COALESCE(hruba_mzda, (0)::numeric) + COALESCE(faktura, (0)::numeric)) + COALESCE(priplatek, (0)::numeric)),
+  celkova_castka numeric GENERATED ALWAYS AS ((COALESCE(hruba_mzda, (0)::numeric) + COALESCE(faktura, (0)::numeric)) + COALESCE(priplatek, (0)::numeric)) STORED,
   CONSTRAINT mzdy_pkey PRIMARY KEY (id),
   CONSTRAINT mzdy_pracovnik_id_fkey FOREIGN KEY (pracovnik_id) REFERENCES public.pracovnici(id),
   CONSTRAINT mzdy_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
