@@ -37,15 +37,15 @@ export default function BarChart({ data, onMonthClick, selectedMonth }: BarChart
   }, [data]);
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 w-full h-96 flex flex-col">
-      <h3 className="text-sm font-semibold text-gray-500 uppercase mb-4">Měsíční přehled (Příjmy vs. Náklady)</h3>
+    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 w-full h-96 flex flex-col">
+      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase mb-4">Měsíční přehled (Příjmy vs. Náklady)</h3>
       <div className="flex-grow flex items-end gap-2 sm:gap-4 overflow-x-auto pb-2">
         {data.map((monthData) => {
           const isSelected = selectedMonth?.month === monthData.month && selectedMonth?.year === monthData.year;
           return (
             <div
               key={monthData.month + monthData.year}
-              className={`h-full w-full flex flex-col items-center cursor-pointer p-2 rounded-lg ${isSelected ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+              className={`h-full w-full flex flex-col items-center cursor-pointer p-2 rounded-lg transition-colors ${isSelected ? 'bg-gray-100 dark:bg-slate-800' : 'hover:bg-gray-50 dark:hover:bg-slate-800/50'}`}
               onClick={() => onMonthClick(monthData)}
             >
               <div className="relative w-full h-full flex justify-center items-end gap-1">
@@ -64,7 +64,7 @@ export default function BarChart({ data, onMonthClick, selectedMonth }: BarChart
                   color="#f87171" // red-400
                 />
               </div>
-              <div className="text-xs font-semibold text-gray-600 mt-1 pt-1 border-t w-full text-center">{monthData.month}</div>
+              <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mt-1 pt-1 border-t dark:border-slate-700 w-full text-center">{monthData.month}</div>
             </div>
           )
         })}

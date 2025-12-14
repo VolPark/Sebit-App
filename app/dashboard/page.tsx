@@ -84,10 +84,10 @@ const AdditionalKpis = ({ data, currency }: { data: DashboardData, currency: Int
   <>
     <KPICard title="Odpracované hodiny" value={data.totalHours.toLocaleString('cs-CZ') + ' h'} />
     <KPICard title="Prům. Sazba Firmy" value={currency.format(data.avgCompanyRate) + '/h'} />
-    <div className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80">
-      <p className="text-sm font-semibold text-gray-500 uppercase">PRŮM. HODINOVÁ MZDA</p>
-      <p className="text-2xl md:text-3xl font-bold mt-2 text-[#333333]">{currency.format(data.averageHourlyWage)}<span className="text-xl text-gray-400">/h</span></p>
-      <p className="text-sm text-gray-500 mt-1">
+    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
+      <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">PRŮM. HODINOVÁ MZDA</p>
+      <p className="text-2xl md:text-3xl font-bold mt-2 text-[#333333] dark:text-white">{currency.format(data.averageHourlyWage)}<span className="text-xl text-gray-400 dark:text-gray-500">/h</span></p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
         Prům. měsíční: {currency.format(data.averageMonthlyWage)}
       </p>
     </div>
@@ -291,9 +291,9 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
 
 const ActiveProjectsTable = ({ data }: { data: ProjectHealthStats[] }) => {
   return (
-    <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200/80 overflow-hidden overflow-x-auto">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 overflow-hidden overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="bg-gray-100 text-gray-600 border-b">
+        <thead className="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 border-b dark:border-slate-700">
           <tr>
             <th className="p-4 whitespace-nowrap">Projekt / Akce</th>
             <th className="p-4 whitespace-nowrap">Klient</th>
@@ -304,23 +304,23 @@ const ActiveProjectsTable = ({ data }: { data: ProjectHealthStats[] }) => {
             <th className="p-4 text-right whitespace-nowrap hidden sm:table-cell">Poslední aktivita</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {data.map(p => (
-            <tr key={p.id} className="hover:bg-gray-50">
-              <td className="p-4 font-medium text-gray-900">{p.name}</td>
-              <td className="p-4 text-gray-600">{p.clientName}</td>
+            <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+              <td className="p-4 font-medium text-gray-900 dark:text-white">{p.name}</td>
+              <td className="p-4 text-gray-600 dark:text-gray-400">{p.clientName}</td>
               <td className="p-4 align-middle">
-                <div className="w-full max-w-[140px] h-2.5 bg-gray-200 rounded-full mx-auto relative overflow-hidden">
+                <div className="w-full max-w-[140px] h-2.5 bg-gray-200 dark:bg-slate-700 rounded-full mx-auto relative overflow-hidden">
                   <div
                     className={`h-full rounded-full ${p.status === 'critical' ? 'bg-red-500' : p.status === 'warning' ? 'bg-orange-400' : 'bg-green-500'}`}
                     style={{ width: `${Math.min(p.budgetUsage * 100, 100)}%` }}
                   ></div>
                 </div>
-                <div className="text-xs text-center mt-1 text-gray-500">{(p.budgetUsage * 100).toFixed(0)}%</div>
+                <div className="text-xs text-center mt-1 text-gray-500 dark:text-gray-400">{(p.budgetUsage * 100).toFixed(0)}%</div>
               </td>
-              <td className="p-4 text-right text-gray-600">{p.totalEstimatedHours.toLocaleString('cs-CZ')}</td>
-              <td className={`p-4 text-right font-medium ${p.status === 'critical' ? 'text-red-600' : 'text-gray-900'}`}>{p.totalActualHours.toLocaleString('cs-CZ')}</td>
-              <td className="p-4 text-right text-gray-600">{new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(p.wipValue)}</td>
+              <td className="p-4 text-right text-gray-600 dark:text-gray-400">{p.totalEstimatedHours.toLocaleString('cs-CZ')}</td>
+              <td className={`p-4 text-right font-medium ${p.status === 'critical' ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>{p.totalActualHours.toLocaleString('cs-CZ')}</td>
+              <td className="p-4 text-right text-gray-600 dark:text-gray-400">{new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(p.wipValue)}</td>
               <td className="p-4 text-right text-gray-400 text-xs hidden sm:table-cell">{p.lastActivity ? new Date(p.lastActivity).toLocaleDateString('cs-CZ') : '-'}</td>
             </tr>
           ))}
@@ -578,7 +578,7 @@ export default function DashboardPage() {
 
       {view === 'experimental' && experimentalData && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
-          <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-800 text-sm mb-6 flex items-start gap-3">
+          <div className="p-4 bg-indigo-50 dark:bg-slate-900/50 border border-indigo-100 dark:border-slate-800 rounded-xl text-indigo-800 dark:text-indigo-400 text-sm mb-6 flex items-start gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 shrink-0 mt-0.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
             </svg>
@@ -607,7 +607,7 @@ export default function DashboardPage() {
             />
           </div>
 
-          <h3 className="text-lg font-bold text-gray-800 mt-8 mb-4">Detail Projektů (Běžící)</h3>
+          <h3 className="text-lg font-bold text-gray-800 dark:text-white mt-8 mb-4">Detail Projektů (Běžící)</h3>
           <ActiveProjectsTable data={experimentalData.activeProjects} />
         </div>
       )}
