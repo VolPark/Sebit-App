@@ -9,7 +9,7 @@ export default function DashboardSkeleton({ view }: DashboardSkeletonProps) {
         return (
             <div className="space-y-6">
                 {/* Chart Area */}
-                <div className="w-full h-[400px] bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-200/80">
+                <div className="w-full h-[400px] bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-800">
                     <div className="flex justify-between mb-8">
                         <Skeleton className="h-6 w-32" />
                         <div className="flex gap-2">
@@ -27,7 +27,7 @@ export default function DashboardSkeleton({ view }: DashboardSkeletonProps) {
                 {/* KPIs */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {[...Array(4)].map((_, i) => (
-                        <div key={i} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 h-32 flex flex-col justify-between">
+                        <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-800 h-32 flex flex-col justify-between">
                             <div className="flex justify-between">
                                 <Skeleton className="h-4 w-24" />
                                 <Skeleton className="h-4 w-12" />
@@ -41,7 +41,7 @@ export default function DashboardSkeleton({ view }: DashboardSkeletonProps) {
                 {/* Bottom Lists */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                     {[...Array(2)].map((_, i) => (
-                        <div key={i} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 h-64">
+                        <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-800 h-64">
                             <Skeleton className="h-4 w-32 mb-6" />
                             <div className="space-y-4">
                                 {[...Array(5)].map((_, j) => (
@@ -60,15 +60,15 @@ export default function DashboardSkeleton({ view }: DashboardSkeletonProps) {
 
     // Table Skeleton for Workers/Clients
     return (
-        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex gap-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-800 overflow-hidden">
+            <div className="p-4 border-b border-gray-100 dark:border-slate-800 flex gap-4">
                 {[...Array(5)].map((_, i) => (
                     <Skeleton key={i} className="h-6 w-full" />
                 ))}
             </div>
             <div className="p-0">
                 {[...Array(8)].map((_, i) => (
-                    <div key={i} className="p-4 border-b border-slate-50 flex gap-4">
+                    <div key={i} className="p-4 border-b border-slate-50 dark:border-slate-800 flex gap-4">
                         <Skeleton className="h-5 w-1/4" />
                         <Skeleton className="h-5 w-1/4" />
                         <Skeleton className="h-5 w-1/4" />
