@@ -337,18 +337,18 @@ export default function VykazyPage() {
           <div className="">
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Datum</label>
             <input id="datum" type="date"
-              className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white p-3 transition"
+              className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white p-3 transition"
               value={datum} onChange={e => setDatum(e.target.value)} min="2025-01-01" />
           </div>
 
           <div className="">
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Hodiny</label>
-            <input id="hodiny" type="number" step="0.5" placeholder="8.5" className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white p-3 transition" value={hodiny} onChange={e => setHodiny(e.target.value)} />
+            <input id="hodiny" type="number" step="0.5" placeholder="8.5" className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white p-3 transition" value={hodiny} onChange={e => setHodiny(e.target.value)} />
           </div>
 
           <div className="md:col-span-3">
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Popis činnosti</label>
-            <input id="popis" type="text" placeholder="Co bylo uděláno?" className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white p-3 transition" value={popis} onChange={e => setPopis(e.target.value)} />
+            <input id="popis" type="text" placeholder="Co bylo uděláno?" className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white p-3 transition" value={popis} onChange={e => setPopis(e.target.value)} />
           </div>
 
           <div className="md:col-span-3 flex justify-end gap-4">

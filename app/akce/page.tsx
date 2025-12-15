@@ -281,22 +281,22 @@ export default function AkcePage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Datum</label>
-            <input className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" type="date" value={datum} onChange={e => setDatum(e.target.value)} />
+            <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" type="date" value={datum} onChange={e => setDatum(e.target.value)} />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Klient</label>
             <div className="flex items-center gap-2">
-              <div className="w-full">
+              <div className="w-full min-w-0">
                 <ComboBox items={formattedKlienti} selected={selectedKlient} setSelected={setSelectedKlient} />
               </div>
-              <button onClick={() => { setShowNewClientForm(!showNewClientForm); setSelectedKlient(null); }} className="p-3 rounded-lg bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 transition dark:text-white">
+              <button onClick={() => { setShowNewClientForm(!showNewClientForm); setSelectedKlient(null); }} className="p-3 rounded-lg bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 transition dark:text-white shrink-0">
                 +
               </button>
             </div>
             {showNewClientForm && (
               <input
-                className="mt-2 w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
+                className="appearance-none block mt-2 w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
                 placeholder="Jméno nového klienta"
                 value={newClientName}
                 onChange={e => setNewClientName(e.target.value)}
@@ -307,22 +307,22 @@ export default function AkcePage() {
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Cena pro klienta</label>
-              <input className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={cenaKlient} onChange={e => setCenaKlient(e.target.value)} type="number" />
+              <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={cenaKlient} onChange={e => setCenaKlient(e.target.value)} type="number" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Odhad hodin</label>
-              <input className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={odhadHodin} onChange={e => setOdhadHodin(e.target.value)} type="number" />
+              <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={odhadHodin} onChange={e => setOdhadHodin(e.target.value)} type="number" />
             </div>
           </div>
 
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Materiál (klient)</label>
-              <input className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={materialKlient} onChange={e => setMaterialKlient(e.target.value)} type="number" />
+              <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={materialKlient} onChange={e => setMaterialKlient(e.target.value)} type="number" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Materiál (my)</label>
-              <input className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={materialMy} onChange={e => setMaterialMy(e.target.value)} type="number" />
+              <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={materialMy} onChange={e => setMaterialMy(e.target.value)} type="number" />
             </div>
           </div>
 
