@@ -392,44 +392,49 @@ export default function VykazyPage() {
               {year}
             </h3>
             {expandedYears.has(year) && (
-              <div className="pl-4 pb-2 space-y-2">
+              <div className="pl-0 pb-2 space-y-2">
                 {Object.keys(groupedVykazy[year]).sort((a, b) => Number(b) - Number(a)).map(month => {
                   const monthKey = `${year}-${month}`;
                   return (
                     <div key={monthKey} className="bg-white dark:bg-slate-900 rounded-lg">
-                      <h4 onClick={() => toggleMonth(monthKey)} className="p-3 font-semibold cursor-pointer flex items-center dark:text-white">
+                      <h4 onClick={() => toggleMonth(monthKey)} className="p-3 font-semibold cursor-pointer flex items-center border-b border-gray-100 dark:border-slate-800 dark:text-white">
                         <svg className={`w-4 h-4 mr-2 transform transition-transform ${expandedMonths.has(monthKey) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
                         {monthNames[Number(month)]}
                       </h4>
                       {expandedMonths.has(monthKey) && (
-                        <div className="px-3 pb-3 space-y-3">
+                        <div className="p-2 space-y-3">
                           {groupedVykazy[year][month].map(v => (
-                            <div key={v.id} className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 shadow-sm">
+                            <div key={v.id} className="bg-white border border-gray-200 dark:bg-slate-800 dark:border-slate-700 rounded-lg p-3 shadow-sm">
                               {editingId === v.id ? (
                                 <div className="flex flex-col gap-2">
                                   {/* In-line editing is disabled in grouped view for now */}
+                                  <div className="text-sm italic text-gray-500">Editace probíhá ve formuláři nahoře...</div>
                                 </div>
                               ) : (
                                 <>
                                   <div className="flex justify-between items-start mb-2">
                                     <div className="text-sm font-medium dark:text-white">{formatDate(v.datum)}</div>
-                                    <div className="text-sm font-semibold dark:text-white">{v.pocet_hodin} h</div>
+                                    <div className="text-sm font-bold bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded text-gray-900 dark:text-white">{v.pocet_hodin} h</div>
                                   </div>
-                                  <div className="text-sm text-gray-700 dark:text-gray-300">{v.pracovnici?.jmeno} •                               {v.klienti?.nazev ? (
-                                    v.klienti.nazev
-                                  ) : v.akce?.klienti?.nazev ? (
-                                    <span className="flex items-center text-indigo-700 dark:text-indigo-400" title="Klient napárován z akce">
-                                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 mr-1"><path fillRule="evenodd" d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" clipRule="evenodd" /><path fillRule="evenodd" d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" clipRule="evenodd" /></svg>
-                                      {v.akce.klienti.nazev}
-                                    </span>
-                                  ) : (
-                                    <span className="text-red-500 font-bold text-xs">Chybí</span>
-                                  )}</div>
-                                  <div className="font-bold text-sm text-gray-700 dark:text-gray-200">{v.akce?.nazev}</div>
-                                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">{v.popis}</div>
-                                  <div className="flex gap-2 mt-3">
-                                    <button onClick={() => startEdit(v)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition">Upravit</button>
-                                    <button onClick={() => openDeleteModal(v.id)} className="text-sm text-red-500 hover:text-red-700 transition">Smazat</button>
+                                  <div className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                                    <span className="font-semibold">{v.pracovnici?.jmeno}</span>
+                                    <span className="mx-1 text-gray-400">|</span>
+                                    {v.klienti?.nazev ? (
+                                      v.klienti.nazev
+                                    ) : v.akce?.klienti?.nazev ? (
+                                      <span className="inline-flex items-center text-indigo-700 dark:text-indigo-400" title="Klient napárován z akce">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 mr-1 flex-shrink-0"><path fillRule="evenodd" d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" clipRule="evenodd" /><path fillRule="evenodd" d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" clipRule="evenodd" /></svg>
+                                        <span className="truncate max-w-[150px] inline-block align-bottom">{v.akce.klienti.nazev}</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-red-500 font-bold text-xs">Chybí</span>
+                                    )}
+                                  </div>
+                                  <div className="font-bold text-sm text-[#E30613] dark:text-[#E30613] mb-2">{v.akce?.nazev}</div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-3 break-words bg-gray-50 dark:bg-slate-900/50 p-2 rounded">{v.popis || <span className="italic text-gray-400">Bez popisu</span>}</div>
+                                  <div className="flex gap-3 border-t border-gray-100 dark:border-slate-700 pt-2">
+                                    <button onClick={() => startEdit(v)} className="flex-1 text-center py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 rounded transition font-medium">Upravit</button>
+                                    <button onClick={() => openDeleteModal(v.id)} className="flex-1 text-center py-1 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition font-medium">Smazat</button>
                                   </div>
                                 </>
                               )}
