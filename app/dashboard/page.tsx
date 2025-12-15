@@ -549,22 +549,61 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <div className="flex space-x-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-lg mb-6 w-fit">
+      <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-1 bg-transparent sm:bg-gray-100 sm:dark:bg-slate-800 sm:p-1 rounded-lg mb-8 w-full sm:w-fit">
         {[
-          { id: 'firma', label: 'Firma' },
-          { id: 'workers', label: 'Zaměstnanci' },
-          { id: 'clients', label: 'Klienti' },
-          { id: 'experimental', label: 'Experimentální' }
-        ].map(v => (
-          <button
-            key={v.id}
-            onClick={() => setView(v.id as any)}
-            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-all ${view === v.id ? 'bg-white dark:bg-slate-700 shadow text-[#E30613]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-              }`}
-          >
-            {v.label}
-          </button>
-        ))}
+          {
+            id: 'firma', label: 'Firma', icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+              </svg>
+            )
+          },
+          {
+            id: 'workers', label: 'Zaměstnanci', icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+              </svg>
+            )
+          },
+          {
+            id: 'clients', label: 'Klienti', icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+              </svg>
+            )
+          },
+          {
+            id: 'experimental', label: 'Exp.', icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+              </svg>
+            )
+          }
+        ].map(v => {
+          const isActive = view === v.id;
+          return (
+            <button
+              key={v.id}
+              onClick={() => setView(v.id as any)}
+              className={`
+                group relative flex items-center justify-center gap-3 transition-all duration-200
+                sm:rounded-md sm:px-5 sm:py-2.5 sm:text-sm
+                rounded-2xl p-4 flex-col h-24 sm:h-auto sm:flex-row
+                ${isActive
+                  ? 'bg-white dark:bg-slate-700 shadow-sm ring-1 ring-slate-100 dark:ring-slate-600 text-[#E30613]'
+                  : 'bg-white/50 dark:bg-slate-800/50 sm:bg-transparent border sm:border-0 border-white/40 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-700 text-gray-500 dark:text-gray-400'
+                }
+              `}
+            >
+              <div className={`transition-colors ${isActive ? 'text-[#E30613]' : ''}`}>
+                {v.icon}
+              </div>
+              <span className={`font-semibold sm:font-medium ${isActive ? 'text-[#E30613]' : ''}`}>
+                {v.label}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       <DashboardControls
