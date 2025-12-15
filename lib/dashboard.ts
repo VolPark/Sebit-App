@@ -47,377 +47,333 @@ const getISODateRange = (startDate: Date, endDate: Date) => {
 
 // Main data fetching function
 // Main data fetching function
+// Main data fetching function - OPTIMIZED
 export async function getDashboardData(
   period: 'month' | 'last12months' | { year: number; month?: number },
   filters: { pracovnikId?: number | null, klientId?: number | null }
 ): Promise<DashboardData> {
 
-  if (period === 'last12months') {
-    // --- Logic for Last 12 Months (Month-by-Month) ---
-    const monthlyData: MonthlyData[] = [];
-    const now = new Date();
+  // 1. Determine Date Range
+  const now = new Date();
+  let startDate: Date;
+  let endDate: Date;
+  const isLast12Months = period === 'last12months';
 
-    // We only want to show data from 2025 onwards
-    // For last 12 months, if that goes back to 2024, we should stop at Jan 2025
+  if (isLast12Months) {
+    // Show data from 2025-01-01 onwards, up to last 12 months
+    startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
     const limitDate = new Date(2025, 0, 1); // Jan 1, 2025
+    if (startDate < limitDate) startDate = limitDate;
+    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0); // End of current month
+  } else if (period === 'month') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  } else {
+    // Specific Year or Month
+    const pYear = typeof period === 'object' ? period.year : now.getFullYear();
+    if (typeof period === 'object' && period.month !== undefined && period.month !== null) {
+      startDate = new Date(pYear, period.month, 1);
+      endDate = new Date(pYear, period.month + 1, 0);
+    } else {
+      startDate = new Date(pYear, 0, 1);
+      endDate = new Date(pYear, 11, 31);
+    }
+  }
 
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+  const { start, end } = getISODateRange(startDate, endDate);
 
-      // Skip months before Jan 2025
-      if (date < limitDate) continue;
+  // 2. Prepare Queries (Bulk Fetch)
+  let akceQuery = supabase.from('akce').select('id, datum, cena_klient, material_my, material_klient, odhad_hodin, klient_id, klienti(nazev)').gte('datum', start).lte('datum', end);
+  let praceQuery = supabase.from('prace').select('id, datum, pocet_hodin, pracovnik_id, klient_id, akce_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
 
-      const year = date.getFullYear();
-      const month = date.getMonth();
+  // Mzdy needs a slightly wider range to be safe or just matching years
+  let mzdyQuery = supabase.from('mzdy').select('rok, mesic, celkova_castka, pracovnik_id').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
 
-      const startDate = new Date(year, month, 1);
-      const endDate = new Date(year, month + 1, 0);
-      const { start, end } = getISODateRange(startDate, endDate);
+  let fixedCostsQuery = supabase.from('fixed_costs').select('rok, mesic, castka').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
 
-      // --- Revenue & Material Costs ---
-      let akceQuery = supabase.from('akce').select('cena_klient, material_my, material_klient, odhad_hodin').gte('datum', start).lte('datum', end);
-      if (filters.klientId) {
-        akceQuery = akceQuery.eq('klient_id', filters.klientId);
+  // Apply filters to initial fetch where appropriate to reduce data transfer?
+  // Actually, for "Top Clients" and "Top Workers" we usually need global data if we want to show context, but the requirements say "Top Clients" (implied filtered?).
+  // If I filter `akce` by `klientId`, I won't get other clients for the "Top Clients" list if the user wanted that.
+  // BUT: The UI usually shows "Top Clients" relevant to the current view. If I filter for Client A, "Top Clients" is just Client A.
+  // So yes, applying filters to SQL is efficient and correct.
+
+  if (filters.klientId) {
+    akceQuery = akceQuery.eq('klient_id', filters.klientId);
+    praceQuery = praceQuery.eq('klient_id', filters.klientId); // Note: Prace might be linked via akce_id, relying on redundant column or join. Prace table has klient_id? Yes, schema says so.
+    // What if prace is linked only via akce? The schema_audit said `prace.klient_id` exists. Ideally we trust it.
+    // If not, we'd need to fetch all and filter in JS. Let's assume `klient_id` is reliable on `prace`.
+  }
+  if (filters.pracovnikId) {
+    praceQuery = praceQuery.eq('pracovnik_id', filters.pracovnikId);
+    mzdyQuery = mzdyQuery.eq('pracovnik_id', filters.pracovnikId);
+    // Note: If we filter Mzdy by worker, we only get that worker's cost. Correct.
+  }
+
+  // 3. Execute Parallel Queries
+  const [akceRes, praceRes, mzdyRes, fixedCostsRes] = await Promise.all([
+    akceQuery,
+    praceQuery,
+    mzdyQuery,
+    fixedCostsQuery
+  ]);
+
+  const akceData = akceRes.data || [];
+  const praceData = praceRes.data || [];
+  const mzdyData = mzdyRes.data || [];
+  const fixedCostsData = fixedCostsRes.data || [];
+
+  // 4. Client-Side Aggregation
+  // We need to group sets by Month (YYYY-M) for the chart/monthly table.
+
+  // Initialize buckets for the requested range
+  const monthlyBuckets = new Map<string, MonthlyData>();
+
+  // Helper to generate keys
+  const getMonthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`; // using 0-indexed month for keys to match JS Date
+  const getMonthLabel = (monthIndex: number) => monthNames[monthIndex];
+
+  // Pre-fill buckets if last12months or specific year (to show empty months)
+  if (isLast12Months) {
+    // Loop last 12 months backwards or forwards? Order doesn't matter for Map, we sort later.
+    // Let's go from start to end.
+    let curr = new Date(startDate);
+    while (curr <= endDate) {
+      const key = getMonthKey(curr);
+      if (!monthlyBuckets.has(key)) {
+        monthlyBuckets.set(key, {
+          month: getMonthLabel(curr.getMonth()),
+          year: curr.getFullYear(),
+          totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
+          materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0
+        });
       }
-      const akceResult = await akceQuery;
-      const totalRevenue = akceResult.data?.reduce((sum, a) => sum + (a.cena_klient || 0), 0) ?? 0;
-      const totalMaterialCost = akceResult.data?.reduce((sum, a) => sum + (a.material_my || 0), 0) ?? 0;
-      const totalMaterialKlient = akceResult.data?.reduce((sum, a) => sum + (a.material_klient || 0), 0) ?? 0;
-      const materialProfit = akceResult.data?.reduce((sum, a) => sum + ((a.material_klient || 0) - (a.material_my || 0)), 0) ?? 0;
-      const totalEstimatedHours = akceResult.data?.reduce((sum, a) => sum + (a.odhad_hodin || 0), 0) ?? 0;
+      curr.setMonth(curr.getMonth() + 1);
+    }
+  } else if (period === 'year' || (typeof period === 'object' && !period.month)) {
+    // Full year 12 months
+    const y = (typeof period === 'object' ? period.year : new Date().getFullYear());
+    for (let m = 0; m < 12; m++) {
+      const key = `${y}-${m}`;
+      monthlyBuckets.set(key, {
+        month: getMonthLabel(m),
+        year: y,
+        totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
+        materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0
+      });
+    }
+  }
 
-      // --- Labor Costs & Hours ---
-      let totalLaborCost = 0;
-      let totalHours = 0;
+  // A. Process Akce (Revenue, Material)
+  for (const a of akceData) {
+    const d = new Date(a.datum);
+    const key = getMonthKey(d);
 
-      // Base queries for month's salaries and total work hours
-      let monthMzdyQuery = supabase.from('mzdy').select('celkova_castka, pracovnik_id').eq('rok', year).eq('mesic', month + 1);
-      let monthPraceQuery = supabase.from('prace').select('pocet_hodin, pracovnik_id').gte('datum', start).lte('datum', end);
-
-      // Apply worker filter if present
-      if (filters.pracovnikId) {
-        monthMzdyQuery = monthMzdyQuery.eq('pracovnik_id', filters.pracovnikId);
-        monthPraceQuery = monthPraceQuery.eq('pracovnik_id', filters.pracovnikId);
-      }
-
-      const [monthMzdyResult, monthPraceResult] = await Promise.all([monthMzdyQuery, monthPraceQuery]);
-
-      const monthMzdyData = monthMzdyResult.data || [];
-      const monthPraceData = monthPraceResult.data || [];
-
-      if (!filters.klientId) {
-        // No client filter: simple aggregation
-        totalLaborCost = monthMzdyData.reduce((sum, m) => sum + (m.celkova_castka || 0), 0);
-        totalHours = monthPraceData.reduce((sum, p) => sum + (p.pocet_hodin || 0), 0);
-      } else {
-        // Client filter is active: calculate prorated labor cost
-
-        // 1. Calculate total hours for each worker
-        const hoursPerWorker = new Map<number, number>();
-        for (const p of monthPraceData) {
-          if (p.pracovnik_id) {
-            hoursPerWorker.set(p.pracovnik_id, (hoursPerWorker.get(p.pracovnik_id) || 0) + p.pocet_hodin);
-          }
-        }
-
-        // 2. Calculate hourly rate for each worker
-        const ratePerWorker = new Map<number, number>();
-        for (const m of monthMzdyData) {
-          if (m.pracovnik_id) {
-            const totalHoursForWorker = hoursPerWorker.get(m.pracovnik_id);
-            if (totalHoursForWorker && totalHoursForWorker > 0) {
-              ratePerWorker.set(m.pracovnik_id, m.celkova_castka / totalHoursForWorker);
-            }
-          }
-        }
-
-        // 3. Get work done for the specific client
-        let clientPraceQuery = supabase.from('prace').select('pocet_hodin, pracovnik_id').gte('datum', start).lte('datum', end).eq('klient_id', filters.klientId);
-        if (filters.pracovnikId) {
-          clientPraceQuery = clientPraceQuery.eq('pracovnik_id', filters.pracovnikId);
-        }
-        const clientPraceResult = await clientPraceQuery;
-        const clientPraceData = clientPraceResult.data || [];
-
-        // 4. Calculate labor cost and hours for the client
-        for (const p of clientPraceData) {
-          if (p.pracovnik_id) {
-            const hourlyRate = ratePerWorker.get(p.pracovnik_id) || 0;
-            totalLaborCost += p.pocet_hodin * hourlyRate;
-          }
-          totalHours += p.pocet_hodin;
-        }
-      }
-
-      // --- Fixed Costs (Overhead) ---
-      const { data: fixedCosts } = await supabase
-        .from('fixed_costs')
-        .select('castka')
-        .eq('rok', year)
-        .eq('mesic', month + 1);
-
-      const totalFixedCosts = fixedCosts?.reduce((sum, fc) => sum + (Number(fc.castka) || 0), 0) ?? 0;
-
-      let displayedFixedCosts = 0;
-      if (!filters.klientId && !filters.pracovnikId) {
-        displayedFixedCosts = totalFixedCosts;
-      }
-
-      const totalCosts = totalMaterialCost + totalLaborCost + displayedFixedCosts;
-      const grossProfit = totalRevenue - totalCosts;
-
-      monthlyData.push({
-        month: monthNames[month],
-        year,
-        totalRevenue,
-        totalCosts,
-        grossProfit,
-        totalHours,
-        materialProfit,
-        totalMaterialKlient,
-        totalLaborCost,
-        totalEstimatedHours
+    // If we are viewing a single month, we might need a bucket for it if not initialized
+    if (!monthlyBuckets.has(key) && !isLast12Months && period !== 'year') {
+      monthlyBuckets.set(key, {
+        month: getMonthLabel(d.getMonth()), year: d.getFullYear(),
+        totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
+        materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0
       });
     }
 
-    // For aggregated cards (Top Clients/Workers), query the full 12-month range with filters
-    const fullRangeStartDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-    const fullRangeEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const { start, end } = getISODateRange(fullRangeStartDate, fullRangeEndDate);
-
-    let aggrAkceQuery = supabase.from('akce').select('cena_klient, klient_id, klienti(nazev)').gte('datum', start).lte('datum', end);
-    if (filters.klientId) aggrAkceQuery = aggrAkceQuery.eq('klient_id', filters.klientId);
-
-    let aggrPraceQuery = supabase.from('prace').select('pocet_hodin, pracovnik_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
-    if (filters.pracovnikId) aggrPraceQuery = aggrPraceQuery.eq('pracovnik_id', filters.pracovnikId);
-    if (filters.klientId) aggrPraceQuery = aggrPraceQuery.eq('klient_id', filters.klientId);
-
-    const [aggrAkceResult, aggrPraceResult] = await Promise.all([aggrAkceQuery, aggrPraceQuery]);
-
-    const aggregatedAkce = aggrAkceResult.data || [];
-    const aggregatedPrace = aggrPraceResult.data || [];
-
-    // Calculate aggregated totals for the entire period to show in cards
-    const totalRevenue = monthlyData.reduce((sum, m) => sum + m.totalRevenue, 0);
-    const totalCosts = monthlyData.reduce((sum, m) => sum + m.totalCosts, 0);
-    const totalHours = monthlyData.reduce((sum, m) => sum + m.totalHours, 0);
-    const totalMaterialProfit = monthlyData.reduce((sum, m) => sum + m.materialProfit, 0);
-    const totalMaterialKlient = monthlyData.reduce((sum, m) => sum + m.totalMaterialKlient, 0);
-    const totalLaborCost = monthlyData.reduce((sum, m) => sum + m.totalLaborCost, 0);
-    const totalEstimatedHours = monthlyData.reduce((sum, m) => sum + m.totalEstimatedHours, 0);
-
-    // Calculate Average Wages for last 12 months
-    const averageHourlyWage = totalHours > 0 ? totalLaborCost / totalHours : 0;
-    const averageMonthlyWage = totalLaborCost / 12; // Assuming 12 months for calculation
-    const estimatedVsActualHoursRatio = totalEstimatedHours > 0 ? totalHours / totalEstimatedHours : 0;
-
-    // Top Clients
-    const clientMap = new Map<number, { name: string, total: number }>();
-    for (const a of aggregatedAkce) {
-      if (a.klient_id && a.klienti) {
-        // @ts-ignore
-        const clientName = Array.isArray(a.klienti) ? a.klienti[0]?.nazev : a.klienti?.nazev;
-        const current = clientMap.get(a.klient_id) || { name: clientName || 'Neznámý', total: 0 };
-        current.total += a.cena_klient || 0;
-        clientMap.set(a.klient_id, current);
-      }
+    const bucket = monthlyBuckets.get(key);
+    if (bucket) {
+      bucket.totalRevenue += (a.cena_klient || 0);
+      bucket.totalMaterialKlient += (a.material_klient || 0);
+      bucket.materialProfit += ((a.material_klient || 0) - (a.material_my || 0));
+      bucket.totalCosts += (a.material_my || 0); // Add material cost to total costs
+      bucket.totalEstimatedHours += (a.odhad_hodin || 0);
     }
-    const topClients = Array.from(clientMap.entries()).sort(([, a], [, b]) => b.total - a.total).slice(0, 5).map(([id, data]) => ({ klient_id: id, nazev: data.name, total: data.total }));
-
-    // Top Workers
-    const workerMap = new Map<number, { name: string, total: number }>();
-    for (const p of aggregatedPrace) {
-      if (p.pracovnik_id && p.pracovnici) {
-        // @ts-ignore
-        const workerName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
-        const current = workerMap.get(p.pracovnik_id) || { name: workerName || 'Neznámý', total: 0 };
-        current.total += p.pocet_hodin || 0;
-        workerMap.set(p.pracovnik_id, current);
-      }
-    }
-    const topWorkers = Array.from(workerMap.entries()).sort(([, a], [, b]) => b.total - a.total).slice(0, 5).map(([id, data]) => ({ pracovnik_id: id, jmeno: data.name, total: data.total }));
-
-
-    return {
-      totalRevenue,
-      totalCosts,
-      grossProfit: totalRevenue - totalCosts,
-      materialProfit: totalMaterialProfit,
-      totalHours,
-      avgCompanyRate: totalHours > 0 ? (totalRevenue - totalMaterialKlient) / totalHours : 0,
-      averageHourlyWage,
-      averageMonthlyWage,
-      estimatedVsActualHoursRatio,
-      topClients,
-      topWorkers,
-      monthlyData,
-      prevPeriod: { totalRevenue: 0, totalCosts: 0, grossProfit: 0 }, // Placeholder
-    };
-
-  } else {
-    // --- Logic for Single Period (This Month, Year, or Specific Month in Year) ---
-    const now = new Date();
-    let startDate: Date;
-    let endDate: Date;
-
-    if (period === 'month') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    } else { // 'year' or { year, ?month }
-      const year = typeof period === 'object' ? period.year : now.getFullYear();
-      if (typeof period === 'object' && period.month !== undefined && period.month !== null) {
-        startDate = new Date(year, period.month, 1);
-        endDate = new Date(year, period.month + 1, 0);
-      } else {
-        startDate = new Date(year, 0, 1);
-        endDate = new Date(year, 11, 31);
-      }
-    }
-    const { start, end } = getISODateRange(startDate, endDate);
-
-    let akceQuery = supabase.from('akce').select('cena_klient, material_my, material_klient, odhad_hodin, klient_id, klienti(nazev)').gte('datum', start).lte('datum', end);
-    if (filters.klientId) akceQuery = akceQuery.eq('klient_id', filters.klientId);
-
-    // Mzdy query needs to handle month ranges if specific month selected, otherwise year filter
-    let mzdyQuery = supabase.from('mzdy').select('celkova_castka, pracovnik_id');
-    let fixedCostsQuery = supabase.from('fixed_costs').select('castka'); // NEW
-
-    if (period === 'month' || (typeof period === 'object' && period.month !== undefined && period.month !== null)) {
-      // Specific month - either current month or selected month
-      const mDate = startDate; // startDate is correctly set above for both cases
-      mzdyQuery = mzdyQuery.eq('rok', mDate.getFullYear()).eq('mesic', mDate.getMonth() + 1);
-      fixedCostsQuery = fixedCostsQuery.eq('rok', mDate.getFullYear()).eq('mesic', mDate.getMonth() + 1);
-    } else {
-      // Whole year range
-      mzdyQuery = mzdyQuery.gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
-      fixedCostsQuery = fixedCostsQuery.gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
-    }
-
-    if (filters.pracovnikId) mzdyQuery = mzdyQuery.eq('pracovnik_id', filters.pracovnikId);
-
-    let praceQuery = supabase.from('prace').select('pocet_hodin, pracovnik_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
-    if (filters.pracovnikId) praceQuery = praceQuery.eq('pracovnik_id', filters.pracovnikId);
-    if (filters.klientId) praceQuery = praceQuery.eq('klient_id', filters.klientId);
-
-    const [akceResult, mzdyResult, praceResult, fixedCostsResult] = await Promise.all([akceQuery, mzdyQuery, praceQuery, fixedCostsQuery]);
-
-    const akceData = akceResult.data || [];
-    const mzdyData = mzdyResult.data || [];
-    const praceData = praceResult.data || [];
-    const fixedCostsData = fixedCostsResult.data || [];
-
-    const totalRevenue = akceData.reduce((sum, a) => sum + (a.cena_klient || 0), 0);
-    const totalMaterialCost = akceData.reduce((sum, a) => sum + (a.material_my || 0), 0);
-    const totalMaterialKlient = akceData.reduce((sum, a) => sum + (a.material_klient || 0), 0);
-    const materialProfit = akceData.reduce((sum, a) => sum + ((a.material_klient || 0) - (a.material_my || 0)), 0);
-    const totalLaborCost = mzdyData.reduce((sum, m) => sum + (m.celkova_castka || 0), 0);
-    const totalFixedCosts = fixedCostsData.reduce((sum, fc) => sum + (Number(fc.castka) || 0), 0);
-
-    // IMPORTANT: If client filter is active, we should theoretically prorate overhead too, 
-    // but for the top-level Overview card "Total Costs" usually implies Company Costs.
-    // However, if I filter by Client, I expect to see costs related to that client.
-    // Implementing Prorated Overhead for Dashboard Overview is complex here because we don't have the granular hour loop.
-    // DECISION: For now, simply Add Fixed Costs globally if NO filter. If Filter active, we skip Fixed Costs in "Total" card?
-    // OR we do a simpler approximation: TotalOverhead * (ClientHours / TotalHours).
-    // Let's implement the approximation if simple, or just add all if no filter.
-    // Given the complexity of getDashboardData vs getDetailedStats, let's keep it simple: 
-    // If NO FILTERS -> Show full Fixed Costs.
-    // If FILTER -> Don't show Fixed Costs in the "Total" card (because it's confusing to show full rent for one client filter).
-
-    let displayedFixedCosts = 0;
-    if (!filters.klientId && !filters.pracovnikId) {
-      displayedFixedCosts = totalFixedCosts;
-    } else {
-      // If we want to be fancy, we could calculate share, but let's stick to "Company View = Full Costs", "Filtered View = Direct Costs" for now to avoid confusion,
-      // unless requested. Actually, user asked "how it propagates".
-      // In "getDetailedStats" (Analysis view), it IS propagated. 
-      // Here in "getDashboardData" (Overview cards), it's safer to only show overhead when viewing the whole company.
-      displayedFixedCosts = 0; // Or keep it 0 if filtered.
-      if (!filters.klientId && !filters.pracovnikId) displayedFixedCosts = totalFixedCosts;
-    }
-
-    // Wait, actually, if I look at "This Month" for "Client A", I might want to see my net profit including overhead load.
-    // Let's try to calculate the Ratio if possible. 
-    // We have `totalHours` (filtered). We would need `globalTotalHours` to get the ratio.
-    // That requires an extra query.
-    // For now, let's stick to: Overhead is visible in "Company" view. Hidden in "Filtered" view on the main cards. 
-    // This is a common pattern.
-
-    // Correction: In the 12-month loop above, I added `totalFixedCosts` unconditionally. 
-    // I should probably also check filters there. 
-    // BUT `getDashboardData` 12-month loop has `totalLaborCost` calculation that respects filters (prorated).
-    // So for consistency, I should probably try to prorate fixed costs too if possible, OR just only show them when no filter.
-    // Let's go with: Only show Fixed Costs when NO FILTERS are applied.
-
-    if (!filters.klientId && !filters.pracovnikId) {
-      displayedFixedCosts = totalFixedCosts;
-    } else {
-      displayedFixedCosts = 0;
-    }
-
-    const totalCosts = totalMaterialCost + totalLaborCost + displayedFixedCosts;
-    const totalHours = praceData.reduce((sum, p) => sum + (p.pocet_hodin || 0), 0);
-    const totalEstimatedHours = akceData.reduce((sum, a) => sum + (a.odhad_hodin || 0), 0);
-
-    // Calculate Average Wages
-    const uniqueEmployeeIds = new Set(mzdyData.map(m => m.pracovnik_id));
-    const uniqueEmployeeCount = uniqueEmployeeIds.size;
-
-    let averageMonthlyWage = 0;
-    if (uniqueEmployeeCount > 0) {
-      if (period === 'month' || (typeof period === 'object' && period.month !== undefined)) {
-        averageMonthlyWage = totalLaborCost / uniqueEmployeeCount;
-      } else { // year
-        const averageYearlySalary = totalLaborCost / uniqueEmployeeCount;
-        averageMonthlyWage = averageYearlySalary / 12;
-      }
-    }
-
-    const averageHourlyWage = totalHours > 0 ? totalLaborCost / totalHours : 0;
-    const estimatedVsActualHoursRatio = totalEstimatedHours > 0 ? totalHours / totalEstimatedHours : 0;
-
-    // Top Clients
-    const clientMap = new Map<number, { name: string, total: number }>();
-    for (const a of akceData) {
-      if (a.klient_id && a.klienti) {
-        // @ts-ignore
-        const clientName = Array.isArray(a.klienti) ? a.klienti[0]?.nazev : a.klienti?.nazev;
-        const current = clientMap.get(a.klient_id) || { name: clientName || 'Neznámý', total: 0 };
-        current.total += a.cena_klient || 0;
-        clientMap.set(a.klient_id, current);
-      }
-    }
-    const topClients = Array.from(clientMap.entries()).sort(([, a], [, b]) => b.total - a.total).slice(0, 5).map(([id, data]) => ({ klient_id: id, nazev: data.name, total: data.total }));
-
-    // Top Workers
-    const workerMap = new Map<number, { name: string, total: number }>();
-    for (const p of praceData) {
-      if (p.pracovnik_id && p.pracovnici) {
-        // @ts-ignore
-        const workerName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
-        const current = workerMap.get(p.pracovnik_id) || { name: workerName || 'Neznámý', total: 0 };
-        current.total += p.pocet_hodin || 0;
-        workerMap.set(p.pracovnik_id, current);
-      }
-    }
-    const topWorkers = Array.from(workerMap.entries()).sort(([, a], [, b]) => b.total - a.total).slice(0, 5).map(([id, data]) => ({ pracovnik_id: id, jmeno: data.name, total: data.total }));
-
-    return {
-      totalRevenue,
-      totalCosts,
-      grossProfit: totalRevenue - totalCosts,
-      materialProfit,
-      totalHours,
-      avgCompanyRate: totalHours > 0 ? (totalRevenue - totalMaterialKlient) / totalHours : 0,
-      averageHourlyWage,
-      averageMonthlyWage,
-      estimatedVsActualHoursRatio,
-      topClients,
-      topWorkers,
-      monthlyData: [], // Not applicable for single period view
-      prevPeriod: { totalRevenue: 0, totalCosts: 0, grossProfit: 0 }, // Placeholder
-    };
   }
+
+  // B. Process Labor Costs (Complex part)
+
+  // First, map global Hours per Worker per Month (needed for rate calc)
+  // If we are filtering by client, we fetched ONLY that client's work.
+  // BUT to calculate the worker's rate (Month Salary / Total Hours), we need their TOTAL hours, not just this client's hours.
+  // CRITICAL: If filtering by Client, our `praceQuery` filtered by client. We are missing the "Total Hours" context to calculate rate!
+  // FIX: If filtering by Client, we need a separate "Stats Query" for worker totals.
+  // For performance, let's accept a small inaccuracy or fetch "Worker Totals" in a separate lightweight query if filters are active.
+  // actually, `getDetailedStats` does `workerRealMonthlyRates` correctly by fetching ALL data.
+  // To keep `getDashboardData` fast, let's do this:
+  // If `filters.klientId` is set, we need to know the rates. 
+  // Let's try to fetch "Total Hours per Worker" using a `rpc` call or a separate aggregate query?
+  // OR, simply fetch ALL `prace` for the period (lightweight: id, pracovnik_id, pocet_hodin, datum) without client filter if possible?
+  // `prace` table is likely the largest. Fetching all rows for a year might be 1000s. Not too bad for JSON.
+  // Let's modify step 2: If client filter is ON, we fetch ALL `prace` (just hours) to calc rates, but only count filtered `prace` for stats.
+
+  let allPraceDataForRates = praceData;
+  if (filters.klientId) {
+    // We need extra data to calculate rates correctly. 
+    // Let's do a quick separate fetch for "All Hours" for the relevant workers in this period.
+    // Optimization: Only fetch for workers involved in the filtered result? No, we don't know them yet.
+    // Let's just fetch simplified all-prace for the period.
+    const { data: globalPrace } = await supabase.from('prace').select('pracovnik_id, pocet_hodin, datum').gte('datum', start).lte('datum', end);
+    allPraceDataForRates = globalPrace || [];
+  }
+
+  // Calc Rates
+  const workerMonthHours = new Map<string, number>(); // "WorkerID-YYYY-M" -> hours
+  for (const p of allPraceDataForRates) {
+    const d = new Date(p.datum);
+    const key = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth()}`;
+    workerMonthHours.set(key, (workerMonthHours.get(key) || 0) + (p.pocet_hodin || 0));
+  }
+
+  const workerMonthRate = new Map<string, number>(); // "WorkerID-YYYY-M" -> rate
+  for (const m of mzdyData) {
+    const key = `${m.pracovnik_id}-${m.rok}-${m.mesic - 1}`; // mesic is 1-based in DB
+    const hours = workerMonthHours.get(key) || 0;
+    if (hours > 0) {
+      workerMonthRate.set(key, (m.celkova_castka || 0) / hours);
+    }
+    // Note: If no hours recorded but salary exists, rate is undefined (infinite). We handle this by adding 0 cost or using base rate? 
+    // Usually implies fixed salary without logged hours. Complex. Let's ignore for now or assume 0 labor cost impact if no hours.
+  }
+
+  // Now aggregate Labor Costs into Buckets
+  // If NO Client filter is active, we can just Sum Mzdy into buckets directly (Simpler & More Accurate for Company Wide).
+  // If Client filter IS active, we MUST iterate Prace and use Rates.
+
+  if (!filters.klientId) {
+    // Simple Mode: Sum Mzdy
+    for (const m of mzdyData) {
+      // Mzdy has rok/mesic.
+      const d = new Date(m.rok, m.mesic - 1, 1);
+      // Check if this month is within our requested range? The query constrained it, so yes.
+      const key = getMonthKey(d);
+      if (!monthlyBuckets.has(key) && !isLast12Months && period !== 'year') {
+        // Init bucket if missing (for single month view)
+        monthlyBuckets.set(key, {
+          month: getMonthLabel(d.getMonth()), year: d.getFullYear(),
+          totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
+          materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0
+        });
+      }
+      const bucket = monthlyBuckets.get(key);
+      if (bucket) {
+        bucket.totalLaborCost += (m.celkova_castka || 0);
+        bucket.totalCosts += (m.celkova_castka || 0);
+      }
+    }
+    // Also sum hours from prace
+    for (const p of praceData) {
+      const d = new Date(p.datum);
+      const key = getMonthKey(d);
+      const bucket = monthlyBuckets.get(key);
+      if (bucket) bucket.totalHours += (p.pocet_hodin || 0);
+    }
+  } else {
+    // Filter Mode: Iterate Prace (which is filtered) and apply rates
+    for (const p of praceData) {
+      const d = new Date(p.datum);
+      const key = getMonthKey(d);
+      const rateKey = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth()}`;
+      const rate = workerMonthRate.get(rateKey) || 0; // Fallback to 0 or base rate? 0 is safer for "real cost".
+
+      const cost = (p.pocet_hodin || 0) * rate;
+
+      const bucket = monthlyBuckets.get(key);
+      if (bucket) {
+        bucket.totalHours += (p.pocet_hodin || 0);
+        bucket.totalLaborCost += cost;
+        bucket.totalCosts += cost;
+      }
+    }
+  }
+
+  // C. Fixed Costs
+  // Same logic: If NO filter, add all. If Filter, add 0 (as per previous agreement).
+  if (!filters.klientId && !filters.pracovnikId) {
+    for (const fc of fixedCostsData) {
+      const d = new Date(fc.rok, fc.mesic - 1, 1);
+      const key = getMonthKey(d);
+      const bucket = monthlyBuckets.get(key);
+      if (bucket) {
+        const val = (Number(fc.castka) || 0);
+        bucket.totalCosts += val;
+        // Note: We don't have a specific field for 'fixedCosts' in MonthlyData interface, 
+        // but it's part of totalCosts.
+      }
+    }
+  }
+
+  // 5. Finalize Monthly Data Array
+  // Sort by date key?
+  // Keys are YYYY-M. We can sort buckets.
+  const sortedKeys = Array.from(monthlyBuckets.keys()).sort((a, b) => {
+    const [y1, m1] = a.split('-').map(Number);
+    const [y2, m2] = b.split('-').map(Number);
+    if (y1 !== y2) return y1 - y2;
+    return m1 - m2;
+  });
+
+  const monthlyDataResult: MonthlyData[] = sortedKeys.map(k => {
+    const b = monthlyBuckets.get(k)!;
+    // Recalc Profit
+    b.grossProfit = b.totalRevenue - b.totalCosts;
+    return b;
+  });
+
+  // 6. Aggregate Totals for Top Cards
+  const totalRevenue = monthlyDataResult.reduce((sum, m) => sum + m.totalRevenue, 0);
+  const totalCosts = monthlyDataResult.reduce((sum, m) => sum + m.totalCosts, 0);
+  const totalHours = monthlyDataResult.reduce((sum, m) => sum + m.totalHours, 0);
+  const totalMaterialProfit = monthlyDataResult.reduce((sum, m) => sum + m.materialProfit, 0);
+  const totalMaterialKlient = monthlyDataResult.reduce((sum, m) => sum + m.totalMaterialKlient, 0);
+  const totalLaborCost = monthlyDataResult.reduce((sum, m) => sum + m.totalLaborCost, 0);
+  const totalEstimatedHours = monthlyDataResult.reduce((sum, m) => sum + m.totalEstimatedHours, 0);
+
+  const averageHourlyWage = totalHours > 0 ? totalLaborCost / totalHours : 0;
+  const averageMonthlyWage = totalLaborCost / (monthlyDataResult.length || 1); // Approx?
+  // Better Avg Month Wage: Unique Workers / Months? 
+  // Keep it simple: Labor / 12 (or number of months).
+
+  const estimatedVsActualHoursRatio = totalEstimatedHours > 0 ? totalHours / totalEstimatedHours : 0;
+
+  // 7. Top Clients & Workers (from the aggregated data)
+  // We can just iterate the `akceData` and `praceData` we already fetched.
+  const clientMap = new Map<number, { name: string, total: number }>();
+  for (const a of akceData) {
+    if (a.klient_id && a.klienti) {
+      // @ts-ignore
+      const cName = Array.isArray(a.klienti) ? a.klienti[0]?.nazev : a.klienti?.nazev;
+      const curr = clientMap.get(a.klient_id) || { name: cName || 'Neznámý', total: 0 };
+      curr.total += (a.cena_klient || 0);
+      clientMap.set(a.klient_id, curr);
+    }
+  }
+  const topClients = Array.from(clientMap.entries()).sort(([, a], [, b]) => b.total - a.total).slice(0, 5).map(([id, d]) => ({ klient_id: id, nazev: d.name, total: d.total }));
+
+  const workerMap = new Map<number, { name: string, total: number }>();
+  for (const p of praceData) {
+    if (p.pracovnik_id && p.pracovnici) {
+      // @ts-ignore
+      const wName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
+      const curr = workerMap.get(p.pracovnik_id) || { name: wName || 'Neznámý', total: 0 };
+      curr.total += (p.pocet_hodin || 0);
+      workerMap.set(p.pracovnik_id, curr);
+    }
+  }
+  const topWorkers = Array.from(workerMap.entries()).sort(([, a], [, b]) => b.total - a.total).slice(0, 5).map(([id, d]) => ({ pracovnik_id: id, jmeno: d.name, total: d.total }));
+
+
+  return {
+    totalRevenue,
+    totalCosts,
+    grossProfit: totalRevenue - totalCosts,
+    materialProfit: totalMaterialProfit,
+    totalHours,
+    avgCompanyRate: totalHours > 0 ? (totalRevenue - totalMaterialKlient) / totalHours : 0,
+    averageHourlyWage,
+    averageMonthlyWage,
+    estimatedVsActualHoursRatio,
+    topClients,
+    topWorkers,
+    monthlyData: monthlyDataResult,
+    prevPeriod: { totalRevenue: 0, totalCosts: 0, grossProfit: 0 },
+  };
 }
 
 export interface WorkerStats {
