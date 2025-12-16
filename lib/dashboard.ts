@@ -110,17 +110,26 @@ export async function getDashboardData(
   }
 
   // 3. Execute Parallel Queries
-  const [akceRes, praceRes, mzdyRes, fixedCostsRes] = await Promise.all([
+  // @ts-ignore
+  const [akceRes, praceRes, mzdyRes, fixedCostsRes, workersRes] = await Promise.all([
     akceQuery,
     praceQuery,
     mzdyQuery,
-    fixedCostsQuery
+    fixedCostsQuery,
+    supabase.from('pracovnici').select('id, hodinova_mzda')
   ]);
 
   const akceData = akceRes.data || [];
   const praceData = praceRes.data || [];
   const mzdyData = mzdyRes.data || [];
   const fixedCostsData = fixedCostsRes.data || [];
+  const workersData = workersRes.data || [];
+
+  // Map base rates
+  const workerBaseRateMap = new Map<number, number>();
+  workersData.forEach((w: any) => {
+    workerBaseRateMap.set(w.id, Number(w.hodinova_mzda) || 0);
+  });
 
   // 4. Client-Side Aggregation
   // We need to group sets by Month (YYYY-M) for the chart/monthly table.
@@ -149,18 +158,10 @@ export async function getDashboardData(
       }
       curr.setMonth(curr.getMonth() + 1);
     }
-  } else if (period === 'year' || (typeof period === 'object' && !period.month)) {
-    // Full year 12 months
-    const y = (typeof period === 'object' ? period.year : new Date().getFullYear());
-    for (let m = 0; m < 12; m++) {
-      const key = `${y}-${m}`;
-      monthlyBuckets.set(key, {
-        month: getMonthLabel(m),
-        year: y,
-        totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
-        materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0
-      });
-    }
+  } else {
+    // Single month or Custom Range (treated as month sequence mainly)
+    // If period is just 'month', we do single bucket below.
+    // If period is object with year/month, single bucket below.
   }
 
   // A. Process Akce (Revenue, Material)
@@ -169,7 +170,7 @@ export async function getDashboardData(
     const key = getMonthKey(d);
 
     // If we are viewing a single month, we might need a bucket for it if not initialized
-    if (!monthlyBuckets.has(key) && !isLast12Months && period !== 'year') {
+    if (!monthlyBuckets.has(key) && !isLast12Months) {
       monthlyBuckets.set(key, {
         month: getMonthLabel(d.getMonth()), year: d.getFullYear(),
         totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
@@ -209,7 +210,9 @@ export async function getDashboardData(
     // Let's do a quick separate fetch for "All Hours" for the relevant workers in this period.
     // Optimization: Only fetch for workers involved in the filtered result? No, we don't know them yet.
     // Let's just fetch simplified all-prace for the period.
-    const { data: globalPrace } = await supabase.from('prace').select('pracovnik_id, pocet_hodin, datum').gte('datum', start).lte('datum', end);
+    const { data: globalPrace } = await supabase.from('prace').select('id, datum, pocet_hodin, pracovnik_id, klient_id, akce_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
+    // We cast to any[] or similar to align with `praceData` type if strict
+    // @ts-ignore
     allPraceDataForRates = globalPrace || [];
   }
 
@@ -226,7 +229,16 @@ export async function getDashboardData(
     const key = `${m.pracovnik_id}-${m.rok}-${m.mesic - 1}`; // mesic is 1-based in DB
     const hours = workerMonthHours.get(key) || 0;
     if (hours > 0) {
-      workerMonthRate.set(key, (m.celkova_castka || 0) / hours);
+      let calculatedRate = (m.celkova_castka || 0) / hours;
+
+      // Automatic Fallback Logic
+      const baseRate = workerBaseRateMap.get(m.pracovnik_id) || 0;
+      if (baseRate > 0 && calculatedRate > (baseRate * 1.5)) {
+        // Rate is non-standard (too high), use base rate
+        calculatedRate = baseRate;
+      }
+
+      workerMonthRate.set(key, calculatedRate);
     }
     // Note: If no hours recorded but salary exists, rate is undefined (infinite). We handle this by adding 0 cost or using base rate? 
     // Usually implies fixed salary without logged hours. Complex. Let's ignore for now or assume 0 labor cost impact if no hours.
@@ -243,7 +255,7 @@ export async function getDashboardData(
       const d = new Date(m.rok, m.mesic - 1, 1);
       // Check if this month is within our requested range? The query constrained it, so yes.
       const key = getMonthKey(d);
-      if (!monthlyBuckets.has(key) && !isLast12Months && period !== 'year') {
+      if (!monthlyBuckets.has(key) && !isLast12Months) {
         // Init bucket if missing (for single month view)
         monthlyBuckets.set(key, {
           month: getMonthLabel(d.getMonth()), year: d.getFullYear(),
@@ -538,7 +550,15 @@ export async function getDetailedStats(
     const key = `${m.pracovnik_id}-${m.rok}-${m.mesic}`;
     const hours = workerMonthHours.get(key) || 0;
     if (hours > 0) {
-      workerRealMonthlyRates.set(key, (Number(m.celkova_castka) || 0) / hours);
+      let calculatedRate = (Number(m.celkova_castka) || 0) / hours;
+
+      // Automatic Fallback Logic
+      const baseRate = workerBaseRateMap.get(m.pracovnik_id) || 0;
+      if (baseRate > 0 && calculatedRate > (baseRate * 1.5)) {
+        calculatedRate = baseRate;
+      }
+
+      workerRealMonthlyRates.set(key, calculatedRate);
     }
   });
 
@@ -734,7 +754,6 @@ export async function getExperimentalStats(): Promise<ExperimentalStats> {
     return {
       id: action.id,
       name: action.nazev,
-      // @ts-ignore
       clientName: Array.isArray(action.klienti) ? action.klienti[0]?.nazev : action.klienti?.nazev || 'Neznámý',
       totalEstimatedHours: totalEstimated,
       totalActualHours,
