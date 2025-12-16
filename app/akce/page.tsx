@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/formatDate'
 import ComboBox from '@/components/ComboBox'
 import { Menu, Transition } from '@headlessui/react'
+import { APP_START_DATE } from '@/lib/config'
 
 export default function AkcePage() {
   const [akce, setAkce] = useState<any[]>([])
@@ -35,7 +36,7 @@ export default function AkcePage() {
   const [nazev, setNazev] = useState('')
   const [datum, setDatum] = useState(() => {
     const today = new Date().toISOString().split('T')[0];
-    return today < '2025-01-01' ? '2025-01-01' : today;
+    return today < APP_START_DATE ? APP_START_DATE : today;
   })
   const [selectedKlient, setSelectedKlient] = useState<{ id: string | number, name: string } | null>(null)
   const [showNewClientForm, setShowNewClientForm] = useState(false)

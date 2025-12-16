@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { getDashboardData, getDetailedStats, getExperimentalStats, DashboardData, MonthlyData, WorkerStats, ClientStats, ExperimentalStats, ProjectHealthStats } from '@/lib/dashboard';
 import { supabase } from '@/lib/supabase';
+import { APP_START_YEAR } from '@/lib/config';
 import BarChart from '@/components/BarChart';
 import DashboardSkeleton from '@/components/DashboardSkeleton';
 
@@ -561,12 +562,12 @@ export default function DashboardPage() {
 
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
-    const startYear = 2025;
+    const startYear = APP_START_YEAR;
     const years = [];
     for (let y = currentYear; y >= startYear; y--) {
       years.push(y);
     }
-    if (years.length === 0) years.push(2025);
+    if (years.length === 0) years.push(APP_START_YEAR);
     return years;
   }, []);
 

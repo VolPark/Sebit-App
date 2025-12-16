@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Menu, Transition } from '@headlessui/react'
+import { APP_START_YEAR } from '@/lib/config'
 
 // Helper to get month name
 const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
@@ -16,8 +17,8 @@ export default function MzdyPage() {
   const [statusMessage, setStatusMessage] = useState('')
   const [selectedDate, setSelectedDate] = useState(() => {
     const now = new Date();
-    if (now.getFullYear() < 2025) {
-      return new Date(2025, 0, 1);
+    if (now.getFullYear() < APP_START_YEAR) {
+      return new Date(APP_START_YEAR, 0, 1);
     }
     return now;
   })
@@ -97,9 +98,9 @@ export default function MzdyPage() {
       const newDate = new Date(currentDate);
       newDate.setMonth(newDate.getMonth() + offset);
 
-      // Restriction: Do not allow going before Jan 2025
-      if (newDate.getFullYear() < 2025) {
-        return new Date(2025, 0, 1);
+      // Restriction: Do not allow going before Jan APP_START_YEAR
+      if (newDate.getFullYear() < APP_START_YEAR) {
+        return new Date(APP_START_YEAR, 0, 1);
       }
       return newDate;
     });
@@ -209,8 +210,8 @@ export default function MzdyPage() {
       <div className="flex items-center justify-center gap-4 mb-8 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-3 rounded-2xl shadow-md ring-1 ring-slate-200 dark:ring-slate-700 max-w-md mx-auto transition-colors">
         <button
           onClick={() => changeMonth(-1)}
-          disabled={selectedDate.getFullYear() === 2025 && selectedDate.getMonth() === 0}
-          className={`p-2 rounded-full transition-colors ${selectedDate.getFullYear() === 2025 && selectedDate.getMonth() === 0 ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-slate-800 dark:text-gray-200'}`}
+          disabled={selectedDate.getFullYear() === APP_START_YEAR && selectedDate.getMonth() === 0}
+          className={`p-2 rounded-full transition-colors ${selectedDate.getFullYear() === APP_START_YEAR && selectedDate.getMonth() === 0 ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-slate-800 dark:text-gray-200'}`}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>

@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/formatDate'
 import ComboBox from '@/components/ComboBox'
+import { APP_START_DATE } from '@/lib/config'
 
 export default function VykazyPage() {
   // Stavy pro data z databáze
@@ -18,7 +19,7 @@ export default function VykazyPage() {
   // Stavy pro formulář
   const [datum, setDatum] = useState(() => {
     const today = new Date().toISOString().split('T')[0];
-    return today < '2025-01-01' ? '2025-01-01' : today;
+    return today < APP_START_DATE ? APP_START_DATE : today;
   })
   const [popis, setPopis] = useState('')
   const [hodiny, setHodiny] = useState('')
@@ -55,8 +56,8 @@ export default function VykazyPage() {
     // 1. Načteme klienty a pracovníky do výběrových menu
     const { data: kData } = await supabase.from('klienti').select('*')
     const { data: pData } = await supabase.from('pracovnici').select('*').eq('is_active', true)
-    // Filter actions >= 2025-01-01
-    const { data: aData } = await supabase.from('akce').select('*').eq('is_completed', false).gte('datum', '2025-01-01').order('datum', { ascending: false })
+    // Filter actions >= APP_START_DATE
+    const { data: aData } = await supabase.from('akce').select('*').eq('is_completed', false).gte('datum', APP_START_DATE).order('datum', { ascending: false })
     if (kData) setKlienti(kData)
     if (pData) setPracovnici(pData)
     if (aData) { setAllAkce(aData); setActionOptions(aData) } // inicialně zobrazíme všechny akce
@@ -67,7 +68,7 @@ export default function VykazyPage() {
     const { data: vData, error } = await supabase
       .from('prace')
       .select('*, klienti(id, nazev, sazba), pracovnici(id, jmeno, hodinova_mzda), akce(id, nazev, klient_id, klienti(nazev))')
-      .gte('datum', '2025-01-01')
+      .gte('datum', APP_START_DATE)
       .order('datum', { ascending: false })
 
     if (vData) setVykazy(vData)
@@ -148,7 +149,7 @@ export default function VykazyPage() {
   function cancelEdit() {
     setEditingId(null)
     const today = new Date().toISOString().split('T')[0];
-    setDatum(today < '2025-01-01' ? '2025-01-01' : today)
+    setDatum(today < APP_START_DATE ? APP_START_DATE : today)
     setSelectedPracovnik(null)
     setSelectedKlient(null)
     setSelectedAkce(null)
@@ -338,7 +339,7 @@ export default function VykazyPage() {
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Datum</label>
             <input id="datum" type="date"
               className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white p-3 transition"
-              value={datum} onChange={e => setDatum(e.target.value)} min="2025-01-01" />
+              value={datum} onChange={e => setDatum(e.target.value)} min={APP_START_DATE} />
           </div>
 
           <div className="">

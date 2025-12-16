@@ -5,7 +5,7 @@ import { formatDate } from '@/lib/formatDate'
 
 export default function FinancePage() {
   const [transakce, setTransakce] = useState<any[]>([])
-  
+
   // Stavy pro souhrny
   const [celkemPrijmy, setCelkemPrijmy] = useState(0)
   const [celkemVydaje, setCelkemVydaje] = useState(0)
@@ -129,13 +129,13 @@ export default function FinancePage() {
         </div>
         <div className="bg-blue-100 p-4 rounded-lg shadow-sm border border-blue-200">
           <p className="text-blue-800 text-sm font-bold uppercase">Aktuální Stav</p>
-          <p className={`text-2xl font-bold ${ (celkemPrijmyMemo - celkemVydajeMemo) >= 0 ? 'text-blue-700' : 'text-red-600' }`}>
+          <p className={`text-2xl font-bold ${(celkemPrijmyMemo - celkemVydajeMemo) >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
             {currency.format(celkemPrijmyMemo - celkemVydajeMemo)}
           </p>
         </div>
       </div>
 
-      {/* Formulář — Google 2025 */}
+      {/* Formulář — Google Style */}
       <div className="mb-6">
         <div className="bg-white/95 ring-1 ring-slate-200 rounded-2xl p-4 md:p-6 shadow-md flex flex-col md:flex-row gap-3 items-end">
           <div className="flex-1">

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { APP_START_YEAR } from '@/lib/config';
 
 export interface MonthlyData {
   month: string;
@@ -60,9 +61,9 @@ export async function getDashboardData(
   const isLast12Months = period === 'last12months';
 
   if (isLast12Months) {
-    // Show data from 2025-01-01 onwards, up to last 12 months
+    // Show data from APP_START_YEAR onwards, up to last 12 months
     startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-    const limitDate = new Date(2025, 0, 1); // Jan 1, 2025
+    const limitDate = new Date(APP_START_YEAR, 0, 1); // Jan 1, APP_START_YEAR
     if (startDate < limitDate) startDate = limitDate;
     endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0); // End of current month
   } else if (period === 'month') {
@@ -433,7 +434,7 @@ export async function getDetailedStats(
 
   if (period === 'last12months') {
     startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-    const limitDate = new Date(2025, 0, 1);
+    const limitDate = new Date(APP_START_YEAR, 0, 1);
     if (startDate < limitDate) {
       startDate = limitDate;
     }
@@ -761,7 +762,7 @@ export async function getExperimentalStats(): Promise<ExperimentalStats> {
       wipValue: totalCost,
       revenuePotential,
       status,
-      lastActivity: lastActivityDate ? lastActivityDate.toISOString().split('T')[0] : null
+      lastActivity: lastActivityDate ? (lastActivityDate as Date).toISOString().split('T')[0] : null
     };
   });
 

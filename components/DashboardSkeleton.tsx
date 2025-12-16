@@ -1,7 +1,7 @@
 import Skeleton from './Skeleton';
 
 interface DashboardSkeletonProps {
-    view: 'firma' | 'workers' | 'clients';
+    view: 'firma' | 'workers' | 'clients' | 'experimental';
 }
 
 export default function DashboardSkeleton({ view }: DashboardSkeletonProps) {

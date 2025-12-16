@@ -39,7 +39,7 @@ export default function RootLayout({
 
           {/* Footer - Minimalistický a čistý */}
           <footer className="py-8 text-center text-gray-400 text-sm">
-            <p>© 2025 Firemní Systém &bull; <span className="hover:text-gray-600 cursor-pointer transition-colors">Podmínky</span> &bull; <span className="hover:text-gray-600 cursor-pointer transition-colors">Soukromí</span></p>
+            <p>© {new Date().getFullYear()} SEBIT Solutions &bull; <span className="hover:text-gray-600 cursor-pointer transition-colors">Podmínky</span> &bull; <span className="hover:text-gray-600 cursor-pointer transition-colors">Soukromí</span></p>
           </footer>
         </FaceAuthProvider>
       </body>
