@@ -81,24 +81,100 @@ const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, cl
   </div>
 );
 
-const AdditionalKpis = ({ data, currency }: { data: DashboardData, currency: Intl.NumberFormat }) => (
-  <>
-    <KPICard title="Odpracované hodiny" value={data.totalHours.toLocaleString('cs-CZ') + ' h'} />
-    <KPICard title="Prům. Sazba Firmy" value={currency.format(data.avgCompanyRate) + '/h'} />
-    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
-      <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">PRŮM. HODINOVÁ MZDA</p>
-      <p className="text-2xl md:text-3xl font-bold mt-2 text-[#333333] dark:text-white">{currency.format(data.averageHourlyWage)}<span className="text-xl text-gray-400 dark:text-gray-500">/h</span></p>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-        Prům. měsíční: {currency.format(data.averageMonthlyWage)}
-      </p>
+const DashboardKpiGrid = ({ data, selectedMonth }: { data: DashboardData, selectedMonth: MonthlyData | null | undefined }) => {
+  const kpiData = selectedMonth ?? data;
+  const currency = new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 });
+  const titleSuffix = selectedMonth ? `(${selectedMonth.month}) ` : '';
+  const helpText = selectedMonth ? `Data za ${selectedMonth.month} ${selectedMonth.year}` : "Data za celé období";
+
+  const costsPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.totalCosts / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
+  const profitPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.grossProfit / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
+  const materialProfitPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.materialProfit / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
+
+  // Hours Ratio
+  const hoursRatio = kpiData.totalEstimatedHours > 0
+    ? (kpiData.totalHours / kpiData.totalEstimatedHours * 100)
+    : 0;
+  const hoursData = `${kpiData.totalHours.toLocaleString('cs-CZ')} / ${kpiData.totalEstimatedHours.toLocaleString('cs-CZ')}`;
+
+  return (
+    <div className="space-y-6">
+      {/* Row 1: Finance (Revenue, Profit) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <KPICard
+          title={`${titleSuffix}Příjmy`}
+          value={currency.format(kpiData.totalRevenue)}
+          helpText="Celkové příjmy za fakturace klientům"
+        />
+        <KPICard
+          title={`${titleSuffix}Zisk`}
+          value={currency.format(kpiData.grossProfit)}
+          helpText="Zisk = Příjmy - Celkové náklady"
+          percentage={profitPercentage}
+          percentageColor={kpiData.grossProfit >= 0 ? "text-green-500" : "text-red-500"}
+        />
+        <KPICard
+          title="Zisk na materiálu"
+          value={currency.format(kpiData.materialProfit)}
+          helpText="Rozdíl mezi fakturací materiálu klientovi a nákupní cenou"
+          percentage={materialProfitPercentage}
+          percentageColor={kpiData.materialProfit >= 0 ? "text-green-500" : "text-red-500"}
+        />
+      </div>
+
+      {/* Row 2: Costs Breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <KPICard
+          title={`${titleSuffix}Náklady`}
+          value={currency.format(kpiData.totalCosts)}
+          helpText="Součet všech nákladů (Materiál + Mzdy + Režie)"
+          percentage={costsPercentage}
+          percentageColor="text-red-500"
+        />
+        <KPICard
+          title="Materiál"
+          value={currency.format(kpiData.totalMaterialCost)}
+          helpText="Nákupní cena materiálu"
+        />
+        <KPICard
+          title="Mzdy"
+          value={currency.format(kpiData.totalLaborCost)}
+          helpText="Náklady na vyplacené mzdy pracovníků"
+        />
+        <KPICard
+          title="Režie"
+          value={currency.format(kpiData.totalOverheadCost)}
+          helpText="Fixní náklady + Ostatní provozní náklady"
+        />
+      </div>
+
+      {/* Row 3: Stats & Hours */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <KPICard
+          title="Odpracované hodiny"
+          value={`${kpiData.totalHours.toLocaleString('cs-CZ')} h`}
+          helpText="Celkový počet vykázaných hodin"
+        />
+        <KPICard
+          title="Hodiny (realita / plán)"
+          value={`${hoursRatio.toFixed(0)}%`}
+          helpText={hoursData}
+          percentage={undefined}
+        />
+        <KPICard
+          title="Průměrná hodinová mzda"
+          value={currency.format(kpiData.averageHourlyWage) + "/h"}
+          helpText="Průměrná vyplacená mzda na hodinu"
+        />
+        <KPICard
+          title="Průměrná sazba firmy"
+          value={currency.format(kpiData.avgCompanyRate) + "/h"}
+          helpText="Průměrná fakturovaná sazba (Příjmy / Hodiny)"
+        />
+      </div>
     </div>
-    <KPICard
-      title="Odhad vs. Realita"
-      value={`${(data.estimatedVsActualHoursRatio * 100).toFixed(2)}%`}
-      percentageColor={data.estimatedVsActualHoursRatio >= 1 ? 'text-green-500' : 'text-red-500'}
-    />
-  </>
-);
+  );
+};
 
 const WorkersTable = ({ data }: { data: WorkerStats[] }) => (
   <>
@@ -616,42 +692,7 @@ export default function DashboardPage() {
     }
   };
 
-  const kpiData = selectedMonth ?? data;
 
-  const renderKpis = (d: DashboardData | MonthlyData | null) => {
-    if (!d) return null;
-
-    const grossProfit = d.grossProfit;
-    const materialProfit = d.materialProfit;
-
-    const costsPercentage = d.totalRevenue > 0 ? `${(d.totalCosts / d.totalRevenue * 100).toFixed(0)}%` : `0%`;
-    const profitPercentage = d.totalRevenue > 0 ? `${(grossProfit / d.totalRevenue * 100).toFixed(0)}%` : `0%`;
-    const materialProfitPercentage = d.totalRevenue > 0 ? `${(materialProfit / d.totalRevenue * 100).toFixed(0)}%` : `0%`;
-
-    let helpText: string;
-    let titleSuffix: string = '';
-    const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
-
-    if (selectedMonth) {
-      helpText = `Data za ${selectedMonth.month} ${selectedMonth.year}`;
-    } else if (period === 'last12months') {
-      helpText = "Za posledních 12 měsíců";
-      titleSuffix = 'Celkové '
-    } else if (month !== 'all' && typeof month === 'number') {
-      helpText = `Data za ${monthNames[month]} ${year}`;
-    } else {
-      helpText = `Data za rok ${year}`;
-    }
-
-    return (
-      <>
-        <KPICard title={`${titleSuffix}Příjmy`} value={currency.format(d.totalRevenue)} helpText={helpText} />
-        <KPICard title={`${titleSuffix}Náklady`} value={currency.format(d.totalCosts)} helpText={helpText} percentage={costsPercentage} percentageColor="text-red-500" />
-        <KPICard title={`${titleSuffix}Zisk`} value={currency.format(grossProfit)} helpText={helpText} percentage={profitPercentage} percentageColor={grossProfit >= 0 ? "text-green-500" : "text-red-500"} />
-        <KPICard title="Zisk na materiálu" value={currency.format(materialProfit)} helpText={helpText} percentage={materialProfitPercentage} percentageColor={materialProfit >= 0 ? "text-green-500" : "text-red-500"} />
-      </>
-    );
-  }
 
   // Auth Loading State
   if (isAuthChecking) {
@@ -847,15 +888,11 @@ export default function DashboardPage() {
                     onMonthClick={handleMonthClick}
                     selectedMonth={selectedMonth}
                   />
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {renderKpis(kpiData)}
-                    <AdditionalKpis data={kpiData as DashboardData} currency={currency} />
-                  </div>
+                  <DashboardKpiGrid data={data} selectedMonth={selectedMonth} />
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {renderKpis(data)}
-                  <AdditionalKpis data={data} currency={currency} />
+                <div className="mb-8">
+                  <DashboardKpiGrid data={data} selectedMonth={undefined} />
                 </div>
               )}
 

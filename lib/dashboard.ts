@@ -11,6 +11,8 @@ export interface MonthlyData {
   materialProfit: number;
   totalMaterialKlient: number;
   totalLaborCost: number;
+  totalOverheadCost: number;
+  totalMaterialCost: number;
   totalEstimatedHours: number;
   // KPI fields for detailed view
   avgCompanyRate: number;
@@ -24,9 +26,13 @@ export interface MonthlyData {
 export interface DashboardData {
   totalRevenue: number;
   totalCosts: number;
+  totalLaborCost: number;
+  totalOverheadCost: number;
+  totalMaterialCost: number;
   grossProfit: number;
   materialProfit: number;
   totalHours: number;
+  totalEstimatedHours: number;
   avgCompanyRate: number;
   averageHourlyWage: number;
   averageMonthlyWage: number;
@@ -168,7 +174,7 @@ export async function getDashboardData(
           month: getMonthLabel(curr.getMonth()),
           year: curr.getFullYear(),
           totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
-          materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0,
+          materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalOverheadCost: 0, totalMaterialCost: 0, totalEstimatedHours: 0,
           avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0,
           topClients: [], topWorkers: []
         });
@@ -193,7 +199,7 @@ export async function getDashboardData(
       monthlyBuckets.set(key, {
         month: getMonthLabel(d.getMonth()), year: d.getFullYear(),
         totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
-        materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0,
+        materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalOverheadCost: 0, totalMaterialCost: 0, totalEstimatedHours: 0,
         avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0,
         topClients: [], topWorkers: []
       });
@@ -207,6 +213,7 @@ export async function getDashboardData(
       bucket.totalMaterialKlient += (a.material_klient || 0);
       bucket.materialProfit += ((a.material_klient || 0) - (a.material_my || 0));
       bucket.totalCosts += (a.material_my || 0); // Add material cost to total costs
+      bucket.totalMaterialCost += (a.material_my || 0);
       bucket.totalEstimatedHours += (a.odhad_hodin || 0);
     }
 
@@ -319,7 +326,7 @@ export async function getDashboardData(
         monthlyBuckets.set(key, {
           month: getMonthLabel(d.getMonth()), year: d.getFullYear(),
           totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
-          materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0,
+          materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalOverheadCost: 0, totalMaterialCost: 0, totalEstimatedHours: 0,
           avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0,
           topClients: [], topWorkers: []
         });
@@ -448,6 +455,11 @@ export async function getDashboardData(
     const b = monthlyBuckets.get(k)!;
     // Recalc Profit
     b.grossProfit = b.totalRevenue - b.totalCosts;
+    // Recalc Overhead for consistency
+    // Note: totalCosts includes Labor + Overhead + MaterialCost.
+    // MaterialCost = totalMaterialKlient - materialProfit.
+    const materialCost = b.totalMaterialCost; // We track it directly now
+    b.totalOverheadCost = b.totalCosts - b.totalLaborCost - materialCost;
 
     // Calculate Monthly KPIs
     b.avgCompanyRate = b.totalHours > 0 ? (b.totalRevenue - b.totalMaterialKlient) / b.totalHours : 0;
@@ -546,6 +558,9 @@ export async function getDashboardData(
   return {
     totalRevenue,
     totalCosts,
+    totalLaborCost,
+    totalMaterialCost: monthlyDataResult.reduce((sum, m) => sum + m.totalMaterialCost, 0),
+    totalOverheadCost: totalCosts - totalLaborCost - (monthlyDataResult.reduce((sum, m) => sum + m.totalMaterialCost, 0)),
     grossProfit: totalRevenue - totalCosts,
     materialProfit: totalMaterialProfit,
     totalHours,
@@ -553,6 +568,7 @@ export async function getDashboardData(
     averageHourlyWage,
     averageMonthlyWage,
     estimatedVsActualHoursRatio,
+    totalEstimatedHours,
     topClients,
     topWorkers,
     monthlyData: monthlyDataResult,
