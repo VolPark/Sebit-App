@@ -12,6 +12,11 @@ export interface MonthlyData {
   totalMaterialKlient: number;
   totalLaborCost: number;
   totalEstimatedHours: number;
+  // KPI fields for detailed view
+  avgCompanyRate: number;
+  averageHourlyWage: number;
+  averageMonthlyWage: number;
+  estimatedVsActualHoursRatio: number;
 }
 
 export interface DashboardData {
@@ -154,7 +159,8 @@ export async function getDashboardData(
           month: getMonthLabel(curr.getMonth()),
           year: curr.getFullYear(),
           totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
-          materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0
+          materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0,
+          avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0
         });
       }
       curr.setMonth(curr.getMonth() + 1);
@@ -175,7 +181,8 @@ export async function getDashboardData(
       monthlyBuckets.set(key, {
         month: getMonthLabel(d.getMonth()), year: d.getFullYear(),
         totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
-        materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0
+        materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0,
+        avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0
       });
     }
 
@@ -261,7 +268,8 @@ export async function getDashboardData(
         monthlyBuckets.set(key, {
           month: getMonthLabel(d.getMonth()), year: d.getFullYear(),
           totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
-          materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0
+          materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0,
+          avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0
         });
       }
       const bucket = monthlyBuckets.get(key);
@@ -343,6 +351,20 @@ export async function getDashboardData(
     const b = monthlyBuckets.get(k)!;
     // Recalc Profit
     b.grossProfit = b.totalRevenue - b.totalCosts;
+
+    // Calculate Monthly KPIs
+    b.avgCompanyRate = b.totalHours > 0 ? (b.totalRevenue - b.totalMaterialKlient) / b.totalHours : 0;
+    b.averageHourlyWage = b.totalHours > 0 ? b.totalLaborCost / b.totalHours : 0;
+    b.averageMonthlyWage = b.totalLaborCost; // For a single month, total labor cost IS the monthly wage total (across all workers)
+    // Note: If we wanted average wage PER WORKER, we'd need unique worker count. 
+    // But the global KPI `averageMonthlyWage` seems to be Total Labor Cost / 12 (roughly).
+    // Let's stick to Total Labor Cost for the month here, as it represents the "Monthly Wage Bill" essentially.
+    // Wait, the global KPI is `averageMonthlyWage`. If `AdditionalKpis` expects "Prům. měsíční", it usually means per person or total average?
+    // Looking at global calc: `totalLaborCost / (monthlyDataResult.length || 1)`. This is "Average Total Monthly Labor Cost". 
+    // So for a single month, it is just `totalLaborCost`.
+
+    b.estimatedVsActualHoursRatio = b.totalEstimatedHours > 0 ? b.totalHours / b.totalEstimatedHours : 0;
+
     return b;
   });
 
