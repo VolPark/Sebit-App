@@ -107,7 +107,11 @@ export async function getDashboardData(
 
   if (filters.klientId) {
     akceQuery = akceQuery.eq('klient_id', filters.klientId);
-    praceQuery = praceQuery.eq('klient_id', filters.klientId); // Note: Prace might be linked via akce_id, relying on redundant column or join. Prace table has klient_id? Yes, schema says so.
+    // REMOVED: praceQuery = praceQuery.eq('klient_id', filters.klientId); 
+    // Reason: We need to fetch 'prace' that might be linked to this client ONLY via an action (akce_id), 
+    // not just directly via klient_id. Filtering at SQL level would exclude those.
+    // We will filter in memory later using the actionClientMap logic.
+
     // What if prace is linked only via akce? The schema_audit said `prace.klient_id` exists. Ideally we trust it.
     // If not, we'd need to fetch all and filter in JS. Let's assume `klient_id` is reliable on `prace`.
   }
@@ -234,17 +238,15 @@ export async function getDashboardData(
   // `prace` table is likely the largest. Fetching all rows for a year might be 1000s. Not too bad for JSON.
   // Let's modify step 2: If client filter is ON, we fetch ALL `prace` (just hours) to calc rates, but only count filtered `prace` for stats.
 
+  // No changes needed here, we already have 'praceData' which now includes potentially more records than before 
+  // (because we removed SQL filter), but we still need 'allPraceDataForRates'.
+  // Actually, if we removed the filter on 'praceQuery', then 'praceData' IS 'allPraceDataForRates' (filtered only by date).
+  // So we can remove this extra fetch if we are careful.
+  // Let's optimize: If filters.klientId is true, 'praceData' contains global data now. 
+  // So 'allPraceDataForRates' can just be 'praceData'.
   let allPraceDataForRates = praceData;
-  if (filters.klientId) {
-    // We need extra data to calculate rates correctly. 
-    // Let's do a quick separate fetch for "All Hours" for the relevant workers in this period.
-    // Optimization: Only fetch for workers involved in the filtered result? No, we don't know them yet.
-    // Let's just fetch simplified all-prace for the period.
-    const { data: globalPrace } = await supabase.from('prace').select('id, datum, pocet_hodin, pracovnik_id, klient_id, akce_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
-    // We cast to any[] or similar to align with `praceData` type if strict
-    // @ts-ignore
-    allPraceDataForRates = globalPrace || [];
-  }
+  // Code block for extra fetch is redundant now that we fetch all prace in main query.
+
 
   // Calc Rates
   const workerMonthHours = new Map<string, number>(); // "WorkerID-YYYY-M" -> hours
@@ -273,6 +275,33 @@ export async function getDashboardData(
     // Note: If no hours recorded but salary exists, rate is undefined (infinite). We handle this by adding 0 cost or using base rate? 
     // Usually implies fixed salary without logged hours. Complex. Let's ignore for now or assume 0 labor cost impact if no hours.
   }
+
+  // --- NEW: Calculate Overhead Rates (Month by Month) ---
+  const monthlyOverheadRate = new Map<string, number>(); // "YYYY-M" -> rate per hour
+
+  // A. Sum Fixed Costs per Month
+  const monthlyFixedCosts = new Map<string, number>();
+  fixedCostsData.forEach((fc: any) => {
+    const key = `${fc.rok}-${fc.mesic - 1}`; // using 0-indexed month for keys to match getMonthKey
+    monthlyFixedCosts.set(key, (monthlyFixedCosts.get(key) || 0) + (Number(fc.castka) || 0));
+  });
+
+  // B. Sum Total Hours per Month (Global)
+  // We use `allPraceDataForRates` which contains ALL hours for the period (unfiltered)
+  const monthlyTotalHours = new Map<string, number>();
+  allPraceDataForRates.forEach((p: any) => {
+    const d = new Date(p.datum);
+    const key = getMonthKey(d); // "YYYY-M" (0-indexed month)
+    monthlyTotalHours.set(key, (monthlyTotalHours.get(key) || 0) + (Number(p.pocet_hodin) || 0));
+  });
+
+  // C. Calculate Rate
+  monthlyFixedCosts.forEach((cost, key) => {
+    const hours = monthlyTotalHours.get(key) || 0;
+    if (hours > 0) {
+      monthlyOverheadRate.set(key, cost / hours);
+    }
+  });
 
   // Now aggregate Labor Costs into Buckets
   // If NO Client filter is active, we can just Sum Mzdy into buckets directly (Simpler & More Accurate for Company Wide).
@@ -339,20 +368,41 @@ export async function getDashboardData(
       }
     }
   } else {
-    // Filter Mode: Iterate Prace (which is filtered) and apply rates
+    // Filter Mode: Iterate Prace and apply rates
+    // Build Action Map for resolving ownership
+    const actionClientMap = new Map<number, number>();
+    akceData.forEach((a: any) => {
+      // akceData is already filtered by client if filter is active, so all present actions belong to the client.
+      if (a.klient_id) actionClientMap.set(a.id, a.klient_id);
+    });
+
     for (const p of praceData) {
+      // IN-MEMORY FILTER
+      if (filters.klientId) {
+        const matchesDirectly = p.klient_id === filters.klientId;
+        const matchesViaAction = p.akce_id && actionClientMap.has(p.akce_id);
+        if (!matchesDirectly && !matchesViaAction) continue;
+      }
+      if (filters.pracovnikId && p.pracovnik_id !== filters.pracovnikId) continue;
+
       const d = new Date(p.datum);
       const key = getMonthKey(d);
       const rateKey = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth()}`;
-      const rate = workerMonthRate.get(rateKey) || 0; // Fallback to 0 or base rate? 0 is safer for "real cost".
+      const rate = workerMonthRate.get(rateKey) || 0;
 
-      const cost = (p.pocet_hodin || 0) * rate;
+      const laborCost = (p.pocet_hodin || 0) * rate;
+
+      // Calculate Allocated Overhead
+      const overheadRate = monthlyOverheadRate.get(key) || 0;
+      const overheadCost = (p.pocet_hodin || 0) * overheadRate;
+
+      const totalItemCost = laborCost + overheadCost;
 
       const bucket = monthlyBuckets.get(key);
       if (bucket) {
         bucket.totalHours += (p.pocet_hodin || 0);
-        bucket.totalLaborCost += cost;
-        bucket.totalCosts += cost;
+        bucket.totalLaborCost += laborCost;
+        bucket.totalCosts += totalItemCost; // Labor + Overhead
       }
 
       // Monthly Worker Stats (Filtered)
