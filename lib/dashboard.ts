@@ -266,8 +266,25 @@ export async function getDashboardData(
       }
       const bucket = monthlyBuckets.get(key);
       if (bucket) {
-        bucket.totalLaborCost += (m.celkova_castka || 0);
-        bucket.totalCosts += (m.celkova_castka || 0);
+        let laborCost = (m.celkova_castka || 0);
+
+        // Fallback Logic
+        // We need to calculate the rate for this specific month/worker to check for anomalies
+        const rateKey = `${m.pracovnik_id}-${m.rok}-${m.mesic - 1}`;
+        const hours = workerMonthHours.get(rateKey) || 0;
+
+        if (hours > 0) {
+          const calculatedRate = laborCost / hours;
+          const baseRate = workerBaseRateMap.get(m.pracovnik_id) || 0;
+
+          if (baseRate > 0 && calculatedRate > (baseRate * 1.5)) {
+            // Anomaly detected (e.g. full salary for few hours), cap at base rate
+            laborCost = hours * baseRate;
+          }
+        }
+
+        bucket.totalLaborCost += laborCost;
+        bucket.totalCosts += laborCost;
       }
     }
     // Also sum hours from prace
