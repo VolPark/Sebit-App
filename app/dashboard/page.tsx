@@ -803,7 +803,7 @@ export default function DashboardPage() {
         <DashboardControls
           filters={filters} setFilters={setFilters}
           workers={workers} clients={clients}
-          showFilters={view === 'firma' || view === 'clients'}
+          showFilters={view === 'firma'}
         />
       </div>
 
