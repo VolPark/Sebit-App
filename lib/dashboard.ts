@@ -17,6 +17,8 @@ export interface MonthlyData {
   averageHourlyWage: number;
   averageMonthlyWage: number;
   estimatedVsActualHoursRatio: number;
+  topClients: { klient_id: number; nazev: string; total: number }[];
+  topWorkers: { pracovnik_id: number; jmeno: string; total: number }[];
 }
 
 export interface DashboardData {
@@ -142,6 +144,9 @@ export async function getDashboardData(
 
   // Initialize buckets for the requested range
   const monthlyBuckets = new Map<string, MonthlyData>();
+  // Auxiliary maps for monthly top aggregates
+  const monthlyClientStats = new Map<string, Map<number, { name: string, total: number }>>(); // "YYYY-M" -> ClientID -> {name, total}
+  const monthlyWorkerStats = new Map<string, Map<number, { name: string, total: number }>>(); // "YYYY-M" -> WorkerID -> {name, total}
 
   // Helper to generate keys
   const getMonthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`; // using 0-indexed month for keys to match JS Date
@@ -160,8 +165,11 @@ export async function getDashboardData(
           year: curr.getFullYear(),
           totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
           materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0,
-          avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0
+          avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0,
+          topClients: [], topWorkers: []
         });
+        monthlyClientStats.set(key, new Map());
+        monthlyWorkerStats.set(key, new Map());
       }
       curr.setMonth(curr.getMonth() + 1);
     }
@@ -182,8 +190,11 @@ export async function getDashboardData(
         month: getMonthLabel(d.getMonth()), year: d.getFullYear(),
         totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
         materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0,
-        avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0
+        avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0,
+        topClients: [], topWorkers: []
       });
+      monthlyClientStats.set(key, new Map());
+      monthlyWorkerStats.set(key, new Map());
     }
 
     const bucket = monthlyBuckets.get(key);
@@ -193,6 +204,17 @@ export async function getDashboardData(
       bucket.materialProfit += ((a.material_klient || 0) - (a.material_my || 0));
       bucket.totalCosts += (a.material_my || 0); // Add material cost to total costs
       bucket.totalEstimatedHours += (a.odhad_hodin || 0);
+    }
+
+    // Accumulate Monthly Client Stats
+    if (a.klient_id && a.klienti) {
+      if (!monthlyClientStats.has(key)) monthlyClientStats.set(key, new Map());
+      const cMap = monthlyClientStats.get(key)!;
+      // @ts-ignore - Supabase type for joined data
+      const cName = Array.isArray(a.klienti) ? a.klienti[0]?.nazev : a.klienti?.nazev;
+      const currC = cMap.get(a.klient_id) || { name: cName || 'Neznámý', total: 0 };
+      currC.total += (a.cena_klient || 0);
+      cMap.set(a.klient_id, currC);
     }
   }
 
@@ -269,8 +291,11 @@ export async function getDashboardData(
           month: getMonthLabel(d.getMonth()), year: d.getFullYear(),
           totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
           materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalEstimatedHours: 0,
-          avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0
+          avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0,
+          topClients: [], topWorkers: []
         });
+        monthlyClientStats.set(key, new Map());
+        monthlyWorkerStats.set(key, new Map());
       }
       const bucket = monthlyBuckets.get(key);
       if (bucket) {
@@ -295,12 +320,23 @@ export async function getDashboardData(
         bucket.totalCosts += laborCost;
       }
     }
-    // Also sum hours from prace
+    // Also sum hours from prace and stats
     for (const p of praceData) {
       const d = new Date(p.datum);
       const key = getMonthKey(d);
       const bucket = monthlyBuckets.get(key);
       if (bucket) bucket.totalHours += (p.pocet_hodin || 0);
+
+      // Monthly Worker Stats
+      if (p.pracovnik_id && p.pracovnici) {
+        if (!monthlyWorkerStats.has(key)) monthlyWorkerStats.set(key, new Map());
+        const wMap = monthlyWorkerStats.get(key)!;
+        // @ts-ignore
+        const wName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
+        const currW = wMap.get(p.pracovnik_id) || { name: wName || 'Neznámý', total: 0 };
+        currW.total += (p.pocet_hodin || 0);
+        wMap.set(p.pracovnik_id, currW);
+      }
     }
   } else {
     // Filter Mode: Iterate Prace (which is filtered) and apply rates
@@ -317,6 +353,17 @@ export async function getDashboardData(
         bucket.totalHours += (p.pocet_hodin || 0);
         bucket.totalLaborCost += cost;
         bucket.totalCosts += cost;
+      }
+
+      // Monthly Worker Stats (Filtered)
+      if (p.pracovnik_id && p.pracovnici) {
+        if (!monthlyWorkerStats.has(key)) monthlyWorkerStats.set(key, new Map());
+        const wMap = monthlyWorkerStats.get(key)!;
+        // @ts-ignore
+        const wName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
+        const currW = wMap.get(p.pracovnik_id) || { name: wName || 'Neznámý', total: 0 };
+        currW.total += (p.pocet_hodin || 0);
+        wMap.set(p.pracovnik_id, currW);
       }
     }
   }
@@ -364,6 +411,23 @@ export async function getDashboardData(
     // So for a single month, it is just `totalLaborCost`.
 
     b.estimatedVsActualHoursRatio = b.totalEstimatedHours > 0 ? b.totalHours / b.totalEstimatedHours : 0;
+
+    // Process Top Lists for this bucket
+    const cMap = monthlyClientStats.get(k);
+    if (cMap) {
+      b.topClients = Array.from(cMap.entries())
+        .sort(([, a], [, b]) => b.total - a.total)
+        .slice(0, 5)
+        .map(([id, d]) => ({ klient_id: id, nazev: d.name, total: d.total }));
+    }
+
+    const wMap = monthlyWorkerStats.get(k);
+    if (wMap) {
+      b.topWorkers = Array.from(wMap.entries())
+        .sort(([, a], [, b]) => b.total - a.total)
+        .slice(0, 5)
+        .map(([id, d]) => ({ pracovnik_id: id, jmeno: d.name, total: d.total }));
+    }
 
     return b;
   });

@@ -861,28 +861,28 @@ export default function DashboardPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
-                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">TOP Klienti</h3>
+                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">TOP Klienti {selectedMonth ? `(${selectedMonth.month})` : ''}</h3>
                   <ul className="mt-3 space-y-2">
-                    {data.topClients.map(c => (
+                    {(selectedMonth ? selectedMonth.topClients : data.topClients).map(c => (
                       <li key={c.klient_id} className="flex justify-between items-center text-sm">
                         <span className="font-medium dark:text-white">{c.nazev}</span>
                         <span className="font-bold dark:text-gray-200">{currency.format(c.total)}</span>
                       </li>
                     ))}
-                    {data.topClients.length === 0 && <li className="text-sm text-gray-400">Žádná data</li>}
+                    {(selectedMonth ? selectedMonth.topClients : data.topClients).length === 0 && <li className="text-sm text-gray-400">Žádná data</li>}
                   </ul>
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
-                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">TOP Pracovníci</h3>
+                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">TOP Pracovníci {selectedMonth ? `(${selectedMonth.month})` : ''}</h3>
                   <ul className="mt-3 space-y-2">
-                    {data.topWorkers.map(w => (
+                    {(selectedMonth ? selectedMonth.topWorkers : data.topWorkers).map(w => (
                       <li key={w.pracovnik_id} className="flex justify-between items-center text-sm">
                         <span className="font-medium dark:text-white">{w.jmeno}</span>
                         <span className="font-bold dark:text-gray-200">{w.total.toLocaleString('cs-CZ')} h</span>
                       </li>
                     ))}
-                    {data.topWorkers.length === 0 && <li className="text-sm text-gray-400">Žádná data</li>}
+                    {(selectedMonth ? selectedMonth.topWorkers : data.topWorkers).length === 0 && <li className="text-sm text-gray-400">Žádná data</li>}
                   </ul>
                 </div>
               </div>
