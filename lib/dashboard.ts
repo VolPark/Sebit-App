@@ -93,6 +93,7 @@ export async function getDashboardData(
       endDate = new Date(pYear, 11, 31);
     }
   }
+  endDate.setHours(23, 59, 59, 999); // Ensure full day inclusion
 
   const { start, end } = getISODateRange(startDate, endDate);
 
@@ -183,10 +184,24 @@ export async function getDashboardData(
       }
       curr.setMonth(curr.getMonth() + 1);
     }
-  } else {
-    // Single month or Custom Range (treated as month sequence mainly)
-    // If period is just 'month', we do single bucket below.
-    // If period is object with year/month, single bucket below.
+  } else if (typeof period === 'object' && period.year && period.month === undefined) {
+    // Pre-fill for specific year (Jan-Dec) to ensure we capture months with ONLY fixed costs
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(period.year, m, 1);
+      const key = getMonthKey(d);
+      if (!monthlyBuckets.has(key)) {
+        monthlyBuckets.set(key, {
+          month: getMonthLabel(m),
+          year: period.year,
+          totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
+          materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalOverheadCost: 0, totalMaterialCost: 0, totalEstimatedHours: 0,
+          avgCompanyRate: 0, averageHourlyWage: 0, averageMonthlyWage: 0, estimatedVsActualHoursRatio: 0,
+          topClients: [], topWorkers: []
+        });
+        monthlyClientStats.set(key, new Map());
+        monthlyWorkerStats.set(key, new Map());
+      }
+    }
   }
 
   // A. Process Akce (Revenue, Material)

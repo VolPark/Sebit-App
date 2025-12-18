@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { APP_START_YEAR } from '@/lib/config';
 import BarChart from '@/components/BarChart';
 import DashboardSkeleton from '@/components/DashboardSkeleton';
+import ComboBox from '@/components/ComboBox';
 
 type FilterOption = { id: number; name: string };
 
@@ -21,65 +22,42 @@ const KPICard = ({ title, value, helpText, percentage, percentageColor }: { titl
   );
 };
 
-const DashboardControls = ({ period, setPeriod, filters, setFilters, workers, clients, year, setYear, availableYears, showFilters, month, setMonth }: any) => (
-  <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-    <div className="p-1 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center w-fit">
-      {(['last12months', 'year'] as const).map(p => (
-        <button
-          key={p}
-          onClick={() => setPeriod(p)}
-          className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${period === p ? 'bg-white dark:bg-slate-700 shadow text-black dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-slate-700/50'}`}
-        >
-          {p === 'last12months' ? 'Posl. 12 měsíců' : 'Roční přehled'}
-        </button>
-      ))}
-    </div>
+const DashboardControls = ({ filters, setFilters, workers, clients, showFilters }: any) => {
+  const selectedClient = filters.klientId
+    ? (clients.find((c: any) => c.id === filters.klientId) || null)
+    : { id: '', name: 'Všichni klienti' };
 
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      {period === 'year' && (
-        <div className="col-span-1 sm:col-span-2 grid grid-cols-2 gap-2">
-          <select
-            value={year}
-            onChange={e => setYear(Number(e.target.value))}
-            className="w-full rounded-lg bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 dark:text-white p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30"
-          >
-            {availableYears.map((y: number) => <option key={y} value={y}>{y}</option>)}
-          </select>
-          <select
-            value={month}
-            onChange={e => setMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="w-full rounded-lg bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 dark:text-white p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30"
-          >
-            <option value="all">Celý rok</option>
-            {['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'].map((m, i) => (
-              <option key={i} value={i}>{m}</option>
-            ))}
-          </select>
+  const handleClientSelect = (item: { id: number | string, name: string } | null) => {
+    if (!item || item.id === '') {
+      setFilters({ ...filters, klientId: null });
+    } else {
+      setFilters({ ...filters, klientId: Number(item.id) });
+    }
+  };
+
+  const clientOptions = [{ id: '', name: 'Všichni klienti' }, ...clients];
+
+  return (
+    <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+      <div className="p-1 flex items-center w-fit">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Přehled (Posledních 12 měsíců)</h1>
+      </div>
+
+      {showFilters && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div></div>
+          <div className="col-start-2">
+            <ComboBox
+              items={clientOptions}
+              selected={selectedClient}
+              setSelected={handleClientSelect}
+            />
+          </div>
         </div>
       )}
-      {showFilters && (
-        <>
-          <select
-            value={filters.pracovnikId || ''}
-            onChange={e => setFilters({ ...filters, pracovnikId: e.target.value ? Number(e.target.value) : null })}
-            className={`w-full rounded-lg bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 dark:text-white p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 sm:col-span-1 ${period !== 'year' ? 'col-start-1' : ''}`}
-          >
-            <option value="">Všichni pracovníci</option>
-            {workers.map((w: FilterOption) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
-          <select
-            value={filters.klientId || ''}
-            onChange={e => setFilters({ ...filters, klientId: e.target.value ? Number(e.target.value) : null })}
-            className="w-full rounded-lg bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 dark:text-white p-2.5 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 sm:col-span-1"
-          >
-            <option value="">Všichni klienti</option>
-            {clients.map((c: FilterOption) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </>
-      )}
     </div>
-  </div>
-);
+  );
+};
 
 const DashboardKpiGrid = ({ data, selectedMonth }: { data: DashboardData, selectedMonth: MonthlyData | null | undefined }) => {
   const kpiData = selectedMonth ?? data;
@@ -603,15 +581,14 @@ export default function DashboardPage() {
   const [detailedStats, setDetailedStats] = useState<{ workers: WorkerStats[], clients: ClientStats[] } | null>(null);
   const [experimentalData, setExperimentalData] = useState<ExperimentalStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'last12months' | 'year'>('last12months');
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [month, setMonth] = useState<number | 'all'>('all');
+
+  // Filter State
   const [filters, setFilters] = useState<{ pracovnikId?: number | null, klientId?: number | null }>({});
   const [workers, setWorkers] = useState<FilterOption[]>([]);
   const [clients, setClients] = useState<FilterOption[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<MonthlyData | null>(null);
 
-  const CORRECT_PIN = "1234"; // Simple hardcoded PIN
+  const CORRECT_PIN = "1234";
 
   useEffect(() => {
     const checkAuth = () => {
@@ -636,19 +613,8 @@ export default function DashboardPage() {
     }
   };
 
-  const availableYears = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const startYear = APP_START_YEAR;
-    const years = [];
-    for (let y = currentYear; y >= startYear; y--) {
-      years.push(y);
-    }
-    if (years.length === 0) years.push(APP_START_YEAR);
-    return years;
-  }, []);
-
   useEffect(() => {
-    if (!isAuthenticated) return; // Don't fetch if not auth
+    if (!isAuthenticated) return;
 
     async function loadFilters() {
       const { data: workerData } = await supabase.from('pracovnici').select('id, jmeno').order('jmeno');
@@ -660,11 +626,12 @@ export default function DashboardPage() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated) return; // Don't fetch if not auth
+    if (!isAuthenticated) return;
 
     async function loadDashboard() {
       setLoading(true);
-      const periodParam = period === 'year' ? { year, month: month === 'all' ? undefined : month } : period;
+      // Hardcoded to last12months
+      const periodParam = 'last12months';
 
       const [dashboardData, stats, expStats] = await Promise.all([
         getDashboardData(periodParam, filters),
@@ -680,7 +647,7 @@ export default function DashboardPage() {
       setLoading(false);
     }
     loadDashboard();
-  }, [period, filters, year, month, isAuthenticated]);
+  }, [filters, isAuthenticated]);
 
   const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), []);
 
@@ -830,14 +797,14 @@ export default function DashboardPage() {
         })}
       </div>
 
-      <DashboardControls
-        period={period} setPeriod={setPeriod}
-        filters={filters} setFilters={setFilters}
-        workers={workers} clients={clients}
-        year={year} setYear={setYear} availableYears={availableYears}
-        showFilters={view === 'firma'}
-        month={month} setMonth={setMonth}
-      />
+      {/* Filters (Desktop) */}
+      <div className="hidden md:block">
+        <DashboardControls
+          filters={filters} setFilters={setFilters}
+          workers={workers} clients={clients}
+          showFilters={view === 'firma' || view === 'clients'}
+        />
+      </div>
 
       {view === 'experimental' && experimentalData && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
@@ -881,20 +848,14 @@ export default function DashboardPage() {
         <>
           {view === 'firma' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {period === 'last12months' ? (
-                <div className="space-y-6">
-                  <BarChart
-                    data={data.monthlyData}
-                    onMonthClick={handleMonthClick}
-                    selectedMonth={selectedMonth}
-                  />
-                  <DashboardKpiGrid data={data} selectedMonth={selectedMonth} />
-                </div>
-              ) : (
-                <div className="mb-8">
-                  <DashboardKpiGrid data={data} selectedMonth={undefined} />
-                </div>
-              )}
+              <div className="space-y-6">
+                <BarChart
+                  data={data.monthlyData}
+                  onMonthClick={handleMonthClick}
+                  selectedMonth={selectedMonth}
+                />
+                <DashboardKpiGrid data={data} selectedMonth={selectedMonth} />
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
