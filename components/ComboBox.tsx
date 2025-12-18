@@ -34,8 +34,9 @@ export default function ComboBox({ items, selected, setSelected }: ComboBoxProps
           className="w-full rounded-lg bg-white/60 dark:bg-slate-900/60 border-slate-300 dark:border-slate-700 p-3 pr-10 transition duration-150 ease-in-out placeholder:text-gray-400 dark:placeholder:text-gray-500 text-gray-900 dark:text-white border focus:outline-none focus:ring-2 focus:ring-[#E30613] focus:border-[#E30613] sm:text-sm sm:leading-6"
           onChange={(event) => setQuery(event.target.value)}
           displayValue={(item: ComboBoxItem) => item?.name || ''}
-          placeholder="Vyhledejte..."
+          placeholder="Všichni klienti"
           autoComplete='off'
+          onFocus={(e) => e.target.select()}
         />
         <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
           <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

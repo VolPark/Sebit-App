@@ -25,7 +25,7 @@ const KPICard = ({ title, value, helpText, percentage, percentageColor }: { titl
 const DashboardControls = ({ filters, setFilters, workers, clients, showFilters }: any) => {
   const selectedClient = filters.klientId
     ? (clients.find((c: any) => c.id === filters.klientId) || null)
-    : { id: '', name: 'Všichni klienti' };
+    : null;
 
   const handleClientSelect = (item: { id: number | string, name: string } | null) => {
     if (!item || item.id === '') {
@@ -135,9 +135,10 @@ const DashboardKpiGrid = ({ data, selectedMonth }: { data: DashboardData, select
         />
         <KPICard
           title="Hodiny (realita / plán)"
-          value={`${hoursRatio.toFixed(0)}%`}
-          helpText={hoursData}
-          percentage={undefined}
+          value={hoursData}
+          helpText="Poměr odpracovaných hodin vůči odhadu"
+          percentage={`${hoursRatio.toFixed(0)}%`}
+          percentageColor={hoursRatio <= 100 ? "text-green-500" : "text-red-500"}
         />
         <KPICard
           title="Průměrná hodinová mzda"
