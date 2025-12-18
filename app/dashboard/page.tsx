@@ -244,9 +244,9 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
 
         // Handle potential undefined/types
         if (typeof aValue === 'string' && typeof bValue === 'string') {
-          if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-          if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-          return 0;
+          return sortConfig.direction === 'asc'
+            ? aValue.localeCompare(bValue, 'cs')
+            : bValue.localeCompare(aValue, 'cs');
         }
 
         // For numbers
