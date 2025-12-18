@@ -512,8 +512,26 @@ export async function getDashboardData(
   }
   const topClients = Array.from(clientMap.entries()).sort(([, a], [, b]) => b.total - a.total).slice(0, 5).map(([id, d]) => ({ klient_id: id, nazev: d.name, total: d.total }));
 
+  // Rebuild Action Client Map for global filtering
+  const globalActionMap = new Map<number, number>();
+  akceData.forEach((a: any) => {
+    if (a.klient_id) globalActionMap.set(a.id, a.klient_id);
+  });
+
   const workerMap = new Map<number, { name: string, total: number }>();
   for (const p of praceData) {
+
+    // Apply Filter if Active
+    if (filters.klientId) {
+      const matchesDirectly = p.klient_id === filters.klientId;
+      const matchesViaAction = p.akce_id && globalActionMap.has(p.akce_id);
+      if (!matchesDirectly && !matchesViaAction) continue;
+    }
+    // Note: p.pracovnik_id filter is implicitly handled if we fetched filtered data? 
+    // No, we fetch all workers in some cases? No, worker filter is applied to 'praceQuery' line 117?
+    // Let's check: 'praceQuery = praceQuery.eq('pracovnik_id', filters.pracovnikId);' IS STILL THERE.
+    // So if filtering by worker, 'praceData' only contains that worker. Safe.
+
     if (p.pracovnik_id && p.pracovnici) {
       // @ts-ignore
       const wName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
