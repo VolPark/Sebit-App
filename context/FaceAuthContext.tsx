@@ -5,7 +5,9 @@ import { createContext, useContext, useState, useEffect } from 'react';
 interface FaceAuthContextType {
     isAuthenticated: boolean;
     userImage: string | null;
+    userName: string | null;
     authenticate: (image: string) => void;
+    authenticateByName: (name: string) => void;
     clearAuth: () => void;
 }
 
