@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import FaceAuthContext from '@/context/FaceAuthContext';
 import FaceAuthModal from '@/components/FaceAuthModal';
 
@@ -9,6 +10,7 @@ export default function FaceAuthProvider({ children }: { children: ReactNode }) 
     const [userImage, setUserImage] = useState<string | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
     const [isChecking, setIsChecking] = useState(true);
+    const router = useRouter();
 
     useEffect(() => {
         // Check local storage on mount
@@ -27,12 +29,19 @@ export default function FaceAuthProvider({ children }: { children: ReactNode }) 
         localStorage.setItem('sebit_user_face', image);
         setUserImage(image);
         setIsAuthenticated(true);
+        router.push('/dashboard?tab=firma');
     };
 
     const authenticateByName = (name: string) => {
         localStorage.setItem('sebit_user_name', name);
         setUserName(name);
         setIsAuthenticated(true);
+
+        if (name === 'Honza Horyna' || name === 'Zdeněk Horyna') {
+            router.push('/dashboard?tab=firma');
+        } else {
+            router.push('/vykazy');
+        }
     };
 
     const clearAuth = () => {

@@ -569,6 +569,9 @@ const ActiveProjectsTable = ({ data }: { data: ProjectHealthStats[] }) => {
   );
 };
 
+import { useRouter, useSearchParams } from 'next/navigation';
+
+
 export default function DashboardPage() {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -576,8 +579,13 @@ export default function DashboardPage() {
   const [authError, setAuthError] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab');
+
   // Dashboard State
-  const [view, setView] = useState<'firma' | 'workers' | 'clients' | 'experimental'>('clients');
+  const [view, setView] = useState<'firma' | 'workers' | 'clients' | 'experimental'>(
+    initialTab === 'firma' ? 'firma' : 'clients'
+  );
   const [data, setData] = useState<DashboardData | null>(null);
   const [detailedStats, setDetailedStats] = useState<{ workers: WorkerStats[], clients: ClientStats[] } | null>(null);
   const [experimentalData, setExperimentalData] = useState<ExperimentalStats | null>(null);
