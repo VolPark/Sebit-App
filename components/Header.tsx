@@ -35,7 +35,7 @@ export default function Header() {
             <div className="w-9 h-9 bg-gradient-to-br from-[#E30613] to-[#A3000A] rounded-xl flex items-center justify-center text-white font-bold shadow-md group-hover:scale-105 transition-transform">
               <span className="text-sm">IH</span>
             </div>
-            <span className="text-lg font-bold tracking-tight text-gray-900 dark:text-white hidden sm:block group-hover:text-[#E30613] transition-colors">
+            <span className="text-lg font-bold tracking-tight text-gray-900 dark:text-white group-hover:text-[#E30613] transition-colors">
               Interiéry Horyna
             </span>
           </Link>
