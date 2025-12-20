@@ -26,7 +26,8 @@ export default function FaceAuthModal({ onCapture, onNameSelect }: FaceAuthModal
 
             const hardcodedUsers = [
                 { id: -1, jmeno: 'Klára' },
-                { id: -2, jmeno: 'Zdeněk' }
+                { id: -2, jmeno: 'Zdeněk Horyna' },
+                { id: -3, jmeno: 'Honza Horyna' }
             ];
 
             if (data) {
