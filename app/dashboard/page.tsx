@@ -69,6 +69,10 @@ const DashboardKpiGrid = ({ data, selectedMonth }: { data: DashboardData, select
   const profitPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.grossProfit / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
   const materialProfitPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.materialProfit / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
 
+  const materialPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.totalMaterialCost / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
+  const laborPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.totalLaborCost / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
+  const overheadPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.totalOverheadCost / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
+
   // Hours Ratio
   const hoursRatio = kpiData.totalEstimatedHours > 0
     ? (kpiData.totalHours / kpiData.totalEstimatedHours * 100)
@@ -113,16 +117,22 @@ const DashboardKpiGrid = ({ data, selectedMonth }: { data: DashboardData, select
           title="Materiál"
           value={currency.format(kpiData.totalMaterialCost)}
           helpText="Nákupní cena materiálu"
+          percentage={materialPercentage}
+          percentageColor="text-red-500"
         />
         <KPICard
           title="Mzdy"
           value={currency.format(kpiData.totalLaborCost)}
           helpText="Náklady na vyplacené mzdy pracovníků"
+          percentage={laborPercentage}
+          percentageColor="text-red-500"
         />
         <KPICard
           title="Režie"
           value={currency.format(kpiData.totalOverheadCost)}
           helpText="Fixní náklady + Ostatní provozní náklady"
+          percentage={overheadPercentage}
+          percentageColor="text-red-500"
         />
       </div>
 
