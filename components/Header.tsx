@@ -32,12 +32,11 @@ export default function Header() {
         {/* Logo sekce */}
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-9 h-9 bg-gradient-to-br from-[#E30613] to-[#A3000A] rounded-xl flex items-center justify-center text-white font-bold shadow-md group-hover:scale-105 transition-transform">
-              <span className="text-sm">IH</span>
-            </div>
-            <span className="text-lg font-bold tracking-tight text-gray-900 dark:text-white group-hover:text-[#E30613] transition-colors">
-              Interiéry Horyna
-            </span>
+            <img
+              src="/logo_full.png"
+              alt="Interiéry Horyna"
+              className="h-12 w-auto object-contain transition-transform group-hover:scale-105"
+            />
           </Link>
         </div>
 
