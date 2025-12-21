@@ -6,8 +6,13 @@ import { APP_START_YEAR } from '@/lib/config';
 import BarChart from '@/components/BarChart';
 import DashboardSkeleton from '@/components/DashboardSkeleton';
 import ComboBox from '@/components/ComboBox';
+import ActiveProjectsTable from '@/components/ActiveProjectsTable';
+import AiChat, { Message } from '@/components/AiChat';
 
 type FilterOption = { id: number; name: string };
+// ... (rest of imports)
+
+// ...
 
 const KPICard = ({ title, value, helpText, percentage, percentageColor }: { title: string, value: string, helpText?: string, percentage?: string, percentageColor?: string }) => {
   return (
@@ -486,98 +491,7 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
   );
 };
 
-const ActiveProjectsTable = ({ data }: { data: ProjectHealthStats[] }) => {
-  return (
-    <>
-      {/* Desktop Table */}
-      <div className="hidden md:block bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 overflow-hidden overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 border-b dark:border-slate-700">
-            <tr>
-              <th className="p-4 whitespace-nowrap">Projekt / Akce</th>
-              <th className="p-4 whitespace-nowrap">Klient</th>
-              <th className="p-4 text-center whitespace-nowrap">Stav Rozpočtu</th>
-              <th className="p-4 text-right whitespace-nowrap">Odhad (h)</th>
-              <th className="p-4 text-right whitespace-nowrap">Realita (h)</th>
-              <th className="p-4 text-right whitespace-nowrap">WIP Náklady</th>
-              <th className="p-4 text-right whitespace-nowrap hidden sm:table-cell">Poslední aktivita</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {data.map(p => (
-              <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
-                <td className="p-4 font-medium text-gray-900 dark:text-white">{p.name}</td>
-                <td className="p-4 text-gray-600 dark:text-gray-400">{p.clientName}</td>
-                <td className="p-4 align-middle">
-                  <div className="w-full max-w-[140px] h-2.5 bg-gray-200 dark:bg-slate-700 rounded-full mx-auto relative overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${p.status === 'critical' ? 'bg-red-500' : p.status === 'warning' ? 'bg-orange-400' : 'bg-green-500'}`}
-                      style={{ width: `${Math.min(p.budgetUsage * 100, 100)}%` }}
-                    ></div>
-                  </div>
-                  <div className="text-xs text-center mt-1 text-gray-500 dark:text-gray-400">{(p.budgetUsage * 100).toFixed(0)}%</div>
-                </td>
-                <td className="p-4 text-right text-gray-600 dark:text-gray-400">{p.totalEstimatedHours.toLocaleString('cs-CZ')}</td>
-                <td className={`p-4 text-right font-medium ${p.status === 'critical' ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>{p.totalActualHours.toLocaleString('cs-CZ')}</td>
-                <td className="p-4 text-right text-gray-600 dark:text-gray-400">{new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(p.wipValue)}</td>
-                <td className="p-4 text-right text-gray-400 text-xs hidden sm:table-cell">{p.lastActivity ? new Date(p.lastActivity).toLocaleDateString('cs-CZ') : '-'}</td>
-              </tr>
-            ))}
-            {data.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-gray-500">Žádné aktivní projekty</td></tr>}
-          </tbody>
-        </table>
-      </div>
 
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-4">
-        {data.map(p => (
-          <div key={p.id} className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">{p.name}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{p.clientName}</p>
-              </div>
-              <div className={`px-2 py-1 rounded text-xs font-bold uppercase ${p.status === 'critical' ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' : p.status === 'warning' ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300' : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'}`}>
-                {(p.budgetUsage * 100).toFixed(0)}% Budget
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="w-full h-2.5 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden mb-4">
-              <div
-                className={`h-full rounded-full ${p.status === 'critical' ? 'bg-red-500' : p.status === 'warning' ? 'bg-orange-400' : 'bg-green-500'}`}
-                style={{ width: `${Math.min(p.budgetUsage * 100, 100)}%` }}
-              ></div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Odhad vs. Realita</p>
-                <div className="flex items-baseline gap-1">
-                  <span className={`font-bold ${p.status === 'critical' ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>{p.totalActualHours}h</span>
-                  <span className="text-xs text-slate-400">/ {p.totalEstimatedHours}h</span>
-                </div>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">WIP Hodnota</p>
-                <p className="font-bold text-slate-900 dark:text-white">{new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(p.wipValue)}</p>
-              </div>
-            </div>
-
-            {p.lastActivity && (
-              <p className="text-xs text-right text-gray-400 mt-3">Naposledy aktivní: {new Date(p.lastActivity).toLocaleDateString('cs-CZ')}</p>
-            )}
-          </div>
-        ))}
-        {data.length === 0 && (
-          <div className="p-8 text-center text-gray-500 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-gray-300 dark:border-slate-700">
-            Žádné aktivní projekty
-          </div>
-        )}
-      </div>
-    </>
-  );
-};
 
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -593,7 +507,8 @@ export default function DashboardPage() {
   const initialTab = searchParams.get('tab');
 
   // Dashboard State
-  const [view, setView] = useState<'firma' | 'workers' | 'clients' | 'experimental'>('firma');
+  const [view, setView] = useState<'firma' | 'workers' | 'clients' | 'experimental' | 'ai'>('firma');
+  const [aiMessages, setAiMessages] = useState<Message[]>([]);
   const [data, setData] = useState<DashboardData | null>(null);
   const [detailedStats, setDetailedStats] = useState<{ workers: WorkerStats[], clients: ClientStats[] } | null>(null);
   const [experimentalData, setExperimentalData] = useState<ExperimentalStats | null>(null);
@@ -786,27 +701,38 @@ export default function DashboardPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
               </svg>
             )
+          },
+          {
+            id: 'ai', label: 'AI Asistent', icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+              </svg>
+            )
           }
         ].map(v => {
           const isActive = view === v.id;
+          let buttonClasses = `
+            group relative flex items-center justify-center gap-3 transition-all duration-200
+            sm:rounded-md sm:px-5 sm:py-2.5 sm:text-sm
+            rounded-2xl p-4 flex-col h-24 sm:h-auto sm:flex-row
+          `;
+          let iconTextClasses = `transition-colors`;
+
+          buttonClasses += isActive
+            ? ' bg-white dark:bg-slate-700 shadow-sm ring-1 ring-slate-100 dark:ring-slate-600 text-[#E30613]'
+            : ' bg-white/50 dark:bg-slate-800/50 sm:bg-transparent border sm:border-0 border-white/40 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-700 text-gray-500 dark:text-gray-400';
+          iconTextClasses += isActive ? ' text-[#E30613]' : '';
+
           return (
             <button
               key={v.id}
               onClick={() => setView(v.id as any)}
-              className={`
-                group relative flex items-center justify-center gap-3 transition-all duration-200
-                sm:rounded-md sm:px-5 sm:py-2.5 sm:text-sm
-                rounded-2xl p-4 flex-col h-24 sm:h-auto sm:flex-row
-                ${isActive
-                  ? 'bg-white dark:bg-slate-700 shadow-sm ring-1 ring-slate-100 dark:ring-slate-600 text-[#E30613]'
-                  : 'bg-white/50 dark:bg-slate-800/50 sm:bg-transparent border sm:border-0 border-white/40 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-700 text-gray-500 dark:text-gray-400'
-                }
-              `}
+              className={buttonClasses}
             >
-              <div className={`transition-colors ${isActive ? 'text-[#E30613]' : ''}`}>
+              <div className={iconTextClasses}>
                 {v.icon}
               </div>
-              <span className={`font-semibold sm:font-medium ${isActive ? 'text-[#E30613]' : ''}`}>
+              <span className={`font-semibold sm:font-medium ${iconTextClasses}`}>
                 {v.label}
               </span>
             </button>
@@ -815,13 +741,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Filters (Desktop) */}
-      <div className="hidden md:block">
-        <DashboardControls
-          filters={filters} setFilters={setFilters}
-          workers={workers} clients={clients}
-          showFilters={view === 'firma'}
-        />
-      </div>
+      {!['experimental', 'ai'].includes(view) && (
+        <div className="hidden md:block">
+          <DashboardControls
+            filters={filters} setFilters={setFilters}
+            workers={workers} clients={clients}
+            showFilters={view === 'firma'}
+          />
+        </div>
+      )}
 
       {view === 'experimental' && experimentalData && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
@@ -913,6 +841,12 @@ export default function DashboardPage() {
           {view === 'clients' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <ClientsTable data={detailedStats.clients} />
+            </div>
+          )}
+
+          {view === 'ai' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <AiChat messages={aiMessages} setMessages={setAiMessages} />
             </div>
           )}
         </>
