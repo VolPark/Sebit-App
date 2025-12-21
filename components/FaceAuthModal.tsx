@@ -144,7 +144,10 @@ export default function FaceAuthModal({ onCapture, onNameSelect }: FaceAuthModal
 
                 <div className="p-6 text-center">
                     <div className="mb-6 flex flex-col items-center">
-                        <img src="/logo_full.png" alt="Interiéry Horyna" className="h-16 w-auto object-contain mb-4" />
+                        {/* Light Mode Logo */}
+                        <img src="/logo_full.png" alt="Interiéry Horyna" className="h-16 w-auto object-contain mb-4 dark:hidden" />
+                        {/* Dark Mode Logo */}
+                        <img src="/logo_full_dark.png" alt="Interiéry Horyna" className="h-16 w-auto object-contain mb-4 hidden dark:block" />
                         <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
                             {mode === 'face' ? 'Ověření totožnosti' : 'Kdo zrovna pracuje?'}
                         </h2>

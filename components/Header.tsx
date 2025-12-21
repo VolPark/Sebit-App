@@ -32,10 +32,17 @@ export default function Header() {
         {/* Logo sekce */}
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2 group">
+            {/* Light Mode Logo */}
             <img
               src="/logo_full.png"
               alt="Interiéry Horyna"
-              className="h-12 w-auto object-contain transition-transform group-hover:scale-105"
+              className="h-12 w-auto object-contain transition-transform group-hover:scale-105 dark:hidden"
+            />
+            {/* Dark Mode Logo */}
+            <img
+              src="/logo_full_dark.png"
+              alt="Interiéry Horyna"
+              className="h-12 w-auto object-contain transition-transform group-hover:scale-105 hidden dark:block"
             />
           </Link>
         </div>
