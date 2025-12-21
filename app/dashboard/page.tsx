@@ -593,9 +593,7 @@ export default function DashboardPage() {
   const initialTab = searchParams.get('tab');
 
   // Dashboard State
-  const [view, setView] = useState<'firma' | 'workers' | 'clients' | 'experimental'>(
-    initialTab === 'firma' ? 'firma' : 'clients'
-  );
+  const [view, setView] = useState<'firma' | 'workers' | 'clients' | 'experimental'>('firma');
   const [data, setData] = useState<DashboardData | null>(null);
   const [detailedStats, setDetailedStats] = useState<{ workers: WorkerStats[], clients: ClientStats[] } | null>(null);
   const [experimentalData, setExperimentalData] = useState<ExperimentalStats | null>(null);
