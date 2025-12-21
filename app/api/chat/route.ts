@@ -146,7 +146,6 @@ export async function POST(req: Request) {
     // List of models to try in order of preference/capability
     // Mapping user requests to likely real model IDs + fallbacks
     const models = [
-        'gemini-3-pro',
         'gemini-3-flash',     // "gemini-3-flash" equivalent (latest experimental)
         'gemini-2.5-flash',           // "gemini-2.5-flash" equivalent (high performant)
         'gemini-2.5-flash-lite',         // "gemini-flash" (standard fast)
