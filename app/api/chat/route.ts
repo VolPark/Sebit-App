@@ -143,11 +143,35 @@ export async function POST(req: Request) {
     5. Analýzy prováděj důkladně.
   `;
 
-    const result = streamText({
-        model: google('gemini-3-flash-preview'),
-        messages,
-        system: systemPrompt,
-    });
+    // List of models to try in order of preference/capability
+    // Mapping user requests to likely real model IDs + fallbacks
+    const models = [
+        'gemini-3-pro',
+        'gemini-3-flash',     // "gemini-3-flash" equivalent (latest experimental)
+        'gemini-2.5-flash',           // "gemini-2.5-flash" equivalent (high performant)
+        'gemini-2.5-flash-lite',         // "gemini-flash" (standard fast)
+        'gemini-flash'       // "gemini-2.5-flash-lite" (cheapest/fastest fallback)
+    ];
 
-    return result.toTextStreamResponse();
+    let lastError = null;
+
+    for (const modelName of models) {
+        try {
+            // console.log(`Attempting to use model: ${modelName}`);
+            const result = streamText({
+                model: google(modelName),
+                messages,
+                system: systemPrompt,
+            });
+
+            return result.toTextStreamResponse();
+        } catch (error) {
+            console.warn(`Model ${modelName} failed, trying next...`, error);
+            lastError = error;
+            // Continue to next model
+        }
+    }
+
+    console.error("All AI models failed:", lastError);
+    return new Response(JSON.stringify({ error: { message: "AI services are currently overloaded or unavailable. Please try again later." } }), { status: 503 });
 }
