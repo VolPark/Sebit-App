@@ -28,15 +28,15 @@ export default function MobileMenu() {
           aria-expanded={open}
           aria-controls="mobile-menu"
           onClick={() => setOpen(v => !v)}
-          className="inline-flex items-center justify-center p-2 rounded-full bg-white/60 hover:bg-white/80 shadow-sm"
+          className="inline-flex items-center justify-center p-2 rounded-full bg-white/60 hover:bg-white/80 dark:bg-slate-800/60 dark:hover:bg-slate-700/80 shadow-sm transition-colors"
           title={open ? 'Zavřít menu' : 'Otevřít menu'}
         >
           {!open ? (
-            <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           ) : (
-            <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
@@ -44,14 +44,14 @@ export default function MobileMenu() {
 
         {open && (
           <div id="mobile-menu" className="fixed top-16 left-0 right-0 px-4 z-40">
-            <div className="w-full bg-white/95 backdrop-blur rounded-b-lg shadow-md p-3 flex flex-col gap-2">
-              <Link href="/dashboard" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/dashboard' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Dashboard</Link>
-              <Link href="/klienti" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/klienti' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Klienti</Link>
-              <Link href="/pracovnici" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/pracovnici' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Pracovníci</Link>
-              <Link href="/akce" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/akce' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Akce</Link>
-              <Link href="/vykazy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/vykazy' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Výkazy</Link>
-              <Link href="/mzdy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/mzdy' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Mzdy</Link>
-              <Link href="/naklady" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/naklady' ? 'bg-[#F5F5F5] text-[#E30613]' : 'text-gray-700 hover:bg-gray-100'}`}>Náklady</Link>
+            <div className="w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-b-lg shadow-md dark:shadow-black/50 p-3 flex flex-col gap-2 border border-gray-100 dark:border-slate-800">
+              <Link href="/dashboard" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/dashboard' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Dashboard</Link>
+              <Link href="/klienti" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/klienti' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Klienti</Link>
+              <Link href="/pracovnici" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/pracovnici' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Pracovníci</Link>
+              <Link href="/akce" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/akce' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Akce</Link>
+              <Link href="/vykazy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/vykazy' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Výkazy</Link>
+              <Link href="/mzdy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/mzdy' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Mzdy</Link>
+              <Link href="/naklady" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/naklady' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Náklady</Link>
             </div>
           </div>
         )}
