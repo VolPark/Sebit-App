@@ -157,19 +157,57 @@ export async function POST(req: Request) {
 
     for (const userModelName of models) {
         try {
-            console.log(`[AI Fallback] User requested: ${userModelName}`);
+            console.log(`[AI Fallback] STEP 1: Attempting model ${userModelName}`);
 
-            const result = streamText({
+            const result = await streamText({
                 model: google(userModelName),
                 messages,
                 system: systemPrompt,
+                maxRetries: 0
+            });
+            console.log(`[AI Fallback] STEP 2: streamText created for ${userModelName}`);
+
+            const stream = result.textStream;
+            const iterator = stream[Symbol.asyncIterator]();
+
+            console.log(`[AI Fallback] STEP 3: Peeking first chunk for ${userModelName}`);
+            const firstChunk = await iterator.next();
+            console.log(`[AI Fallback] STEP 4: First chunk received for ${userModelName}`);
+
+            if (firstChunk.done) {
+                console.warn(`[AI Fallback] Model ${userModelName} returned empty stream immediately. Treating as failure.`);
+                throw new Error("Stream finished immediately (possible suppressed error)");
+            }
+
+            const cleanStream = new ReadableStream({
+                async start(controller) {
+                    controller.enqueue(firstChunk.value);
+                    try {
+                        for await (const chunk of { [Symbol.asyncIterator]: () => iterator }) {
+                            controller.enqueue(chunk);
+                        }
+                        controller.close();
+                    } catch (error) {
+                        // This catches streaming errors *after* a successful start
+                        console.error(`[AI Fallback] Stream error for ${userModelName}:`, error);
+                        controller.error(error);
+                    }
+                }
             });
 
-            return result.toTextStreamResponse();
+            console.log(`[AI Fallback] STEP 5: Returning successful stream for ${userModelName}`);
+            return new Response(cleanStream, {
+                status: 200,
+                headers: {
+                    'Content-Type': 'text/plain; charset=utf-8',
+                }
+            });
+
         } catch (error) {
-            console.error(`[AI Fallback] Model ${userModelName} (${apiModelId}) failed.`, error);
+            console.error(`[AI Fallback] CAUGHT ERROR for ${userModelName}:`, error);
             lastError = error;
-            // Zkusíme další v řadě...
+            // Continue to next model in the loop
+            console.log(`[AI Fallback] Retrying with next model...`);
         }
     }
 
