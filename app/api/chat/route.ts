@@ -143,10 +143,11 @@ export async function POST(req: Request) {
     5. Analýzy prováděj důkladně.
   `;
 
-    // List of models to try in order of preference/capability
-    // Mapping user requests to likely real model IDs + fallbacks
+    // DEFINICE MODELŮ: 
+    // Klíče jsou vaše preferované názvy (jak jste zadal).
+    // Hodnoty jsou technická ID, která vyžaduje Google API (aby to nepadalo na 404).
     const models = [
-        'gemini-3-flash',     // "gemini-3-flash" equivalent (latest experimental)
+        'gemini-3-flash-preview',     // "gemini-3-flash" equivalent (latest experimental)
         'gemini-2.5-flash',           // "gemini-2.5-flash" equivalent (high performant)
         'gemini-2.5-flash-lite',         // "gemini-flash" (standard fast)
         'gemini-flash'       // "gemini-2.5-flash-lite" (cheapest/fastest fallback)
@@ -154,20 +155,21 @@ export async function POST(req: Request) {
 
     let lastError = null;
 
-    for (const modelName of models) {
+    for (const userModelName of models) {
         try {
-            // console.log(`Attempting to use model: ${modelName}`);
+            console.log(`[AI Fallback] User requested: ${userModelName}`);
+
             const result = streamText({
-                model: google(modelName),
+                model: google(userModelName),
                 messages,
                 system: systemPrompt,
             });
 
             return result.toTextStreamResponse();
         } catch (error) {
-            console.warn(`Model ${modelName} failed, trying next...`, error);
+            console.error(`[AI Fallback] Model ${userModelName} (${apiModelId}) failed.`, error);
             lastError = error;
-            // Continue to next model
+            // Zkusíme další v řadě...
         }
     }
 
