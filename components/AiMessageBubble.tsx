@@ -8,14 +8,120 @@ export default function AiMessageBubble({ role, children }: { role: 'user' | 'as
     const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
         const match = /language-(\w+)/.exec(className || '');
         const content = String(children).trim();
+
         // Check if content looks like just a financial number (e.g. "1 234 567 CZK" or "100 Kč")
         const isFinancial = /^(?:\d{1,3}(?:\s\d{3})*|\d+)(?:[.,]\d+)?\s*(?:CZK|Kč|€|\$)$/i.test(content);
+
+        // Check if content looks like a math formula / calculation
+        const hasMathOps = /[=+\-*/]/.test(content);
+        const looksLikeMath = /^[\p{L}\p{N}\s.,+\-*/()%:()\[\]=<>€$]+$/u.test(content);
+        const isNotCode = !/\b(const|let|var|function|return|import|export|class|if|for|while|console)\b/.test(content);
+
+        const isMath = hasMathOps && looksLikeMath && isNotCode && !match;
+
+        // Check for ASCII Tree Diagram
+        const isTree = (content.includes('├──') || content.includes('└──') || content.includes('│')) && content.includes('CZK');
 
         if (isFinancial) {
             return (
                 <span className="inline-block px-3 py-1 my-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800 text-sm font-mono shadow-sm">
                     {children}
                 </span>
+            );
+        }
+
+        if (isTree) {
+            const lines = content.split('\n').filter(l => l.trim().length > 0 && l.trim() !== '│');
+            return (
+                <div className="my-6 p-4 rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">
+                    <div className="flex flex-col relative pl-2">
+                        {/* Vertical guide line for the whole tree */}
+                        <div className="absolute left-[19px] top-4 bottom-4 w-px bg-gray-200 dark:bg-slate-700 z-0"></div>
+
+                        {lines.map((line, idx) => {
+                            // Determine type and indentation
+                            const isRoot = idx === 0 && !line.includes('─');
+                            const isCost = line.includes('[-]');
+                            const isResult = line.includes('[=]') || line.includes('EBITDA') || line.includes('Zůstatek');
+                            const isProfit = line.includes('ČISTÝ ZISK') || line.includes('PROFIT');
+
+                            // Clean up the text
+                            // Remove tree chars: ├──, └──, │, [-], [=]
+                            const cleanLine = line.replace(/[│├└─]+/g, '').replace(/\[-\]|\[=\]/g, '').trim();
+                            // Split label and value (usually separated by dots ..... or just space)
+                            // Heuristic: Last part looks like money
+                            let label = cleanLine;
+                            let value = '';
+
+                            // Attempt to split by dots "......" if present
+                            if (cleanLine.includes('..')) {
+                                const parts = cleanLine.split(/\.{2,}/);
+                                if (parts.length > 1) {
+                                    label = parts[0].trim();
+                                    value = parts[1].trim();
+                                }
+                            } else {
+                                // Fallback split by last known currency pattern
+                                const currencyMatch = /\d[\d\s,.]*CZK.*$/.exec(cleanLine);
+                                if (currencyMatch) {
+                                    value = currencyMatch[0];
+                                    label = cleanLine.replace(value, '').trim();
+                                }
+                            }
+
+                            if (!label && !value) return null;
+
+                            return (
+                                <div key={idx} className={`relative z-10 flex items-start gap-3 mb-4 last:mb-0 ${isRoot ? 'mb-6' : ''}`}>
+                                    {/* Icon / Bullet */}
+                                    <div className={`
+                                        flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center border-2 
+                                        ${isRoot
+                                            ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400'
+                                            : isProfit
+                                                ? 'bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400'
+                                                : isCost
+                                                    ? 'bg-red-50 border-red-200 text-red-500 dark:bg-red-900/10 dark:border-red-800 dark:text-red-400 font-bold'
+                                                    : isResult
+                                                        ? 'bg-gray-100 border-gray-300 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300'
+                                                        : 'bg-white border-gray-200 text-gray-400 dark:bg-slate-800 dark:border-slate-700'
+                                        }
+                                        shadow-sm
+                                    `}>
+                                        {isRoot ? '🏢' : isCost ? '−' : isProfit ? '💰' : isResult ? '=' : '•'}
+                                    </div>
+
+                                    {/* Content Card */}
+                                    <div className={`flex-1 p-3 rounded-lg border ${isRoot || isProfit ? 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700' : 'bg-transparent border-transparent'}`}>
+                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1">
+                                            <span className={`font-medium ${isRoot || isProfit ? 'text-gray-900 dark:text-white uppercase tracking-wide text-xs sm:text-sm' : 'text-gray-700 dark:text-gray-300 text-sm'}`}>
+                                                {label}
+                                            </span>
+                                            {value && (
+                                                <span className={`font-mono text-sm whitespace-nowrap ${isCost ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100 font-semibold'}`}>
+                                                    {value}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
+        if (isMath) {
+            return (
+                <div className="my-4 p-5 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800/50 flex flex-col items-center justify-center text-center shadow-sm">
+                    <div className="text-xs font-bold text-orange-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                        <span>∑</span> <span>Výpočet</span>
+                    </div>
+                    <div className="text-xl md:text-2xl font-serif text-gray-800 dark:text-gray-100 italic tracking-wide">
+                        {children}
+                    </div>
+                </div>
             );
         }
 
@@ -39,12 +145,6 @@ export default function AiMessageBubble({ role, children }: { role: 'user' | 'as
 
     // Component for handling blockquotes and alerts
     const Blockquote = ({ children }: any) => {
-        // Simple heuristic to check for alerts. 
-        // ReactMarkdown might split the first line if it thinks [!NOTE] is part of a paragraph.
-        // We'll check the recursive children content if possible, or just style purely as blockquote for safety first
-        // But to properly support [!IMPORTANT], we need to check the text content.
-
-        // Flatten children to text to find the alert tag
         const findAlert = (nodes: any): string | null => {
             if (typeof nodes === 'string') return nodes;
             if (Array.isArray(nodes)) return nodes.map(findAlert).join('');
@@ -54,7 +154,6 @@ export default function AiMessageBubble({ role, children }: { role: 'user' | 'as
 
         const content = findAlert(children);
         let alertType = null;
-        let cleanChildren = children;
 
         if (content) {
             if (content.includes('[!NOTE]')) alertType = 'note';
@@ -87,7 +186,6 @@ export default function AiMessageBubble({ role, children }: { role: 'user' | 'as
                         {titles[alertType]}
                     </div>
                     <div className="text-sm opacity-90">
-                        {/* We try to render children, removing the trigger text is hard in react-only without remark plugin, so we just render specific style */}
                         {children}
                     </div>
                 </div>
@@ -99,6 +197,110 @@ export default function AiMessageBubble({ role, children }: { role: 'user' | 'as
                 {children}
             </blockquote>
         );
+    };
+
+    // Custom Paragraph/ListItem renderer to detect ASCII progress bars and Financial Waterfall
+    const CustomTextRenderer = ({ node, children, ...props }: any) => {
+        // Flatten children to check content string
+        const content = String(children);
+
+        // 1. Progress Bar Check
+        // Flexible Regex to match various AI progress bar formats:
+        // "Label | ████ | 50%" OR "Label (Vytížení: ████ 50%)"
+        const progressMatch = /^(.+?)(?:\||\(|:)?\s*(?:Vytížení:\s*)?[█░\s]+\s*(?:\|)?\s*(\d+)\s*%\)?$/i.exec(content);
+
+        if (progressMatch) {
+            const label = progressMatch[1].replace(/\|/g, '').trim();
+            const percentage = parseInt(progressMatch[2], 10);
+
+            // Choose color based on percentage
+            let bgClass = "bg-blue-600";
+            let gradientClass = "from-blue-500 to-blue-600";
+
+            if (percentage >= 95) {
+                bgClass = "bg-red-600";
+                gradientClass = "from-red-500 to-red-600";
+            } else if (percentage > 80) {
+                bgClass = "bg-orange-500";
+                gradientClass = "from-orange-400 to-orange-500";
+            } else if (percentage < 30) {
+                bgClass = "bg-green-500";
+                gradientClass = "from-green-400 to-green-500";
+            }
+
+            return (
+                <div className="my-3 px-4 py-3 bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm flex flex-col gap-2">
+                    <div className="flex justify-between items-end">
+                        <span className="font-semibold text-gray-700 dark:text-gray-200 text-sm leading-tight">{label}</span>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${percentage > 90 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-gray-400'}`}>
+                            {percentage} %
+                        </span>
+                    </div>
+                    <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden shadow-inner">
+                        <div
+                            className={`h-full rounded-full bg-gradient-to-r ${gradientClass} transition-all duration-1000 ease-out relative`}
+                            style={{ width: `${percentage}%` }}
+                        >
+                            <div className="absolute top-0 left-0 w-full h-full opacity-30 bg-[url('https://www.transparenttextures.com/patterns/diagonal-stripes.png')]"></div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // 2. Financial Waterfall / Statement Check
+        // Pattern: Contains lines with "CZK" and starts with ➖, =, or just text.
+        // We look for multiple lines where at least some look like "Symbol ... : ... CZK"
+        const lines = content.split('\n').filter(l => l.trim());
+        const isWaterfall = lines.length > 2 && lines.some(l => (l.includes('➖') || l.includes('=')) && l.includes('CZK'));
+
+        if (isWaterfall) {
+            return (
+                <div className="my-5 flex flex-col gap-1">
+                    {lines.map((line, idx) => {
+                        const trimmed = line.trim();
+                        // Check if line is a financial row matching "Text: Amount CZK" roughly
+                        // It might start with a symbol
+                        const isTotal = trimmed.startsWith('=');
+                        const isDeduction = trimmed.startsWith('➖');
+                        const isPositive = trimmed.startsWith('➕') || /^[^+=\-].*CZK/.test(trimmed); // Default starts with text + CZK
+
+                        // Try to split by colon if it exists and looks like "Label: Value"
+                        if (trimmed.includes(':') && trimmed.includes('CZK')) {
+                            const [labelRaw, valueRaw] = trimmed.split(/:(.+)/); // Split on first colon
+                            const label = labelRaw.replace(/^[➖=+\s]+/, '').trim();
+                            const value = valueRaw.trim();
+
+                            return (
+                                <div key={idx} className={`flex justify-between items-center p-3 rounded-lg ${isTotal ? 'bg-gray-100 dark:bg-slate-800 font-bold border border-gray-200 dark:border-slate-600 shadow-sm' : 'border-b border-gray-100 dark:border-slate-800 last:border-0'}`}>
+                                    <div className="flex items-center text-gray-700 dark:text-gray-300">
+                                        {isDeduction && <span className="text-red-500 mr-2 w-5 text-center font-bold text-lg">−</span>}
+                                        {isTotal && <span className="text-gray-900 dark:text-white mr-2 w-5 text-center font-bold text-lg">=</span>}
+                                        {!isDeduction && !isTotal && <span className="mr-2 w-5"></span>}
+                                        <span className={isTotal ? 'uppercase tracking-wide text-xs md:text-sm' : 'text-sm'}>{label}</span>
+                                    </div>
+                                    <div className={`font-mono text-sm ${isDeduction ? 'text-red-500' : (isTotal ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400')}`}>
+                                        {value}
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        if (trimmed.length < 50 && !trimmed.includes('.')) {
+                            return <h4 key={idx} className="mt-2 mb-1 font-semibold text-gray-800 dark:text-gray-200 text-sm">{line}</h4>
+                        }
+
+                        return <p key={idx} className="mb-2 text-gray-600 dark:text-gray-400 italic text-sm">{line}</p>;
+                    })}
+                </div>
+            );
+        }
+
+        // Default rendering for non-special text
+        const Tag = node.tagName === 'li' ? 'li' : 'p';
+        const classes = node.tagName === 'li' ? 'pl-1' : 'mb-3 last:mb-0';
+
+        return <Tag className={classes} {...props}>{children}</Tag>;
     };
 
     return (
@@ -118,13 +320,14 @@ export default function AiMessageBubble({ role, children }: { role: 'user' | 'as
                             components={{
                                 code: CodeBlock,
                                 blockquote: Blockquote,
+                                pre: ({ children }) => <>{children}</>,
                                 h1: ({ node, ...props }) => <h1 {...props} className="text-2xl font-bold mb-4 mt-6 pb-2 border-b border-gray-200 dark:border-slate-700 text-[#E30613] dark:text-[#E30613]" />,
                                 h2: ({ node, ...props }) => <h2 {...props} className="text-xl font-bold mb-3 mt-5 text-gray-900 dark:text-white flex items-center gap-2" />,
                                 h3: ({ node, ...props }) => <h3 {...props} className="text-lg font-bold mb-2 mt-4 text-gray-800 dark:text-gray-200" />,
                                 ul: ({ node, ...props }) => <ul {...props} className="list-disc pl-5 my-3 space-y-1" />,
                                 ol: ({ node, ...props }) => <ol {...props} className="list-decimal pl-5 my-3 space-y-1" />,
-                                li: ({ node, ...props }) => <li {...props} className="pl-1" />,
-                                p: ({ node, ...props }) => <p {...props} className="mb-3 last:mb-0" />,
+                                li: CustomTextRenderer,
+                                p: CustomTextRenderer,
                                 table: ({ node, ...props }) => <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm"><table {...props} className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 bg-white dark:bg-slate-900" /></div>,
                                 thead: ({ node, ...props }) => <thead {...props} className="bg-gray-50 dark:bg-slate-800" />,
                                 th: ({ node, ...props }) => <th {...props} className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider" />,
