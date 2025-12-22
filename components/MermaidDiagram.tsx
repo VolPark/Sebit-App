@@ -79,6 +79,18 @@ export default function MermaidDiagram({ code }: { code: string }) {
                 });
             }
 
+            // Fix: Subgraph syntax error (spaces/parens without quotes)
+            // Matches: simple 'subgraph Title With Spaces' -> 'subgraph "Title With Spaces"'
+            // Does NOT match if already quoted or has ID like 'subgraph id [Title]'
+            // We conservatively look for 'subgraph' followed by text that has spaces, and does NOT start with quote or look like 'id ['
+            cleanCode = cleanCode.replace(/^\s*subgraph\s+(?!["a-zA-Z0-9_]+\s*\[)([^"\[\n\r]+)(?<!\s)$/gm, (match, title) => {
+                // Double check it contains spaces or special chars that need quoting
+                if (/[ ()]/.test(title) && !/^".*"$/.test(title.trim())) {
+                    return `subgraph "${title.trim()}"`;
+                }
+                return match;
+            });
+
             try {
                 // Config based on current theme
                 mermaid.initialize({

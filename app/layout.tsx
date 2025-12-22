@@ -5,6 +5,8 @@ import Header from '@/components/Header'
 // Načtení fontu (Google standard)
 const inter = Inter({ subsets: ['latin'] })
 
+import { Viewport } from 'next';
+
 export const metadata = {
   title: 'Interiéry Horyna',
   description: 'Moderní správa interiérových projektů',
@@ -14,6 +16,9 @@ export const metadata = {
     apple: '/logo_small.png', // iOS home screen icon
     shortcut: '/logo_small.png',
   },
+}
+
+export const viewport: Viewport = {
   themeColor: '#E30613',
 }
 
