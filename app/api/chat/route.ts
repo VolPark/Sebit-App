@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     const { data: akce } = await supabase.from('akce').select('*');
     const { data: prace } = await supabase.from('prace').select('*');
     const { data: mzdy } = await supabase.from('mzdy').select('*');
-    const { data: finance } = await supabase.from('finance').select('*');
+    const { data: fixed_costs } = await supabase.from('fixed_costs').select('*');
 
     // 2. Fetch Calculated Stats (Dashboard View)
     // We use the same function as the dashboard to ensure consistency
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     organizations ||--o{ klienti : owns
     organizations ||--o{ pracovnici : owns
     organizations ||--o{ akce : pro
-    organizations ||--o{ finance : tracks
+    organizations ||--o{ fixed_costs : tracks
 
     klienti ||--o{ akce : "requested by"
     klienti ||--o{ prace : "billed for"
@@ -84,19 +84,21 @@ export async function POST(req: Request) {
         bigint pracovnik_id FK
     }
 
-    finance {
+    fixed_costs {
         bigint id PK
-        text typ
+        text nazev
         numeric castka
+        int4 mesic
+        int4 rok    
     }`;
 
     const systemPrompt = `
     Jsi AI finanční a provozní analytik pro firmu "Interiéry Horyna".
-    Tvým úkolem je odpovídat na dotazy majitele na základě poskytnuté databáze.
+    Tvým úkolem je odpovídat na dotazy majitele na základě poskytnuté databáze a vysvětlovat kontext, případně porovnávat s benchmarkem.
     
     Máš k dispozici KOMPLETNÍ data z databáze ve formátu JSON a také PŘEDPOČÍTANÉ STATISTIKY z dashboardu.
     
-    --- DASHBOARD STATISTIKY (POSLEDNÍCH 12 MĚSÍCŮ) ---
+    --- DASHBOARD STATISTIKY ---
     Toto jsou oficiální čísla, která vidí uživatel v grafu. Používej je jako referenci pro souhrnné dotazy (zisk, tržby, náklady).
     ${JSON.stringify({
         celkove_trzby: dashboardStats?.totalRevenue,
@@ -129,18 +131,33 @@ export async function POST(req: Request) {
     --- MZDY (mzdy) ---
     ${JSON.stringify(mzdy)}
 
-    --- FINANCE (finance) ---
-    ${JSON.stringify(finance)}
+    --- REŽIE (fixed_costs) ---
+    ${JSON.stringify(fixed_costs)}
+
 
     PRAVIDLA:
     1. Odpovídej pouze česky.
     2. Použij formátování Markdown pro lepší přehlednost:
        - Používej **tučné** písmo pro klíčové částky a názvy.
        - Používej tabulky pro seznamy (např. seznam projektů).
-       - Používej odrážky pro výčty.
+       - Používej sekce pro výčty.
+       - Používej mermaid pro vykreslování grafů.
+         - PRO MERMAID: Vždy používej uvozovky pro texty v uzlech, např. A["Text uzlu"].
+         - Nepoužívej diakritiku v ID uzlů (použij A, B, Uzel1, ne "Červenec").
+         - Používej POUZE standardní směry: graph TD (shora dolů) nebo graph LR (zleva doprava). Nepoužívej jiné zkratky.
+         - Vyhni se komplikovaným znakům.
+         - Používej barvy ladící s aplikací (např. #FF0000 pro červené, atd...).
+         - Vždy používej co nejpřehlednější a nejčitelnější verzi zobrazení grafu.
+       - Načítej a používej data z tabulek bez ohledu na stav ukončení.
+       - Nikdy nepoužívej technické názvy atributů v tabulkách, používej čitelné názvy.
+       - Nikdy nepoužívej technické názvy tabulek, používej čitelné názvy.
     3. Pokud se ptám na zisk/tržby za rok, podívej se primárně do "DASHBOARD STATISTIKY", jsou nejpřesnější.
     4. NIKDY nepoužívej formátování kódu (backticky) pro finanční částky. Částky piš normálně tučně nebo v textu (např. **100 000 CZK**).
     5. Analýzy prováděj důkladně.
+    6. Vždy zkontroluj jaký je aktuální datum dle obecné funkce (nespoléhat na info z ai modelu), aby tvé analýzy byli relevantní zárovn toto datum ber jako součást analýzy.
+    7. Můžeš dohledávat data na internetu, či čerpat ze své znalosti aby jsi mohl jasně vysvětlit vše podstatné.
+    8. při vykreslování progress barů používej vždy barvy podle aplikace.
+    9. Při vykreslování progress barů vždy využívej syntaxi "progress: 50 %", a podobně v tomto stylu.
   `;
 
     // DEFINICE MODELŮ: 
@@ -156,14 +173,28 @@ export async function POST(req: Request) {
     let lastError = null;
 
     for (const userModelName of models) {
+        let controller: AbortController | null = null;
+        let timeoutId: NodeJS.Timeout | null = null;
+
         try {
             console.log(`[AI Fallback] STEP 1: Attempting model ${userModelName}`);
+
+            // Create a controller for the connection timeout
+            controller = new AbortController();
+
+            // Set a timeout for the INITIAL connection/response
+            // If the model doesn't start streaming within 8 seconds, we kill it and try next.
+            timeoutId = setTimeout(() => {
+                console.warn(`[AI Fallback] Connection timeout for ${userModelName} (8s)`);
+                controller?.abort();
+            }, 8000);
 
             const result = await streamText({
                 model: google(userModelName),
                 messages,
                 system: systemPrompt,
-                maxRetries: 0
+                maxRetries: 0,
+                abortSignal: controller.signal
             });
             console.log(`[AI Fallback] STEP 2: streamText created for ${userModelName}`);
 
@@ -171,7 +202,12 @@ export async function POST(req: Request) {
             const iterator = stream[Symbol.asyncIterator]();
 
             console.log(`[AI Fallback] STEP 3: Peeking first chunk for ${userModelName}`);
+            // This await will throw if the timeout fires before data arrives
             const firstChunk = await iterator.next();
+
+            // Clear timeout immediately after getting first byte - connection is established
+            if (timeoutId) clearTimeout(timeoutId);
+
             console.log(`[AI Fallback] STEP 4: First chunk received for ${userModelName}`);
 
             if (firstChunk.done) {
@@ -204,7 +240,18 @@ export async function POST(req: Request) {
             });
 
         } catch (error) {
+            // Ensure timeout is cleared if error occurs
+            if (timeoutId) clearTimeout(timeoutId);
+
+            const errorMessage = error instanceof Error ? error.message : String(error);
             console.error(`[AI Fallback] CAUGHT ERROR for ${userModelName}:`, error);
+            try {
+                const fs = await import('fs');
+                const path = await import('path');
+                fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] Model ${userModelName} failed: ${errorMessage}\nStack: ${error instanceof Error ? error.stack : ''}\n\n`);
+            } catch (fsError) {
+                console.error("Failed to write to log file", fsError);
+            }
             lastError = error;
             // Continue to next model in the loop
             console.log(`[AI Fallback] Retrying with next model...`);
@@ -212,5 +259,11 @@ export async function POST(req: Request) {
     }
 
     console.error("All AI models failed:", lastError);
+    try {
+        const fs = await import('fs');
+        const path = await import('path');
+        fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] ALL MODELS FAILED. Last error: ${lastError}\n\n`);
+    } catch (e) { }
+
     return new Response(JSON.stringify({ error: { message: "AI services are currently overloaded or unavailable. Please try again later." } }), { status: 503 });
 }

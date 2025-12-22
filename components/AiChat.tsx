@@ -54,7 +54,10 @@ export default function AiChat({ messages, setMessages }: AiChatProps) {
                 }),
             });
 
-            if (!response.ok) throw new Error('Network response was not ok');
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server error (${response.status}): ${errorText.substring(0, 200)}`);
+            }
             if (!response.body) throw new Error('No response body');
 
             // 3. Prepare Assistant Message container
@@ -88,7 +91,12 @@ export default function AiChat({ messages, setMessages }: AiChatProps) {
 
         } catch (error) {
             console.error("Chat Error:", error);
-            // Optionally add an error message to the chat
+            const errorMessage = error instanceof Error ? error.message : "Neznámá chyba";
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                role: 'assistant',
+                content: `⚠️ **Chyba komunikace:** ${errorMessage}. Zkuste to prosím znovu za chvíli.`
+            }]);
         } finally {
             setIsLoading(false);
         }
