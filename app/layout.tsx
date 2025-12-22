@@ -8,6 +8,13 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata = {
   title: 'Interiéry Horyna',
   description: 'Moderní správa interiérových projektů',
+  manifest: '/manifest.json',
+  icons: {
+    icon: '/logo_small.png',
+    apple: '/logo_small.png', // iOS home screen icon
+    shortcut: '/logo_small.png',
+  },
+  themeColor: '#E30613',
 }
 
 import FaceAuthProvider from '@/components/FaceAuthProvider';
