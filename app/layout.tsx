@@ -5,16 +5,16 @@ import Header from '@/components/Header'
 // Načtení fontu (Google standard)
 const inter = Inter({ subsets: ['latin'] })
 
-import { Viewport } from 'next';
+import { Viewport, type Metadata } from 'next';
 
-export const metadata = {
-  title: 'Interiéry Horyna',
-  description: 'Moderní správa interiérových projektů',
-  manifest: '/manifest.json',
+export const metadata: Metadata = {
+  title: "Interiéry Horyna",
+  description: "Inteligentní nástroj pro řízení firmy, mezd a výkaznictví",
+  manifest: "/manifest.json",
   icons: {
-    icon: '/logo_small.png',
-    apple: '/logo_small.png', // iOS home screen icon
-    shortcut: '/logo_small.png',
+    icon: "/logo_small.png",
+    shortcut: "/logo_small.png",
+    apple: "/logo_small.png",
   },
 }
 
