@@ -222,7 +222,7 @@ function ChatInput({ onSend, isLoading }: { onSend: (text: string) => void, isLo
         <div className="p-4 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700">
             <form onSubmit={handleSubmit} className="flex gap-2">
                 <input
-                    className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613]"
+                    className="flex-1 min-w-0 p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613]"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Např.: Jaký byl zisk minulý měsíc?"
