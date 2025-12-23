@@ -15,8 +15,6 @@ interface AiChatProps {
 }
 
 export default function AiChat({ messages, setMessages }: AiChatProps) {
-    // const [messages, setMessages] = useState<Message[]>([]); // Lifted up
-    const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -28,9 +26,8 @@ export default function AiChat({ messages, setMessages }: AiChatProps) {
         scrollToBottom();
     }, [messages]);
 
-    const handleCustomSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const trimmedInput = (input || '').trim();
+    const handleSendMessage = async (text: string) => {
+        const trimmedInput = text.trim();
         if (!trimmedInput || isLoading) return;
 
         // 1. Add User Message
@@ -41,7 +38,6 @@ export default function AiChat({ messages, setMessages }: AiChatProps) {
         };
 
         setMessages(prev => [...prev, userMessage]);
-        setInput('');
         setIsLoading(true);
 
         try {
@@ -78,7 +74,6 @@ export default function AiChat({ messages, setMessages }: AiChatProps) {
                 const { value, done: doneReading } = await reader.read();
                 done = doneReading;
                 const chunkValue = decoder.decode(value, { stream: true });
-                console.log('Stream chunk:', chunkValue);
                 accumulatedContent += chunkValue;
 
                 // Update the last message (assistant) with accumulated content
@@ -104,8 +99,7 @@ export default function AiChat({ messages, setMessages }: AiChatProps) {
 
     return (
         <div className="flex flex-col h-[700px] w-full bg-gray-50/50 dark:bg-slate-900/50 rounded-2xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm">
-
-            {/* Messages Area */}
+            {/* Messages Area - this only updates when messages change */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth">
                 {messages.length === 0 && (
                     <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
@@ -139,25 +133,41 @@ export default function AiChat({ messages, setMessages }: AiChatProps) {
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Area */}
-            <div className="p-4 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700">
-                <form onSubmit={handleCustomSubmit} className="flex gap-2">
-                    <input
-                        className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613]"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="Např.: Jaký byl zisk minulý měsíc?"
-                        autoFocus
-                    />
-                    <button
-                        type="submit"
-                        disabled={isLoading || !(input || '').trim()}
-                        className="px-4 py-2 bg-[#E30613] text-white rounded-xl font-medium hover:bg-[#c40510] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        Odeslat
-                    </button>
-                </form>
-            </div>
+            {/* Input Area - isolated component */}
+            <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
+        </div>
+    );
+}
+
+// Optimized input component to prevent re-renders of the main chat list while typing
+function ChatInput({ onSend, isLoading }: { onSend: (text: string) => void, isLoading: boolean }) {
+    const [input, setInput] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!input.trim() || isLoading) return;
+        onSend(input);
+        setInput('');
+    };
+
+    return (
+        <div className="p-4 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700">
+            <form onSubmit={handleSubmit} className="flex gap-2">
+                <input
+                    className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613]"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Např.: Jaký byl zisk minulý měsíc?"
+                    autoFocus
+                />
+                <button
+                    type="submit"
+                    disabled={isLoading || !(input || '').trim()}
+                    className="px-4 py-2 bg-[#E30613] text-white rounded-xl font-medium hover:bg-[#c40510] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    Odeslat
+                </button>
+            </form>
         </div>
     );
 }

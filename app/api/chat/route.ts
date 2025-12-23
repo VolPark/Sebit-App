@@ -171,48 +171,66 @@ export async function POST(req: Request) {
     ];
 
     let lastError = null;
+    const attemptLogs: string[] = [];
 
-    for (const userModelName of models) {
+    for (let i = 0; i < models.length; i++) {
+        const userModelName = models[i];
+        const attemptNum = i + 1;
         let controller: AbortController | null = null;
         let timeoutId: NodeJS.Timeout | null = null;
+        const startTime = Date.now();
 
         try {
-            console.log(`[AI Fallback] STEP 1: Attempting model ${userModelName}`);
+            console.log(`[AI Fallback] [ATTEMPT ${attemptNum}/${models.length}] Trying model: ${userModelName}`);
 
             // Create a controller for the connection timeout
             controller = new AbortController();
 
             // Set a timeout for the INITIAL connection/response
-            // If the model doesn't start streaming within 8 seconds, we kill it and try next.
+            // If the model doesn't start streaming within 30 seconds, we kill it and try next.
             timeoutId = setTimeout(() => {
-                console.warn(`[AI Fallback] Connection timeout for ${userModelName} (8s)`);
+                const duration = Date.now() - startTime;
+                console.warn(`[AI Fallback] [TIMEOUT] Model ${userModelName} timed out after ${duration}ms (limit 30s). Aborting.`);
                 controller?.abort();
-            }, 8000);
+            }, 30000);
 
-            const result = await streamText({
-                model: google(userModelName),
-                messages,
-                system: systemPrompt,
-                maxRetries: 0,
-                abortSignal: controller.signal
-            });
-            console.log(`[AI Fallback] STEP 2: streamText created for ${userModelName}`);
+            let result;
+            try {
+                result = await streamText({
+                    model: google(userModelName),
+                    messages,
+                    system: systemPrompt,
+                    maxRetries: 0,
+                    abortSignal: controller.signal
+                });
+            } catch (err: any) {
+                // Determine if it was our timeout or a real API error
+                if (err.name === 'AbortError' || controller.signal.aborted) {
+                    throw new Error(`Connection timed out`);
+                }
+                throw err;
+            }
 
+            // Note: streamText might return, but the stream itself might fail immediately.
             const stream = result.textStream;
             const iterator = stream[Symbol.asyncIterator]();
 
-            console.log(`[AI Fallback] STEP 3: Peeking first chunk for ${userModelName}`);
             // This await will throw if the timeout fires before data arrives
-            const firstChunk = await iterator.next();
+            let firstChunk;
+            try {
+                firstChunk = await iterator.next();
+            } catch (err: any) {
+                if (err.name === 'AbortError' || controller.signal.aborted) {
+                    throw new Error(`Connection timed out during stream init`);
+                }
+                throw err;
+            }
 
             // Clear timeout immediately after getting first byte - connection is established
             if (timeoutId) clearTimeout(timeoutId);
 
-            console.log(`[AI Fallback] STEP 4: First chunk received for ${userModelName}`);
-
             if (firstChunk.done) {
-                console.warn(`[AI Fallback] Model ${userModelName} returned empty stream immediately. Treating as failure.`);
-                throw new Error("Stream finished immediately (possible suppressed error)");
+                throw new Error("Stream finished immediately (received empty response)");
             }
 
             const cleanStream = new ReadableStream({
@@ -225,13 +243,13 @@ export async function POST(req: Request) {
                         controller.close();
                     } catch (error) {
                         // This catches streaming errors *after* a successful start
-                        console.error(`[AI Fallback] Stream error for ${userModelName}:`, error);
+                        console.error(`[AI Fallback] [STREAM ERROR] Model ${userModelName} failed mid-stream:`, error);
                         controller.error(error);
                     }
                 }
             });
 
-            console.log(`[AI Fallback] STEP 5: Returning successful stream for ${userModelName}`);
+            console.log(`[AI Fallback] [SUCCESS] Model ${userModelName} responded successfully in ${Date.now() - startTime}ms.`);
             return new Response(cleanStream, {
                 status: 200,
                 headers: {
@@ -239,31 +257,48 @@ export async function POST(req: Request) {
                 }
             });
 
-        } catch (error) {
+        } catch (error: any) {
             // Ensure timeout is cleared if error occurs
             if (timeoutId) clearTimeout(timeoutId);
 
+            const duration = Date.now() - startTime;
             const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error(`[AI Fallback] CAUGHT ERROR for ${userModelName}:`, error);
+            const isTimeout = errorMessage.includes("timed out");
+
+            // Format log nicely
+            const failureLog = `[AI Fallback] [FAILURE] Model ${userModelName} failed after ${duration}ms. Reason: ${errorMessage}`;
+            console.warn(failureLog);
+            attemptLogs.push(failureLog);
+
+            // Log to file for persistence
             try {
                 const fs = await import('fs');
                 const path = await import('path');
-                fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] Model ${userModelName} failed: ${errorMessage}\nStack: ${error instanceof Error ? error.stack : ''}\n\n`);
+                fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] ${failureLog}\nStack: ${error.stack || 'No stack'}\n\n`);
             } catch (fsError) {
-                console.error("Failed to write to log file", fsError);
+                // ignore logging errors
             }
+
             lastError = error;
-            // Continue to next model in the loop
-            console.log(`[AI Fallback] Retrying with next model...`);
+            if (i < models.length - 1) {
+                console.log(`[AI Fallback] ... switching to next backup model ...`);
+            }
         }
     }
 
-    console.error("All AI models failed:", lastError);
+    console.error(`[AI Fallback] [CRITICAL] All ${models.length} models failed. Returning 503.`);
+
+    // Log final summary to file
     try {
         const fs = await import('fs');
         const path = await import('path');
-        fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] ALL MODELS FAILED. Last error: ${lastError}\n\n`);
+        fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] ALL MODELS FAILED. Summary:\n${attemptLogs.join('\n')}\n\n`);
     } catch (e) { }
 
-    return new Response(JSON.stringify({ error: { message: "AI services are currently overloaded or unavailable. Please try again later." } }), { status: 503 });
+    return new Response(JSON.stringify({
+        error: {
+            message: "AI services are currently overloaded or unavailable. Please try again later.",
+            details: attemptLogs
+        }
+    }), { status: 503 });
 }

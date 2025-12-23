@@ -1,3 +1,4 @@
+import React, { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import MermaidDiagram from './MermaidDiagram';
@@ -389,7 +390,7 @@ const CustomTextRenderer = ({ node, children, ...props }: any) => {
     return <Tag className={classes} {...props}>{children}</Tag>;
 };
 
-export default function AiMessageBubble({ role, children }: { role: 'user' | 'assistant', children: string }) {
+const AiMessageBubble = React.memo(function AiMessageBubble({ role, children }: { role: 'user' | 'assistant', children: string }) {
     const isUser = role === 'user';
 
     return (
@@ -432,4 +433,6 @@ export default function AiMessageBubble({ role, children }: { role: 'user' | 'as
             </div>
         </div>
     );
-}
+});
+
+export default AiMessageBubble;
