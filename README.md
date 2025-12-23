@@ -65,6 +65,7 @@ erDiagram
     organizations ||--o{ pracovnici : owns
     organizations ||--o{ akce : pro
     organizations ||--o{ finance : tracks
+    organizations ||--o{ fixed_costs : defines
 
     klienti ||--o{ akce : "requested by"
     klienti ||--o{ prace : "billed for"
@@ -112,6 +113,14 @@ erDiagram
         bigint id PK
         text typ
         numeric castka
+    }
+
+    fixed_costs {
+        bigint id PK
+        text nazev
+        numeric castka
+        integer rok
+        integer mesic
     }
 ```
 
