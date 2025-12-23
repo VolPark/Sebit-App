@@ -32,6 +32,7 @@ export default function NabidkaDetailPage() {
     const [editName, setEditName] = useState('');
     const [editClient, setEditClient] = useState<ComboBoxItem | null>(null);
     const [editAction, setEditAction] = useState<ComboBoxItem | null>(null);
+    const [editValidUntil, setEditValidUntil] = useState(''); // New State
 
     // Options
     const [clients, setClients] = useState<ComboBoxItem[]>([]);
@@ -78,6 +79,7 @@ export default function NabidkaDetailPage() {
         setEditAction(a);
 
         setEditStatusId(offer.stav_id || (offer.nabidky_stavy?.id || null));
+        setEditValidUntil(offer.platnost_do || ''); // Init Date
 
         // Init options
         if (c) {
@@ -102,8 +104,6 @@ export default function NabidkaDetailPage() {
             let client_id = editClient?.id as number | null;
             let akce_id = editAction?.id as number | null;
 
-            // Handle NEW Items if ID is 'NEW' (should be handled by standard create handlers but if simple logic used)
-            // Just in case, ensure we don't send 'NEW' string ID
             if (client_id && String(client_id) === 'NEW') client_id = null;
             if (akce_id && String(akce_id) === 'NEW') akce_id = null;
 
@@ -111,9 +111,10 @@ export default function NabidkaDetailPage() {
                 nazev: editName,
                 klient_id: client_id,
                 akce_id: akce_id,
-                stav_id: editStatusId
+                stav_id: editStatusId,
+                platnost_do: editValidUntil || undefined // Save Date
             });
-            await loadData(); // Reload to get fresh data with relations
+            await loadData();
             setIsEditing(false);
         } catch (e) {
             console.error(e);
@@ -151,7 +152,7 @@ export default function NabidkaDetailPage() {
     const handleCreateAction = async (name: string) => {
         try {
             let clientId = editClient?.id !== 'NEW' ? (editClient?.id as number) : null;
-            const newAction = await createAction({ nazev: name, klient_id: clientId }); // Minimal create for simple edit
+            const newAction = await createAction({ nazev: name, klient_id: clientId });
             const actionItem = { id: newAction.id, name: newAction.nazev };
             setAllActions(prev => [...prev, newAction]);
             setActionOptions(prev => [...prev, actionItem]);
@@ -211,6 +212,15 @@ export default function NabidkaDetailPage() {
                                             ))}
                                         </select>
                                     </div>
+                                    <div className="relative">
+                                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1 ml-1">Platnost do</label>
+                                        <input
+                                            type="date"
+                                            value={editValidUntil}
+                                            onChange={e => setEditValidUntil(e.target.value)}
+                                            className="w-full text-sm rounded-xl border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5 dark:text-white focus:ring-[#E30613] focus:border-[#E30613]"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="flex gap-2 mt-2">
                                     <button onClick={saveChanges} className="bg-[#E30613] text-white px-4 py-1.5 rounded-lg text-sm font-medium">Uložit</button>
@@ -239,6 +249,11 @@ export default function NabidkaDetailPage() {
                                         Akce: <span className="font-medium text-gray-900 dark:text-gray-200">{offer.akce?.nazev || '—'}</span>
                                     </span>
                                     <span className="hidden sm:inline text-gray-300 dark:text-slate-700">•</span>
+                                    <span className="flex items-center gap-1">
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                        Platnost: <span className="font-medium text-gray-900 dark:text-gray-200">{offer.platnost_do ? new Date(offer.platnost_do).toLocaleDateString('cs-CZ') : 'Neurčeno'}</span>
+                                    </span>
+                                    <span className="hidden sm:inline text-gray-300 dark:text-slate-700">•</span>
                                     <span className="flex items-center gap-2">
                                         Stav:
                                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize border`}
@@ -255,11 +270,6 @@ export default function NabidkaDetailPage() {
                                             }}>
                                             {offer.nabidky_stavy?.nazev || 'Neznámý'}
                                         </span>
-                                    </span>
-                                    <span className="hidden sm:inline text-gray-300 dark:text-slate-700">•</span>
-                                    <span className="flex items-center gap-1">
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                        {new Date(offer.created_at).toLocaleDateString('cs-CZ')}
                                     </span>
                                 </div>
                                 <div className="mt-4">

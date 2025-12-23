@@ -201,3 +201,44 @@ export const updateOfferTotalPrice = async (nabidkaId: number) => {
     // Update Offer
     await supabase.from('nabidky').update({ celkova_cena: total }).eq('id', nabidkaId);
 };
+
+export const uploadOfferImage = async (file: File): Promise<string | null> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('offer-images')
+        .upload(filePath, file);
+
+    if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        throw uploadError;
+    }
+
+    const { data } = supabase.storage
+        .from('offer-images')
+        .getPublicUrl(filePath);
+
+    return data.publicUrl;
+};
+
+export const updateOfferItem = async (id: number, updates: any) => {
+    const { data, error } = await supabase
+        .from('polozky_nabidky')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating item:', error);
+        throw error;
+    }
+
+    if (data && data.nabidka_id) {
+        await updateOfferTotalPrice(data.nabidka_id);
+    }
+
+    return data;
+};

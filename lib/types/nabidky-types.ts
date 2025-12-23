@@ -13,8 +13,8 @@ export interface Nabidka {
     akce_id?: number | null;
     poznamka?: string;
     description?: string; // Legacy field match
+    platnost_do?: string; // New: Validity date
     stav_id?: number | null;
-    // stav: string; // Deprecated, use stav_id relation
     celkova_cena: number;
     created_at: string;
     updated_at: string;
@@ -33,8 +33,11 @@ export interface NabidkaPolozka {
     id: number;
     nabidka_id: number;
     nazev: string;
-    typ: 'skrinka' | 'spotrebic' | 'sluzba' | 'ostatni';
+    typ: string; // Dynamic type
+    popis?: string; // New: Description
+    obrazek_url?: string; // New: Image URL
     mnozstvi: number;
     cena_ks: number;
+    sazba_dph?: number; // New: VAT Rate (0, 12, 21)
     celkem: number;
 }
