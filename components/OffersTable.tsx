@@ -10,6 +10,7 @@ export default function OffersTable() {
     const [offers, setOffers] = useState<Nabidka[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [deleteId, setDeleteId] = useState<number | null>(null);
 
     // New Offer Form State
     const [newOfferName, setNewOfferName] = useState('');
@@ -155,13 +156,19 @@ export default function OffersTable() {
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!confirm('Opravdu smazat nabídku?')) return;
+    const handleDelete = (id: number) => {
+        setDeleteId(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteId) return;
         try {
-            await deleteNabidka(id);
+            await deleteNabidka(deleteId);
             fetchOffers();
         } catch (err) {
             console.error(err);
+        } finally {
+            setDeleteId(null);
         }
     };
 
@@ -343,6 +350,29 @@ export default function OffersTable() {
                     </tbody>
                 </table>
             </div>
+            {/* Delete Confirmation Modal */}
+            {deleteId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl ring-1 ring-slate-900/5 animate-in fade-in zoom-in duration-200">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Smazat nabídku?</h3>
+                        <p className="text-gray-500 dark:text-gray-400 mb-6">Tato akce je nevratná.</p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setDeleteId(null)}
+                                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                            >
+                                Zrušit
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition-colors font-medium"
+                            >
+                                Smazat
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
