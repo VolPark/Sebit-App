@@ -12,9 +12,10 @@ export interface Message {
 interface AiChatProps {
     messages: Message[];
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+    className?: string; // Allow custom styling
 }
 
-export default function AiChat({ messages, setMessages }: AiChatProps) {
+export default function AiChat({ messages, setMessages, className = "h-[700px]" }: AiChatProps) {
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -157,7 +158,7 @@ export default function AiChat({ messages, setMessages }: AiChatProps) {
     const showLoadingIndicator = isLoading && !isStreamingResponse;
 
     return (
-        <div className="flex flex-col h-[700px] w-full bg-gray-50/50 dark:bg-slate-900/50 rounded-2xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm">
+        <div className={`flex flex-col w-full bg-gray-50/50 dark:bg-slate-900/50 rounded-2xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm ${className}`}>
             {/* Messages Area */}
             <div
                 ref={scrollContainerRef}
