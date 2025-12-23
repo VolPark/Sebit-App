@@ -275,48 +275,14 @@ const CustomTextRenderer = ({ node, children, ...props }: any) => {
     // Flatten children to check content string properly even if it has bold/code inside
     const content = flattenText(children);
 
-    // 1. Progress Bar Check
-    // Regex matches: Optional Label + Bar + Percentage (Optional) + Optional Suffix
-    // Supports: "Label: [███] 50%", "Label [███] 50% (300h)", "[███] 50%", "[████░░]", "[====] 50%"
+    // Regex definitions
     const progressbarRegex = /^(?:(.+?)(?:\||\(|:)\s*)?(?:Vytížení:\s*)?(?:`|\[)?\s*([█░■□=\-#\s]+)(?:`|\])?\s*(?:\|)?\s*(?:(\d+)\s*%)?(?:\s*.*)?$/i;
+    // Supports: "Label: 50% progress: 50%" (keyword) OR "Cpu: 90%" (simple)
+    const simpleProgressRegex = /^(.+?):\s*(\d+(?:[.,]\d+)?)\s*%?\s*$/i;
+    const explicitKeywordRegex = /^(.*?)\bprogress:\s*\[?(\d+(?:[.,]\d+)?)\]?\s*%?\s*$/i;
 
-    // NEW: Supports simple text format: "progress: 6.5 %", "CPU: 90 %"
-    const simpleProgressRegex = /^(.+?):\s*(\d+(?:[.,]\d+)?)\s*%$/i;
-
-    const progressMatch = progressbarRegex.exec(content);
-    const simpleMatch = simpleProgressRegex.exec(content);
-
-    // Ensure it's actually a progress bar and not just "Label: " matching the loose regex
-    // Must either have explicit percentage OR contain block characters
-    const hasExplicitPercentage = progressMatch && !!progressMatch[3];
-    const hasBlocks = progressMatch && /[█■░□=\-#]/.test(progressMatch[2]);
-
-    // Check if either the complex ASCII bar matches OR the simple text format matches
-    if ((progressMatch && (hasExplicitPercentage || hasBlocks)) || simpleMatch) {
-        let label = "Vytížení";
-        let percentage = 0;
-
-        if (simpleMatch) {
-            // Simple format "Label: 50%"
-            label = simpleMatch[1].trim();
-            // Replace decimal comma with dot for parsing
-            percentage = parseFloat(simpleMatch[2].replace(',', '.'));
-        } else if (progressMatch) {
-            // Complex ASCII format
-            // Group 1 is Label (optional), Group 2 is Bar, Group 3 is Percentage
-            label = progressMatch[1] ? progressMatch[1].replace(/[:*`\[\]]/g, '').trim() : "Vytížení";
-
-            if (progressMatch[3]) {
-                percentage = parseInt(progressMatch[3], 10);
-            } else {
-                // Auto-calculate if percentage is missing
-                const full = (progressMatch[2].match(/[█■=#]/g) || []).length;
-                const empty = (progressMatch[2].match(/[░□\-]/g) || []).length;
-                const total = full + empty;
-                percentage = total > 0 ? Math.round((full / total) * 100) : 0;
-            }
-        }
-
+    // Helper to render a single progress bar
+    const renderProgressBar = (label: string, percentage: number, key: any) => {
         // Choose color based on percentage
         let bgClass = "bg-blue-600";
         let gradientClass = "from-blue-500 to-blue-600";
@@ -333,7 +299,7 @@ const CustomTextRenderer = ({ node, children, ...props }: any) => {
         }
 
         return (
-            <div className="my-3 px-4 py-3 bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm flex flex-col gap-2">
+            <div key={key} className="my-3 px-4 py-3 bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm flex flex-col gap-2">
                 <div className="flex justify-between items-end">
                     <span className="font-semibold text-gray-700 dark:text-gray-200 text-sm leading-tight">{label}</span>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${percentage > 90 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-gray-400'}`}>
@@ -350,11 +316,9 @@ const CustomTextRenderer = ({ node, children, ...props }: any) => {
                 </div>
             </div>
         );
-    }
+    };
 
-    // 2. Financial Waterfall / Statement Check
-    // Pattern: Contains lines with "CZK" and starts with ➖, =, or just text.
-    // We look for multiple lines where at least some look like "Symbol ... : ... CZK"
+    // 1. Waterfall Check (matches whole block)
     const lines = content.split('\n').filter(l => l.trim());
     const isWaterfall = lines.length > 2 && lines.some(l => (l.includes('➖') || l.includes('=')) && l.includes('CZK'));
 
@@ -363,15 +327,11 @@ const CustomTextRenderer = ({ node, children, ...props }: any) => {
             <div className="my-5 flex flex-col gap-1">
                 {lines.map((line, idx) => {
                     const trimmed = line.trim();
-                    // Check if line is a financial row matching "Text: Amount CZK" roughly
-                    // It might start with a symbol
                     const isTotal = trimmed.startsWith('=');
                     const isDeduction = trimmed.startsWith('➖');
-                    const isPositive = trimmed.startsWith('➕') || /^[^+=\-].*CZK/.test(trimmed); // Default starts with text + CZK
 
-                    // Try to split by colon if it exists and looks like "Label: Value"
                     if (trimmed.includes(':') && trimmed.includes('CZK')) {
-                        const [labelRaw, valueRaw] = trimmed.split(/:(.+)/); // Split on first colon
+                        const [labelRaw, valueRaw] = trimmed.split(/:(.+)/);
                         const label = labelRaw.replace(/^[➖=+\s]+/, '').trim();
                         const value = valueRaw.trim();
 
@@ -389,15 +349,90 @@ const CustomTextRenderer = ({ node, children, ...props }: any) => {
                             </div>
                         );
                     }
-
-                    if (trimmed.length < 50 && !trimmed.includes('.')) {
-                        return <h4 key={idx} className="mt-2 mb-1 font-semibold text-gray-800 dark:text-gray-200 text-sm">{line}</h4>
-                    }
-
                     return <p key={idx} className="mb-2 text-gray-600 dark:text-gray-400 italic text-sm">{line}</p>;
                 })}
             </div>
         );
+    }
+
+    // 2. Line-by-Line Progress Check
+    // We process the children normally, but if a line acts as a progress bar, we replace it.
+    // If multiple lines exist, we handle them.
+
+    // If it's a single line, try to render directly to avoid unnecessary wrappers
+    if (lines.length <= 1) {
+        const line = content.trim();
+        const progressMatch = progressbarRegex.exec(line);
+        const simpleMatch = simpleProgressRegex.exec(line);
+        const keywordMatch = explicitKeywordRegex.exec(line);
+
+        const hasExplicitPercentage = progressMatch && !!progressMatch[3];
+        const hasBlocks = progressMatch && /[█■░□=\-#]/.test(progressMatch[2]);
+
+        if ((progressMatch && (hasExplicitPercentage || hasBlocks)) || simpleMatch || keywordMatch) {
+            let label = "Vytížení";
+            let percentage = 0;
+
+            if (keywordMatch) {
+                label = keywordMatch[1].trim() || "Progress";
+                percentage = parseFloat(keywordMatch[2].replace(',', '.'));
+            } else if (simpleMatch) {
+                label = simpleMatch[1].trim();
+                percentage = parseFloat(simpleMatch[2].replace(',', '.'));
+            } else if (progressMatch) {
+                label = progressMatch[1] ? progressMatch[1].replace(/[:*`\[\]]/g, '').trim() : "Vytížení";
+                if (progressMatch[3]) percentage = parseInt(progressMatch[3], 10);
+                else {
+                    const full = (progressMatch[2].match(/[█■=#]/g) || []).length;
+                    const total = full + (progressMatch[2].match(/[░□\-]/g) || []).length;
+                    percentage = total > 0 ? Math.round((full / total) * 100) : 0;
+                }
+            }
+            return renderProgressBar(label, percentage, 'single');
+        }
+    } else {
+        // Multi-line content: Check EACH line for progress bar
+        const renderedLines = lines.map((line, idx) => {
+            const trimmed = line.trim();
+            const progressMatch = progressbarRegex.exec(trimmed);
+            const simpleMatch = simpleProgressRegex.exec(trimmed);
+            const keywordMatch = explicitKeywordRegex.exec(trimmed);
+
+            const hasExplicitPercentage = progressMatch && !!progressMatch[3];
+            const hasBlocks = progressMatch && /[█■░□=\-#]/.test(progressMatch[2]);
+
+            if ((progressMatch && (hasExplicitPercentage || hasBlocks)) || simpleMatch || keywordMatch) {
+                let label = "Vytížení";
+                let percentage = 0;
+
+                if (keywordMatch) {
+                    label = keywordMatch[1].trim() || "Progress";
+                    percentage = parseFloat(keywordMatch[2].replace(',', '.'));
+                } else if (simpleMatch) {
+                    label = simpleMatch[1].trim();
+                    percentage = parseFloat(simpleMatch[2].replace(',', '.'));
+                } else if (progressMatch) {
+                    label = progressMatch[1] ? progressMatch[1].replace(/[:*`\[\]]/g, '').trim() : "Vytížení";
+                    if (progressMatch[3]) percentage = parseInt(progressMatch[3], 10);
+                    else {
+                        const full = (progressMatch[2].match(/[█■=#]/g) || []).length;
+                        const total = full + (progressMatch[2].match(/[░□\-]/g) || []).length;
+                        percentage = total > 0 ? Math.round((full / total) * 100) : 0;
+                    }
+                }
+                return renderProgressBar(label, percentage, idx);
+            }
+
+            // Standard text line
+            return <div key={idx} className="mb-2 last:mb-0">{trimmed}</div>;
+        });
+
+        // If we found at least one specialized component (progress bar), return the array container
+        // Otherwise fall through to standard rendering to handle bold/formatting correctly
+        // (This is a simplified check - if ANY line was converted, we use the custom output)
+        if (renderedLines.some(res => React.isValidElement(res) && (res.type === 'div' || (res as any).props?.className?.includes('bg-white')))) {
+            return <div className="space-y-1 my-2">{renderedLines}</div>;
+        }
     }
 
     // Default rendering for non-special text
