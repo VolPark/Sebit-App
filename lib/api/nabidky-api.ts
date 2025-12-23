@@ -1,0 +1,203 @@
+import { supabase } from '@/lib/supabase';
+import { Nabidka } from '@/lib/types/nabidky-types';
+
+export const getNabidky = async (): Promise<Nabidka[]> => {
+    const { data, error } = await supabase
+        .from('nabidky')
+        .select(`
+      *,
+      cislo,
+      klienti (
+        id,
+        nazev
+      ),
+      akce (
+        id,
+        nazev
+      ),
+      nabidky_stavy (
+        id,
+        nazev,
+        color
+      )
+    `)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching nabidky:', error);
+        return [];
+    }
+
+    return data as Nabidka[];
+};
+
+export const createNabidka = async (offer: Partial<Nabidka>) => {
+    const { data, error } = await supabase
+        .from('nabidky')
+        .insert([offer])
+        .select()
+        .single();
+
+    if (error) {
+        throw error;
+    }
+
+    return data;
+};
+
+export const updateNabidka = async (id: number, updates: Partial<Nabidka>) => {
+    const { data, error } = await supabase
+        .from('nabidky')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        throw error;
+    }
+
+    return data;
+};
+
+export const deleteNabidka = async (id: number) => {
+    const { error } = await supabase
+        .from('nabidky')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        throw error;
+    }
+};
+
+export const getNabidkaById = async (id: number): Promise<Nabidka | null> => {
+    const { data, error } = await supabase
+        .from('nabidky')
+        .select(`
+      *,
+      cislo,
+      klienti (
+        id,
+        nazev
+      ),
+      akce (
+        id,
+        nazev
+      ),
+      nabidky_stavy (
+        id,
+        nazev,
+        color
+      )
+    `)
+        .eq('id', id)
+        .single();
+
+    if (error) {
+        console.error('Error fetching nabidka:', error);
+        return null;
+    }
+
+    return data as Nabidka;
+};
+
+// --- Clients & Actions Helper for Offers ---
+
+export const getClients = async () => {
+    const { data } = await supabase.from('klienti').select('id, nazev').order('nazev');
+    return data || [];
+};
+
+export const createClient = async (name: string) => {
+    const { data, error } = await supabase.from('klienti').insert([{ nazev: name }]).select('id, nazev').single();
+    if (error) throw error;
+    return data;
+};
+
+export const getActions = async () => {
+    const { data } = await supabase.from('akce').select('id, nazev, klient_id').order('nazev');
+    return data || [];
+};
+
+export const createAction = async (action: any) => {
+    // action: { nazev, klient_id, cena_klient, ... }
+    const payload: any = {
+        nazev: action.nazev,
+        is_completed: false,
+        datum: new Date().toISOString(),
+        cena_klient: action.cena_klient || 0,
+        odhad_hodin: action.odhad_hodin || 0,
+        material_klient: action.material_klient || 0,
+        material_my: action.material_my || 0,
+    };
+    if (action.klient_id) payload.klient_id = action.klient_id;
+
+    const { data, error } = await supabase.from('akce').insert([payload]).select('id, nazev, klient_id').single();
+    if (error) throw error;
+    return data;
+};
+
+export const getStatuses = async () => {
+    const { data } = await supabase.from('nabidky_stavy').select('*').order('poradi');
+    return data || [];
+};
+
+export const getItemTypes = async () => {
+    const { data } = await supabase.from('polozky_typy').select('id, nazev').order('nazev');
+    return data || [];
+};
+
+export const createItemType = async (type: string) => {
+    const { data, error } = await supabase.from('polozky_typy').insert([{ nazev: type }]).select('id, nazev').single();
+    if (error) throw error;
+    return data;
+};
+
+// --- Offer Items (Položky) ---
+
+export const getOfferItems = async (nabidkaId: number) => {
+    const { data } = await supabase
+        .from('polozky_nabidky')
+        .select('*')
+        .eq('nabidka_id', nabidkaId)
+        .order('id');
+    return data || [];
+};
+
+export const createOfferItem = async (item: any) => {
+    console.log('CreatesOfferItem payload:', item);
+    const { data, error } = await supabase
+        .from('polozky_nabidky')
+        .insert([item])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Supabase Create Item Error:', JSON.stringify(error, null, 2));
+        throw error;
+    }
+
+    await updateOfferTotalPrice(item.nabidka_id);
+    return data;
+};
+
+export const deleteOfferItem = async (id: number, nabidkaId: number) => {
+    const { error } = await supabase.from('polozky_nabidky').delete().eq('id', id);
+    if (error) throw error;
+
+    await updateOfferTotalPrice(nabidkaId);
+};
+
+export const updateOfferTotalPrice = async (nabidkaId: number) => {
+    // Calculate new total
+    const { data } = await supabase
+        .from('polozky_nabidky')
+        .select('celkem')
+        .eq('nabidka_id', nabidkaId);
+
+    const total = data?.reduce((sum, item) => sum + (Number(item.celkem) || 0), 0) || 0;
+
+    // Update Offer
+    await supabase.from('nabidky').update({ celkova_cena: total }).eq('id', nabidkaId);
+};

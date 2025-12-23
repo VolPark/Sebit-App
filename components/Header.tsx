@@ -6,7 +6,8 @@ import MobileMenu from '@/components/MobileMenu'
 
 // Helper component for navigation links
 function NavLink({ href, children, pathname }: { href: string, children: React.ReactNode, pathname: string }) {
-  const isActive = pathname === href;
+  const isActive = href === '/' ? pathname === href : (pathname === href || pathname.startsWith(`${href}/`));
+
   return (
     <Link
       href={href}
@@ -53,6 +54,7 @@ export default function Header() {
           <NavLink href="/klienti" pathname={pathname}>Klienti</NavLink>
           <NavLink href="/pracovnici" pathname={pathname}>Pracovníci</NavLink>
           <NavLink href="/akce" pathname={pathname}>Akce</NavLink>
+          <NavLink href="/nabidky" pathname={pathname}>Nabídky</NavLink>
           <NavLink href="/vykazy" pathname={pathname}>Výkazy</NavLink>
           <NavLink href="/mzdy" pathname={pathname}>Mzdy</NavLink>
           <NavLink href="/naklady" pathname={pathname}>Náklady</NavLink>

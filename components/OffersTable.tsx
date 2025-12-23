@@ -1,0 +1,348 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Nabidka } from '@/lib/types/nabidky-types';
+import { getNabidky, createNabidka, deleteNabidka, getClients, getActions, createClient, createAction, getStatuses } from '@/lib/api/nabidky-api';
+import CreatableComboBox, { ComboBoxItem } from './CreatableCombobox';
+
+export default function OffersTable() {
+    const [offers, setOffers] = useState<Nabidka[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+
+    // New Offer Form State
+    const [newOfferName, setNewOfferName] = useState('');
+    const [newOfferNote, setNewOfferNote] = useState('');
+    const [selectedClient, setSelectedClient] = useState<ComboBoxItem | null>(null);
+    const [selectedAction, setSelectedAction] = useState<ComboBoxItem | null>(null);
+
+    // Extended Action Form State
+    const [isCreatingAction, setIsCreatingAction] = useState(false);
+    const [newActionDetails, setNewActionDetails] = useState({
+        cena_klient: '',
+        material_my: '',
+        material_klient: '',
+        odhad_hodin: ''
+    });
+
+    // Options
+    const [clients, setClients] = useState<ComboBoxItem[]>([]);
+    const [allActions, setAllActions] = useState<any[]>([]);
+    const [actionOptions, setActionOptions] = useState<ComboBoxItem[]>([]);
+    const [statuses, setStatuses] = useState<any[]>([]);
+
+    const fetchOptions = async () => {
+        try {
+            const [clientsData, actionsData, statusesData] = await Promise.all([getClients(), getActions(), getStatuses()]);
+            setClients(clientsData.map(c => ({ id: c.id, name: c.nazev })));
+            setAllActions(actionsData);
+            setActionOptions(actionsData.map(a => ({ id: a.id, name: a.nazev })));
+            setStatuses(statusesData);
+        } catch (error) {
+            console.error('Failed to load options', error);
+        }
+    };
+
+    useEffect(() => {
+        if (showModal) fetchOptions();
+    }, [showModal]);
+
+    // Handle Client Change -> Filter Actions
+    const handleClientChange = (client: ComboBoxItem | null) => {
+        setSelectedClient(client);
+        if (client && client.id !== 'NEW') {
+            // Filter actions
+            const filtered = allActions
+                .filter(a => a.klient_id === client.id)
+                .map(a => ({ id: a.id, name: a.nazev }));
+            setActionOptions(filtered);
+            // Clear selected action if it doesn't belong to the client
+            if (selectedAction) {
+                const actionBelongs = filtered.find(a => a.id === selectedAction.id);
+                if (!actionBelongs) setSelectedAction(null);
+            }
+        } else {
+            // Reset to all actions if no client selected
+            setActionOptions(allActions.map(a => ({ id: a.id, name: a.nazev })));
+        }
+    };
+
+    const handleCreateClient = async (name: string) => {
+        try {
+            const newClient = await createClient(name);
+            const clientItem = { id: newClient.id, name: newClient.nazev };
+            setClients(prev => [...prev, clientItem].sort((a, b) => a.name.localeCompare(b.name)));
+            setSelectedClient(clientItem);
+            // Re-filter actions (empty for new client)
+            setActionOptions([]);
+        } catch (error) {
+            console.error(error);
+            alert('Chyba při vytváření klienta.');
+        }
+    };
+
+    const handleCreateAction = (name: string) => {
+        // Instead of creating immediately, switch to "Creation Mode"
+        setIsCreatingAction(true);
+        // Set the selected action to a temporary object so the combobox shows the name
+        setSelectedAction({ id: 'NEW', name: name });
+    };
+
+    const fetchOffers = async () => {
+        setLoading(true);
+        try {
+            const data = await getNabidky();
+            setOffers(data);
+        } catch (error) {
+            console.error('Failed to load offers', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchOffers();
+    }, []);
+
+    const handleCreate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newOfferName) return;
+
+        try {
+            let clientId = selectedClient?.id as number | undefined;
+            let actionId = selectedAction?.id as number | undefined;
+
+            // If "NEW" ID somehow passed (shoudn't happen if handle created correctly), handle it or fail
+            if (clientId && String(clientId) === 'NEW') clientId = undefined;
+
+            // Handle New Action Creation synchronously
+            if (isCreatingAction && selectedAction && selectedAction.id === 'NEW') {
+                const actionPayload = {
+                    nazev: selectedAction.name,
+                    klient_id: clientId || null,
+                    cena_klient: parseFloat(newActionDetails.cena_klient) || 0,
+                    material_my: parseFloat(newActionDetails.material_my) || 0,
+                    material_klient: parseFloat(newActionDetails.material_klient) || 0,
+                    odhad_hodin: parseFloat(newActionDetails.odhad_hodin) || 0
+                };
+                const createdAction = await createAction(actionPayload);
+                actionId = createdAction.id;
+            }
+
+            // Find default status ID or handle in DB
+            const defaultStatus = statuses.find(s => s.nazev === 'Rozpracováno');
+
+            await createNabidka({
+                nazev: newOfferName,
+                poznamka: newOfferNote,
+                stav_id: defaultStatus ? defaultStatus.id : null,
+                celkova_cena: parseFloat(newActionDetails.cena_klient) || 0, // Offer price matches action revenue
+                klient_id: clientId || null,
+                akce_id: actionId || null
+            });
+            setShowModal(false);
+            setNewOfferName('');
+            setNewOfferNote('');
+            setSelectedClient(null);
+            setSelectedAction(null);
+            setIsCreatingAction(false);
+            setNewActionDetails({ cena_klient: '', material_my: '', material_klient: '', odhad_hodin: '' });
+            fetchOffers(); // Refresh
+        } catch (err) {
+            console.error(err);
+            alert('Chyba při vytváření nabídky');
+        }
+    };
+
+    const handleDelete = async (id: number) => {
+        if (!confirm('Opravdu smazat nabídku?')) return;
+        try {
+            await deleteNabidka(id);
+            fetchOffers();
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    return (
+        <div>
+
+            <div className="flex justify-between items-center mb-6">
+
+                <button
+                    onClick={() => setShowModal(true)}
+                    className="bg-[#E30613] hover:bg-[#C00000] text-white px-4 py-2 rounded-xl font-bold transition-all shadow-sm hover:shadow-md"
+                >
+                    + Nová nabídka
+                </button>
+            </div>
+
+            {/* Modal for New Offer */}
+            {showModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-slate-900/5">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Vytvořit novou nabídku</h3>
+                        <form onSubmit={handleCreate} className="space-y-4">
+                            <div>
+                                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Název nabídky</label>
+                                <input
+                                    type="text"
+                                    value={newOfferName}
+                                    onChange={e => setNewOfferName(e.target.value)}
+                                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-300 dark:border-slate-700 rounded-xl px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613]"
+                                    placeholder="např. Kuchyně Novák - Varianta A"
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <CreatableComboBox
+                                        label="Klient"
+                                        items={clients}
+                                        selected={selectedClient}
+                                        setSelected={handleClientChange}
+                                        onCreate={handleCreateClient}
+                                        placeholder="Vybrat nebo vytvořit klienta"
+                                    />
+                                </div>
+                                <div>
+                                    <CreatableComboBox
+                                        label="Akce / Projekt"
+                                        items={actionOptions}
+                                        selected={selectedAction}
+                                        setSelected={(val) => {
+                                            setSelectedAction(val);
+                                            setIsCreatingAction(false); // Reset if selecting existing
+                                        }}
+                                        onCreate={handleCreateAction}
+                                        placeholder="Vybrat nebo vytvořit akci"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Expanded Action Form */}
+                            {isCreatingAction && (
+                                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3 animate-in fade-in slide-in-from-top-2">
+                                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Detaily nové akce</h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Cena pro klienta (Kč)</label>
+                                            <input type="number" className="w-full text-sm rounded-lg border-gray-300 dark:border-slate-600 dark:bg-slate-900 p-2"
+                                                value={newActionDetails.cena_klient} onChange={e => setNewActionDetails({ ...newActionDetails, cena_klient: e.target.value })} placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Odhad hodin</label>
+                                            <input type="number" className="w-full text-sm rounded-lg border-gray-300 dark:border-slate-600 dark:bg-slate-900 p-2"
+                                                value={newActionDetails.odhad_hodin} onChange={e => setNewActionDetails({ ...newActionDetails, odhad_hodin: e.target.value })} placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Náklad materiálu (Kč)</label>
+                                            <input type="number" className="w-full text-sm rounded-lg border-gray-300 dark:border-slate-600 dark:bg-slate-900 p-2"
+                                                value={newActionDetails.material_my} onChange={e => setNewActionDetails({ ...newActionDetails, material_my: e.target.value })} placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Fakturace materiálu (Kč)</label>
+                                            <input type="number" className="w-full text-sm rounded-lg border-gray-300 dark:border-slate-600 dark:bg-slate-900 p-2"
+                                                value={newActionDetails.material_klient} onChange={e => setNewActionDetails({ ...newActionDetails, material_klient: e.target.value })} placeholder="0" />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Poznámka</label>
+                                <textarea
+                                    value={newOfferNote}
+                                    onChange={e => setNewOfferNote(e.target.value)}
+                                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-300 dark:border-slate-700 rounded-xl px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613]"
+                                    placeholder="Volitelná poznámka..."
+                                    rows={3}
+                                />
+                            </div>
+                            <div className="flex justify-end gap-2 mt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="px-4 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white transition-colors"
+                                >
+                                    Zrušit
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="bg-[#E30613] hover:bg-[#C00000] text-white px-4 py-2 rounded-xl font-bold transition-colors"
+                                >
+                                    Vytvořit
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Table */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 overflow-hidden overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-gray-400 border-b dark:border-slate-700">
+                        <tr>
+                            <th className="px-6 py-4 whitespace-nowrap">Název</th>
+                            <th className="px-6 py-4 whitespace-nowrap">Klient</th>
+                            <th className="px-6 py-4 text-right whitespace-nowrap">Cena</th>
+                            <th className="px-6 py-4 whitespace-nowrap">Stav</th>
+                            <th className="px-6 py-4 text-right whitespace-nowrap">Akce</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                        {loading ? (
+                            <tr>
+                                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Načítám...</td>
+                            </tr>
+                        ) : offers.length === 0 ? (
+                            <tr>
+                                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Žádné nabídky k zobrazení.</td>
+                            </tr>
+                        ) : (
+                            offers.map((offer) => (
+                                <tr key={offer.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                                        <Link href={`/nabidky/${offer.id}`} className="hover:text-[#E30613] hover:underline decoration-[#E30613]/50 underline-offset-4 transition-colors">
+                                            {offer.cislo || offer.id} - {offer.nazev}
+                                        </Link>
+                                    </td>
+                                    <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{offer.klienti?.nazev || '—'}</td>
+                                    <td className="px-6 py-4 text-right font-mono text-gray-700 dark:text-slate-300">
+                                        {offer.celkova_cena?.toLocaleString('cs-CZ')} Kč
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold border`}
+                                            style={{
+                                                backgroundColor: offer.nabidky_stavy?.color === 'green' ? '#f0fdf4' :
+                                                    offer.nabidky_stavy?.color === 'blue' ? '#eff6ff' :
+                                                        offer.nabidky_stavy?.color === 'red' ? '#fef2f2' : '#f3f4f6',
+                                                color: offer.nabidky_stavy?.color === 'green' ? '#15803d' :
+                                                    offer.nabidky_stavy?.color === 'blue' ? '#1d4ed8' :
+                                                        offer.nabidky_stavy?.color === 'red' ? '#b91c1c' : '#374151',
+                                                borderColor: 'transparent' // simplified for now
+                                            }}>
+                                            {offer.nabidky_stavy?.nazev || 'Neznámý'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button
+                                            onClick={() => handleDelete(offer.id)}
+                                            className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                            title="Smazat"
+                                        >
+                                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}

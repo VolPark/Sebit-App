@@ -45,13 +45,28 @@ export default function MobileMenu() {
         {open && (
           <div id="mobile-menu" className="fixed top-16 left-0 right-0 px-4 z-40">
             <div className="w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-b-lg shadow-md dark:shadow-black/50 p-3 flex flex-col gap-2 border border-gray-100 dark:border-slate-800">
-              <Link href="/dashboard" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/dashboard' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Dashboard</Link>
-              <Link href="/klienti" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/klienti' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Klienti</Link>
-              <Link href="/pracovnici" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/pracovnici' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Pracovníci</Link>
-              <Link href="/akce" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/akce' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Akce</Link>
-              <Link href="/vykazy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/vykazy' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Výkazy</Link>
-              <Link href="/mzdy" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/mzdy' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Mzdy</Link>
-              <Link href="/naklady" onClick={() => setOpen(false)} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${pathname === '/naklady' ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>Náklady</Link>
+              {[
+                { href: '/dashboard', label: 'Dashboard' },
+                { href: '/klienti', label: 'Klienti' },
+                { href: '/pracovnici', label: 'Pracovníci' },
+                { href: '/akce', label: 'Akce' },
+                { href: '/nabidky', label: 'Nabídky' },
+                { href: '/vykazy', label: 'Výkazy' },
+                { href: '/mzdy', label: 'Mzdy' },
+                { href: '/naklady', label: 'Náklady' },
+              ].map((link) => {
+                const isActive = link.href === '/' ? pathname === link.href : (pathname === link.href || pathname.startsWith(`${link.href}/`));
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setOpen(false)}
+                    className={`px-4 py-2 rounded text-sm font-medium transition-colors ${isActive ? 'bg-[#F5F5F5] dark:bg-slate-800 text-[#E30613]' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+                  >
+                    {link.label}
+                  </Link>
+                )
+              })}
             </div>
           </div>
         )}

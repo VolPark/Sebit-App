@@ -13,6 +13,7 @@
     "@ai-sdk/react": "^2.0.118",
     "@google/generative-ai": "^0.24.1",
     "@headlessui/react": "^2.2.9",
+    "@react-pdf/renderer": "^4.3.1",
     "@supabase/supabase-js": "^2.84.0",
     "@tailwindcss/typography": "^0.5.19",
     "@types/react-syntax-highlighter": "^15.5.13",
