@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import MermaidDiagram from './MermaidDiagram';
+import { useTypewriter } from '@/hooks/useTypewriter';
 
 // Helper to recursive flatten text from React children
 const flattenText = (children: any): string => {
@@ -13,9 +14,15 @@ const flattenText = (children: any): string => {
 };
 
 // Component for handling code blocks vs inline code
-const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
+const CodeBlock = ({ node, inline, className, children, isLoading, ...props }: any) => {
     const match = /language-(\w+)/.exec(className || '');
     const content = String(children).trim();
+
+    const isMermaid = match && match[1] === 'mermaid';
+
+    if (isMermaid) {
+        return <MermaidDiagram code={content} isLoading={isLoading} />;
+    }
 
     // Check if content looks like just a financial number (e.g. "1 234 567 CZK" or "100 Kč")
     const isFinancial = /^(?:\d{1,3}(?:\s\d{3})*|\d+)(?:[.,]\d+)?\s*(?:CZK|Kč|€|\$)$/i.test(content);
@@ -131,12 +138,6 @@ const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
                 </div>
             </div>
         );
-    }
-
-    const isMermaid = match && match[1] === 'mermaid';
-
-    if (isMermaid) {
-        return <MermaidDiagram code={String(children).trim()} />;
     }
 
     // Check for Progress Bar inside Code Block (e.g. `[████] 50%`)
@@ -278,26 +279,42 @@ const CustomTextRenderer = ({ node, children, ...props }: any) => {
     // Regex matches: Optional Label + Bar + Percentage (Optional) + Optional Suffix
     // Supports: "Label: [███] 50%", "Label [███] 50% (300h)", "[███] 50%", "[████░░]", "[====] 50%"
     const progressbarRegex = /^(?:(.+?)(?:\||\(|:)\s*)?(?:Vytížení:\s*)?(?:`|\[)?\s*([█░■□=\-#\s]+)(?:`|\])?\s*(?:\|)?\s*(?:(\d+)\s*%)?(?:\s*.*)?$/i;
+
+    // NEW: Supports simple text format: "progress: 6.5 %", "CPU: 90 %"
+    const simpleProgressRegex = /^(.+?):\s*(\d+(?:[.,]\d+)?)\s*%$/i;
+
     const progressMatch = progressbarRegex.exec(content);
+    const simpleMatch = simpleProgressRegex.exec(content);
 
     // Ensure it's actually a progress bar and not just "Label: " matching the loose regex
     // Must either have explicit percentage OR contain block characters
     const hasExplicitPercentage = progressMatch && !!progressMatch[3];
     const hasBlocks = progressMatch && /[█■░□=\-#]/.test(progressMatch[2]);
 
-    if (progressMatch && (hasExplicitPercentage || hasBlocks)) {
-        // Group 1 is Label (optional), Group 2 is Bar, Group 3 is Percentage
-        const label = progressMatch[1] ? progressMatch[1].replace(/[:*`\[\]]/g, '').trim() : "Vytížení";
+    // Check if either the complex ASCII bar matches OR the simple text format matches
+    if ((progressMatch && (hasExplicitPercentage || hasBlocks)) || simpleMatch) {
+        let label = "Vytížení";
         let percentage = 0;
 
-        if (progressMatch[3]) {
-            percentage = parseInt(progressMatch[3], 10);
-        } else {
-            // Auto-calculate if percentage is missing
-            const full = (progressMatch[2].match(/[█■=#]/g) || []).length;
-            const empty = (progressMatch[2].match(/[░□\-]/g) || []).length;
-            const total = full + empty;
-            percentage = total > 0 ? Math.round((full / total) * 100) : 0;
+        if (simpleMatch) {
+            // Simple format "Label: 50%"
+            label = simpleMatch[1].trim();
+            // Replace decimal comma with dot for parsing
+            percentage = parseFloat(simpleMatch[2].replace(',', '.'));
+        } else if (progressMatch) {
+            // Complex ASCII format
+            // Group 1 is Label (optional), Group 2 is Bar, Group 3 is Percentage
+            label = progressMatch[1] ? progressMatch[1].replace(/[:*`\[\]]/g, '').trim() : "Vytížení";
+
+            if (progressMatch[3]) {
+                percentage = parseInt(progressMatch[3], 10);
+            } else {
+                // Auto-calculate if percentage is missing
+                const full = (progressMatch[2].match(/[█■=#]/g) || []).length;
+                const empty = (progressMatch[2].match(/[░□\-]/g) || []).length;
+                const total = full + empty;
+                percentage = total > 0 ? Math.round((full / total) * 100) : 0;
+            }
         }
 
         // Choose color based on percentage
@@ -390,8 +407,39 @@ const CustomTextRenderer = ({ node, children, ...props }: any) => {
     return <Tag className={classes} {...props}>{children}</Tag>;
 };
 
-const AiMessageBubble = React.memo(function AiMessageBubble({ role, children }: { role: 'user' | 'assistant', children: string }) {
+// ... (previous helper components remain unchanged)
+
+const AiMessageBubble = React.memo(function AiMessageBubble({ role, content, isLast, isLoading }: { role: 'user' | 'assistant', content: string, isLast?: boolean, isLoading?: boolean }) {
     const isUser = role === 'user';
+
+    // Apply typewriter effect ONLY if it's an assistant message AND it's the last one (active)
+    const shouldAnimate = !isUser && isLast;
+    const displayedContent = useTypewriter(content, 5, shouldAnimate);
+
+    // Detect if we are still "typing" the message content OR if the network is loading
+    const isTyping = (!isUser && isLast) && (displayedContent.length < content.length || isLoading);
+
+    // Create custom components map with the typing state injected
+    const markdownComponents = React.useMemo(() => {
+        return {
+            code: (props: any) => <CodeBlock {...props} isLoading={isTyping} />,
+            blockquote: Blockquote,
+            pre: ({ children }: any) => <>{children}</>,
+            h1: ({ node, ...props }: any) => <h1 {...props} className="text-2xl font-bold mb-4 mt-6 pb-2 border-b border-gray-200 dark:border-slate-700 text-[#E30613] dark:text-[#E30613]" />,
+            h2: ({ node, ...props }: any) => <h2 {...props} className="text-xl font-bold mb-3 mt-5 text-gray-900 dark:text-white flex items-center gap-2" />,
+            h3: ({ node, ...props }: any) => <h3 {...props} className="text-lg font-bold mb-2 mt-4 text-gray-800 dark:text-gray-200" />,
+            ul: ({ node, ...props }: any) => <ul {...props} className="list-disc pl-5 my-3 space-y-1" />,
+            ol: ({ node, ...props }: any) => <ol {...props} className="list-decimal pl-5 my-3 space-y-1" />,
+            li: CustomTextRenderer,
+            p: CustomTextRenderer,
+            table: ({ node, ...props }: any) => <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm"><table {...props} className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 bg-white dark:bg-slate-900" /></div>,
+            thead: ({ node, ...props }: any) => <thead {...props} className="bg-gray-50 dark:bg-slate-800" />,
+            th: ({ node, ...props }: any) => <th {...props} className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider" />,
+            tr: ({ node, ...props }: any) => <tr {...props} className="even:bg-gray-50/50 dark:even:bg-slate-800/50" />,
+            td: ({ node, ...props }: any) => <td {...props} className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap border-t border-gray-200 dark:border-slate-700" />,
+            a: ({ node, ...props }: any) => <a {...props} className="text-blue-600 dark:text-blue-400 hover:underline font-medium" target="_blank" rel="noopener noreferrer" />,
+        };
+    }, [isTyping]);
 
     return (
         <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
@@ -403,30 +451,13 @@ const AiMessageBubble = React.memo(function AiMessageBubble({ role, children }: 
             >
                 <div className={`text-sm leading-relaxed ${isUser ? '' : 'prose prose-sm dark:prose-invert max-w-none prose-p:mb-3 prose-p:leading-relaxed prose-headings:font-bold prose-headings:text-gray-900 dark:prose-headings:text-white prose-li:my-0.5'}`}>
                     {isUser ? (
-                        <div className="whitespace-pre-wrap">{children}</div>
+                        <div className="whitespace-pre-wrap">{content}</div>
                     ) : (
                         <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
-                            components={{
-                                code: CodeBlock,
-                                blockquote: Blockquote,
-                                pre: ({ children }) => <>{children}</>,
-                                h1: ({ node, ...props }) => <h1 {...props} className="text-2xl font-bold mb-4 mt-6 pb-2 border-b border-gray-200 dark:border-slate-700 text-[#E30613] dark:text-[#E30613]" />,
-                                h2: ({ node, ...props }) => <h2 {...props} className="text-xl font-bold mb-3 mt-5 text-gray-900 dark:text-white flex items-center gap-2" />,
-                                h3: ({ node, ...props }) => <h3 {...props} className="text-lg font-bold mb-2 mt-4 text-gray-800 dark:text-gray-200" />,
-                                ul: ({ node, ...props }) => <ul {...props} className="list-disc pl-5 my-3 space-y-1" />,
-                                ol: ({ node, ...props }) => <ol {...props} className="list-decimal pl-5 my-3 space-y-1" />,
-                                li: CustomTextRenderer,
-                                p: CustomTextRenderer,
-                                table: ({ node, ...props }) => <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm"><table {...props} className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 bg-white dark:bg-slate-900" /></div>,
-                                thead: ({ node, ...props }) => <thead {...props} className="bg-gray-50 dark:bg-slate-800" />,
-                                th: ({ node, ...props }) => <th {...props} className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider" />,
-                                tr: ({ node, ...props }) => <tr {...props} className="even:bg-gray-50/50 dark:even:bg-slate-800/50" />,
-                                td: ({ node, ...props }) => <td {...props} className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap border-t border-gray-200 dark:border-slate-700" />,
-                                a: ({ node, ...props }) => <a {...props} className="text-blue-600 dark:text-blue-400 hover:underline font-medium" target="_blank" rel="noopener noreferrer" />,
-                            }}
+                            components={markdownComponents}
                         >
-                            {children}
+                            {displayedContent}
                         </ReactMarkdown>
                     )}
                 </div>

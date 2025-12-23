@@ -17,18 +17,69 @@ interface AiChatProps {
 export default function AiChat({ messages, setMessages }: AiChatProps) {
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Robust scrolling using ResizeObserver & MutationObserver
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        // Handler to enforce scroll if we are supposed to be at the bottom
+        const enforceScroll = () => {
+            if (shouldAutoScroll) {
+                // Use instant scroll for layout shifts (like Mermaid Rendering) to prevent visual jumps
+                container.scrollTo({ top: container.scrollHeight, behavior: 'instant' as ScrollBehavior });
+            }
+        };
+
+        const observer = new ResizeObserver(enforceScroll);
+        const mutationObserver = new MutationObserver(enforceScroll);
+
+        // Observe both the container (resize) and its content (mutations/subtree)
+        observer.observe(container);
+        mutationObserver.observe(container, { childList: true, subtree: true, characterData: true });
+
+        return () => {
+            observer.disconnect();
+            mutationObserver.disconnect();
+        };
+    }, [shouldAutoScroll]);
+
+    // Check if we are near the bottom to determine if we should auto-scroll
+    const handleScroll = () => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        // If we are within 50px of the bottom, enable auto-scroll
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+        setShouldAutoScroll(isNearBottom);
     };
 
+    const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+        if (shouldAutoScroll && scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior });
+        }
+    };
+
+    // Scroll trigger when messages update (new tokens)
     useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
+        scrollToBottom('smooth');
+    }, [messages, shouldAutoScroll]);
+
+    // Initial scroll
+    useEffect(() => {
+        scrollToBottom('auto');
+    }, []);
 
     const handleSendMessage = async (text: string) => {
         const trimmedInput = text.trim();
         if (!trimmedInput || isLoading) return;
+
+        // Force scroll to bottom when sending a new message
+        setShouldAutoScroll(true);
+        setTimeout(() => scrollToBottom('smooth'), 10);
 
         // 1. Add User Message
         const userMessage: Message = {
@@ -97,10 +148,22 @@ export default function AiChat({ messages, setMessages }: AiChatProps) {
         }
     };
 
+    // Helper: Verify if the last message is from assistant and has content
+    // This allows us to hide the "bouncing dots" if we are already streaming text
+    const lastMessage = messages[messages.length - 1];
+    const isStreamingResponse = isLoading && lastMessage?.role === 'assistant' && lastMessage.content.length > 0;
+
+    // Show loading ONLY if we are loading AND haven't started streaming content yet
+    const showLoadingIndicator = isLoading && !isStreamingResponse;
+
     return (
         <div className="flex flex-col h-[700px] w-full bg-gray-50/50 dark:bg-slate-900/50 rounded-2xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm">
-            {/* Messages Area - this only updates when messages change */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth">
+            {/* Messages Area */}
+            <div
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth"
+            >
                 {messages.length === 0 && (
                     <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
                         <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-2xl shadow-sm flex items-center justify-center mb-4">
@@ -115,13 +178,17 @@ export default function AiChat({ messages, setMessages }: AiChatProps) {
                     </div>
                 )}
 
-                {messages.map((m) => (
-                    <AiMessageBubble key={m.id} role={m.role === 'user' ? 'user' : 'assistant'}>
-                        {m.content}
-                    </AiMessageBubble>
+                {messages.map((m, idx) => (
+                    <AiMessageBubble
+                        key={m.id}
+                        role={m.role === 'user' ? 'user' : 'assistant'}
+                        content={m.content}
+                        isLast={idx === messages.length - 1}
+                        isLoading={isLoading && idx === messages.length - 1}
+                    />
                 ))}
 
-                {isLoading && (
+                {showLoadingIndicator && (
                     <div className="flex justify-start mb-4">
                         <div className="bg-white dark:bg-slate-800 rounded-2xl px-4 py-3 rounded-bl-none shadow-sm flex gap-1 items-center">
                             <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>

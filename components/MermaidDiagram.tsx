@@ -3,9 +3,15 @@
 import React, { useEffect, useRef, useState, useId } from 'react';
 import mermaid from 'mermaid';
 
-export default function MermaidDiagram({ code }: { code: string }) {
+interface MermaidDiagramProps {
+    code: string;
+    isLoading?: boolean;
+}
+
+function MermaidDiagram({ code, isLoading = false }: MermaidDiagramProps) {
     const [svg, setSvg] = useState<string>('');
-    const [error, setError] = useState<string | null>(null);
+    // Error state now tracks: { message: string, isPermanent: boolean }
+    const [error, setError] = useState<{ message: string; isPermanent: boolean } | null>(null);
     const uniqueId = useId().replace(/:/g, '');
     const renderId = `mermaid-${uniqueId}`;
     const [isDark, setIsDark] = useState(false);
@@ -26,14 +32,22 @@ export default function MermaidDiagram({ code }: { code: string }) {
         return () => observer.disconnect();
     }, []);
 
-    // Debounce code updates to prevent flickering/crashing on partial streams
+    // Debounce: Shorten to 1s for responsiveness, but enough to avoid partial-stream renders
     useEffect(() => {
         const handler = setTimeout(() => {
             setDebouncedCode(code);
-        }, 1500); // Wait 1.5s for the stream to stabilize/finish
+        }, 1000);
 
         return () => clearTimeout(handler);
     }, [code]);
+
+    // Reset error when code changes (optimistic UI)
+    useEffect(() => {
+        if (code !== debouncedCode) {
+            // We are streaming/typing, so don't show old errors if they might go away
+            // However, keep the OLD SVG visible if we have it!
+        }
+    }, [code, debouncedCode]);
 
     useEffect(() => {
         const renderDiagram = async () => {
@@ -80,11 +94,7 @@ export default function MermaidDiagram({ code }: { code: string }) {
             }
 
             // Fix: Subgraph syntax error (spaces/parens without quotes)
-            // Matches: simple 'subgraph Title With Spaces' -> 'subgraph "Title With Spaces"'
-            // Does NOT match if already quoted or has ID like 'subgraph id [Title]'
-            // We conservatively look for 'subgraph' followed by text that has spaces, and does NOT start with quote or look like 'id ['
             cleanCode = cleanCode.replace(/^\s*subgraph\s+(?!["a-zA-Z0-9_]+\s*\[)([^"\[\n\r]+)(?<!\s)$/gm, (match, title) => {
-                // Double check it contains spaces or special chars that need quoting
                 if (/[ ()]/.test(title) && !/^".*"$/.test(title.trim())) {
                     return `subgraph "${title.trim()}"`;
                 }
@@ -92,42 +102,34 @@ export default function MermaidDiagram({ code }: { code: string }) {
             });
 
             try {
-                // Config based on current theme
                 mermaid.initialize({
                     startOnLoad: false,
                     theme: isDark ? 'dark' : 'neutral',
                     securityLevel: 'loose',
                     fontFamily: 'ui-sans-serif, system-ui, sans-serif',
                     themeVariables: {
-                        // Pie Chart Colors (Standard App Palette)
-                        pie1: '#E30613', // Red (Primary)
-                        pie2: '#3b82f6', // Blue-500
-                        pie3: '#22c55e', // Green-500
-                        pie4: '#f97316', // Orange-500
-                        pie5: '#eab308', // Yellow-500
-                        pie6: '#a855f7', // Purple-500
-                        pie7: '#ec4899', // Pink-500
-                        pie8: '#64748b', // Slate-500
-                        pie9: '#14b8a6', // Teal-500
-                        pie10: '#6366f1', // Indigo-500
-                        // Dark mode specific adjustments would be handled by Mermaid's internal logic if theme is 'dark'
-                        // but explicit variables might override.
+                        pie1: '#E30613',
+                        pie2: '#3b82f6',
+                        pie3: '#22c55e',
+                        pie4: '#f97316',
+                        pie5: '#eab308',
+                        pie6: '#a855f7',
+                        pie7: '#ec4899',
+                        pie8: '#64748b',
+                        pie9: '#14b8a6',
+                        pie10: '#6366f1',
                     }
                 });
 
-                // Validate syntax first
                 await mermaid.parse(cleanCode);
-
                 const { svg } = await mermaid.render(renderId, cleanCode);
 
-                // Only update provided we successfully rendered
                 setSvg(svg);
                 setError(null);
             } catch (err: any) {
-                // Auto-recovery for specific known errors (e.g. linkStyle out of bounds)
+                // Auto-recovery for linkStyle
                 if (err?.message?.includes("Cannot set properties of undefined (setting 'style')") ||
                     err?.message?.includes("Cannot read properties of undefined (reading 'style')")) {
-                    console.warn('[Mermaid] Recovering from linkStyle error by stripping styles...');
                     const recoveredCode = cleanCode.replace(/^.*linkStyle.*$/gm, '').trim();
                     try {
                         const { svg } = await mermaid.render(renderId + 'R', recoveredCode);
@@ -135,29 +137,42 @@ export default function MermaidDiagram({ code }: { code: string }) {
                         setError(null);
                         return;
                     } catch (retryErr) {
-                        console.error('[Mermaid] Recovery failed:', retryErr);
+                        // ignore retry fail, fall through to main error
                     }
                 }
 
-                console.error('[Mermaid] Render error:', err);
-                setError(String(err));
+                // If we fail, only show the error if we don't have a previous valid SVG to show
+                // OR if the code hasn't changed for a while (implying permanent failure)
+                setError({ message: String(err), isPermanent: true });
             }
         };
 
         renderDiagram();
     }, [debouncedCode, renderId, isDark]);
 
-    // If we have an existing SVG, show it even if there is a new error (unless it's null text)
-    // To prevent flashing, we only show error if strictly no SVG is available OR if error specifically requested?
-    // Actually, improved UX: If error exists but we have stale SVG, show Stale SVG with a small warning overlay?
-    // For now, simpler: If error exists, show error. Debounce handles the transient state.
-
-    if (error) {
+    // If explicitly loading (streaming), always show placeholder to prevent partial renders
+    if (isLoading) {
         return (
-            <div className="p-4 border border-red-200 bg-red-50 text-red-700 rounded-lg text-sm font-mono whitespace-pre-wrap transition-opacity duration-300">
-                <p className="font-bold mb-2">Chyba při vykreslování diagramu:</p>
-                <div className="mb-2 text-xs text-gray-500">Raw Error: {error}</div>
-                <div className="bg-white p-2 border rounded overflow-auto max-h-40">
+            <div className="my-6 flex flex-col space-y-4 p-6 border rounded-xl border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+                <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-1/3 mx-auto animate-pulse"></div>
+                <div className="flex justify-center gap-4 animate-pulse">
+                    <div className="h-20 w-20 bg-gray-100 dark:bg-slate-700 rounded-full"></div>
+                    <div className="h-20 w-20 bg-gray-100 dark:bg-slate-700 rounded-full"></div>
+                </div>
+                <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-1/2 mx-auto animate-pulse"></div>
+                <div className="text-center text-xs text-gray-400 font-medium pt-2">Vytvářím vizualizaci...</div>
+            </div>
+        );
+    }
+
+    // If we have an Error, but also have a valid SVG from before, prefer showing the SVG (stale)
+    // ONLY show error if we have NO SVG at all.
+    if (error && !svg) {
+        return (
+            <div className="my-6 p-4 border border-red-200 bg-red-50 text-red-700 rounded-lg text-sm font-mono whitespace-pre-wrap">
+                <p className="font-bold mb-2">Nepodařilo se vykreslit diagram:</p>
+                <div className="mb-2 text-xs text-gray-500 opacity-70 truncate">{error.message.substring(0, 100)}...</div>
+                <div className="bg-white p-3 border rounded overflow-auto max-h-32 text-xs text-gray-600">
                     {debouncedCode}
                 </div>
             </div>
@@ -166,22 +181,25 @@ export default function MermaidDiagram({ code }: { code: string }) {
 
     if (!svg) {
         return (
-            <div className="animate-pulse flex space-x-4 p-4 border rounded-xl border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800">
-                <div className="flex-1 space-y-4 py-1">
-                    <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-3/4"></div>
-                    <div className="space-y-2">
-                        <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded"></div>
-                        <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-5/6"></div>
-                    </div>
+            <div className="my-6 flex flex-col space-y-4 p-6 border rounded-xl border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+                <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-1/3 mx-auto animate-pulse"></div>
+                <div className="flex justify-center gap-4 animate-pulse">
+                    <div className="h-20 w-20 bg-gray-100 dark:bg-slate-700 rounded-full"></div>
+                    <div className="h-20 w-20 bg-gray-100 dark:bg-slate-700 rounded-full"></div>
                 </div>
+                <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-1/2 mx-auto animate-pulse"></div>
+                <div className="text-center text-xs text-gray-400 font-medium pt-2">Vytvářím vizualizaci...</div>
             </div>
         );
     }
 
     return (
         <div
-            className="mermaid-container my-6 p-4 rounded-xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-800 shadow-sm overflow-x-auto flex justify-center transition-all duration-500 ease-in-out opacity-100"
+            className="mermaid-container my-6 p-4 rounded-xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-800 shadow-sm overflow-x-auto flex justify-center"
             dangerouslySetInnerHTML={{ __html: svg }}
         />
     );
 }
+
+// Wrap in memo to prevent re-renders from parent if props didn't change (though code usually changes)
+export default React.memo(MermaidDiagram);
