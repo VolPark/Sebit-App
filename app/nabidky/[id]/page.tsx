@@ -26,20 +26,21 @@ export default function NabidkaDetailPage() {
     const [offer, setOffer] = useState<Nabidka | null>(null);
     const [items, setItems] = useState<NabidkaPolozka[]>([]);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
-    // Edit Mode State
-    const [isEditing, setIsEditing] = useState(false);
-    const [editName, setEditName] = useState('');
-    const [editClient, setEditClient] = useState<ComboBoxItem | null>(null);
-    const [editAction, setEditAction] = useState<ComboBoxItem | null>(null);
-    const [editValidUntil, setEditValidUntil] = useState(''); // New State
+    // Form State (Always Active)
+    const [name, setName] = useState('');
+    const [client, setClient] = useState<ComboBoxItem | null>(null);
+    const [action, setAction] = useState<ComboBoxItem | null>(null);
+    const [validUntil, setValidUntil] = useState('');
+    const [note, setNote] = useState('');
+    const [statusId, setStatusId] = useState<number | null>(null);
 
     // Options
     const [clients, setClients] = useState<ComboBoxItem[]>([]);
     const [allActions, setAllActions] = useState<any[]>([]);
     const [actionOptions, setActionOptions] = useState<ComboBoxItem[]>([]);
     const [statuses, setStatuses] = useState<any[]>([]);
-    const [editStatusId, setEditStatusId] = useState<number | null>(null);
 
     useEffect(() => {
         if (!id) return;
@@ -48,94 +49,131 @@ export default function NabidkaDetailPage() {
 
     const loadData = async () => {
         setLoading(true);
-        const data = await getNabidkaById(id);
-        setOffer(data);
-
-        // Load items
-        const itemsData = await getOfferItems(id);
-        setItems(itemsData);
-
-        // Load options for editing
         try {
+            const data = await getNabidkaById(id);
+            setOffer(data);
+
+            // Initialize Form State
+            setName(data.nazev);
+            const c = data.klienti ? { id: data.klienti.id, name: data.klienti.nazev } : null;
+            setClient(c);
+            const a = data.akce ? { id: data.akce.id, name: data.akce.nazev } : null;
+            setAction(a);
+            setValidUntil(data.platnost_do || '');
+            setNote(data.poznamka || '');
+            setStatusId(data.stav_id || (data.nabidky_stavy?.id || null));
+
+            // Load items
+            const itemsData = await getOfferItems(id);
+            setItems(itemsData);
+
+            // Load options
             const [clientsData, actionsData, statusesData] = await Promise.all([getClients(), getActions(), getStatuses()]);
             setClients(clientsData.map(c => ({ id: c.id, name: c.nazev })));
             setAllActions(actionsData);
             setStatuses(statusesData);
-            // Action options depends on selected client, will init when entering edit
+
+            // Set action options based on loaded client
+            if (c) {
+                const filtered = actionsData
+                    .filter(act => act.klient_id === c.id)
+                    .map(act => ({ id: act.id, name: act.nazev }));
+                setActionOptions(filtered);
+            } else {
+                setActionOptions(actionsData.map(act => ({ id: act.id, name: act.nazev })));
+            }
+
         } catch (e) {
             console.error(e);
         }
-
         setLoading(false);
     };
 
-    const startEditing = () => {
+    const updateField = async (payload: Partial<Nabidka>) => {
         if (!offer) return;
-        setEditName(offer.nazev);
-        const c = offer.klienti ? { id: offer.klienti.id, name: offer.klienti.nazev } : null;
-        setEditClient(c);
-
-        const a = offer.akce ? { id: offer.akce.id, name: offer.akce.nazev } : null;
-        setEditAction(a);
-
-        setEditStatusId(offer.stav_id || (offer.nabidky_stavy?.id || null));
-        setEditValidUntil(offer.platnost_do || ''); // Init Date
-
-        // Init options
-        if (c) {
-            const filtered = allActions
-                .filter(act => act.klient_id === c.id)
-                .map(act => ({ id: act.id, name: act.nazev }));
-            setActionOptions(filtered);
-        } else {
-            setActionOptions(allActions.map(act => ({ id: act.id, name: act.nazev })));
-        }
-
-        setIsEditing(true);
-    };
-
-    const cancelEditing = () => {
-        setIsEditing(false);
-    };
-
-    const saveChanges = async () => {
-        if (!offer) return;
+        setSaving(true);
         try {
-            let client_id = editClient?.id as number | null;
-            let akce_id = editAction?.id as number | null;
-
-            if (client_id && String(client_id) === 'NEW') client_id = null;
-            if (akce_id && String(akce_id) === 'NEW') akce_id = null;
-
-            await updateNabidka(offer.id, {
-                nazev: editName,
-                klient_id: client_id,
-                akce_id: akce_id,
-                stav_id: editStatusId,
-                platnost_do: editValidUntil || undefined // Save Date
-            });
-            await loadData();
-            setIsEditing(false);
+            await updateNabidka(offer.id, payload);
+            // We update the local offer object slightly to reflect changes without full reload if needed,
+            // but for simplicity and correctness with relations, we might want to reload or just trust the state.
+            // For now, let's keep the `offer` object roughly in sync or just rely on local state for UI.
+            // A full reload ensures relations (like new action/client names) are correct if they changed.
+            // await loadData(); // Heavy for every keystroke/blur, maybe just setSaving(false) is enough?
+            // Actually, for things like status color etc, we rely on `offer.nabidky_stavy`.
+            // Let's reload only for Status or Client change which affects other UI parts significantly.
+            if (payload.stav_id || payload.klient_id || payload.akce_id) {
+                await loadData();
+            }
         } catch (e) {
-            console.error(e);
-            alert('Chyba při ukládání změn');
+            console.error('Save failed', e);
+            alert('Chyba při ukládání');
+        } finally {
+            setSaving(false);
         }
     };
 
-    // Client/Action Handlers (similar to OffersTable)
-    const handleClientChange = (client: ComboBoxItem | null) => {
-        setEditClient(client);
-        if (client && client.id !== 'NEW') {
+    // --- Handlers ---
+
+    const handleNameBlur = () => {
+        if (offer && name !== offer.nazev) {
+            updateField({ nazev: name });
+        }
+    };
+
+    const handleNoteBlur = () => {
+        if (offer && note !== (offer.poznamka || '')) {
+            updateField({ poznamka: note });
+        }
+    };
+
+    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setValidUntil(val);
+        // Date input changes "commit" naturally, but let's debounce or save on blur?
+        // Actually, change on date picker is usually definite. Let's save immediately.
+        updateField({ platnost_do: val || undefined });
+    };
+
+    const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = Number(e.target.value);
+        setStatusId(val);
+        updateField({ stav_id: val });
+    };
+
+    const handleClientChange = (newClient: ComboBoxItem | null) => {
+        setClient(newClient);
+
+        // Filter actions
+        if (newClient && newClient.id !== 'NEW') {
             const filtered = allActions
-                .filter(a => a.klient_id === client.id)
+                .filter(a => a.klient_id === newClient.id)
                 .map(a => ({ id: a.id, name: a.nazev }));
             setActionOptions(filtered);
-            if (editAction) {
-                const actionBelongs = filtered.find(a => a.id === editAction.id);
-                if (!actionBelongs) setEditAction(null);
+
+            // Check if current action makes sense
+            if (action) {
+                const actionBelongs = filtered.find(a => a.id === action.id);
+                if (!actionBelongs) {
+                    setAction(null);
+                    updateField({ klient_id: newClient.id as number, akce_id: null });
+                    return;
+                }
             }
+            updateField({ klient_id: newClient.id as number });
         } else {
             setActionOptions(allActions.map(a => ({ id: a.id, name: a.nazev })));
+            if (newClient === null) {
+                updateField({ klient_id: null });
+            }
+        }
+    };
+
+    const handleActionChange = (newAction: ComboBoxItem | null) => {
+        setAction(newAction);
+        if (newAction && newAction.id !== 'NEW') {
+            updateField({ akce_id: newAction.id as number });
+        } else if (newAction === null) {
+            updateField({ akce_id: null });
         }
     };
 
@@ -144,19 +182,25 @@ export default function NabidkaDetailPage() {
             const newClient = await createClient(name);
             const clientItem = { id: newClient.id, name: newClient.nazev };
             setClients(prev => [...prev, clientItem].sort((a, b) => a.name.localeCompare(b.name)));
-            setEditClient(clientItem);
-            setActionOptions([]);
+            setClient(clientItem);
+            // Save immediately
+            updateField({ klient_id: newClient.id });
+            setActionOptions([]); // New client has no actions
+            setAction(null);
+            updateField({ klient_id: newClient.id, akce_id: null });
+
         } catch (error) { console.error(error); alert('Chyba'); }
     };
 
     const handleCreateAction = async (name: string) => {
         try {
-            let clientId = editClient?.id !== 'NEW' ? (editClient?.id as number) : null;
+            const clientId = client?.id !== 'NEW' ? (client?.id as number) : null;
             const newAction = await createAction({ nazev: name, klient_id: clientId });
             const actionItem = { id: newAction.id, name: newAction.nazev };
             setAllActions(prev => [...prev, newAction]);
             setActionOptions(prev => [...prev, actionItem]);
-            setEditAction(actionItem);
+            setAction(actionItem);
+            updateField({ akce_id: newAction.id });
         } catch (error) { console.error(error); alert('Chyba'); }
     };
 
@@ -175,121 +219,103 @@ export default function NabidkaDetailPage() {
 
     const currency = new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 });
 
+    // Find current status object to get color for select styling
+    const currentStatus = statuses.find(s => s.id === statusId);
+
     return (
         <div className="w-full px-4 md:px-6 mx-auto mt-8 space-y-8">
             {/* Header */}
             <div>
-                <Link href="/nabidky" className="group text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white mb-4 inline-flex items-center gap-1 transition-colors">
-                    <svg className="w-4 h-4 transition-transform group-hover:-translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    Zpět na seznam
-                </Link>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-200 dark:border-slate-800 pb-6">
-                    <div className="w-full md:w-auto">
-                        {isEditing ? (
-                            <div className="space-y-4 w-full md:min-w-[400px]">
-                                <input
-                                    className="text-3xl font-bold text-gray-900 dark:text-white mb-2 bg-transparent border-b border-gray-300 dark:border-slate-700 w-full focus:outline-none focus:border-[#E30613]"
-                                    value={editName}
-                                    onChange={e => setEditName(e.target.value)}
-                                />
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <CreatableComboBox
-                                        items={clients} selected={editClient} setSelected={handleClientChange} onCreate={handleCreateClient} placeholder="Klient"
-                                    />
-                                    <CreatableComboBox
-                                        items={actionOptions} selected={editAction} setSelected={setEditAction} onCreate={handleCreateAction} placeholder="Akce"
-                                    />
+                <div className="flex justify-between items-center mb-4">
+                    <Link href="/nabidky" className="group text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white inline-flex items-center gap-1 transition-colors">
+                        <svg className="w-4 h-4 transition-transform group-hover:-translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        Zpět na seznam
+                    </Link>
+                    {saving && <span className="text-xs text-gray-400 font-medium animate-pulse">Ukládám...</span>}
+                </div>
 
-                                    <div className="relative">
-                                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1 ml-1">Stav</label>
-                                        <select
-                                            value={editStatusId || ''}
-                                            onChange={(e) => setEditStatusId(Number(e.target.value))}
-                                            className="w-full text-sm rounded-xl border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5 dark:text-white focus:ring-[#E30613] focus:border-[#E30613]"
-                                        >
-                                            {statuses.map(s => (
-                                                <option key={s.id} value={s.id}>{s.nazev}</option>
-                                            ))}
-                                        </select>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-200 dark:border-slate-800 pb-6">
+                    <div className="w-full md:w-3/4 space-y-4">
+                        {/* Name Input */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-3xl font-light text-gray-400 select-none">{offer.cislo || `#${offer.id}`}</span>
+                            <input
+                                className="text-3xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-[#E30613] w-full focus:outline-none transition-colors px-1"
+                                value={name}
+                                onChange={e => setName(e.target.value)}
+                                onBlur={handleNameBlur}
+                                placeholder="Název nabídky"
+                            />
+                        </div>
+
+                        {/* Metadata Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* Client */}
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs text-gray-500 font-medium ml-1">Klient</label>
+                                <CreatableComboBox
+                                    items={clients} selected={client} setSelected={handleClientChange} onCreate={handleCreateClient} placeholder="Vybrat klienta..."
+                                />
+                            </div>
+
+                            {/* Action */}
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs text-gray-500 font-medium ml-1">Akce</label>
+                                <CreatableComboBox
+                                    items={actionOptions} selected={action} setSelected={handleActionChange} onCreate={handleCreateAction} placeholder="Vybrat akci..."
+                                />
+                            </div>
+
+                            {/* Date */}
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs text-gray-500 font-medium ml-1">Platnost do</label>
+                                <input
+                                    type="date"
+                                    value={validUntil}
+                                    onChange={handleDateChange}
+                                    className="w-full text-sm rounded-xl border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5 dark:text-white focus:ring-[#E30613] focus:border-[#E30613] shadow-sm"
+                                />
+                            </div>
+
+                            {/* Status */}
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs text-gray-500 font-medium ml-1">Stav</label>
+                                <div className="relative">
+                                    <select
+                                        value={statusId || ''}
+                                        onChange={handleStatusChange}
+                                        className={`w-full appearance-none text-sm font-bold rounded-xl border-gray-300 dark:border-slate-700 p-2.5 pr-8 focus:ring-[#E30613] focus:border-[#E30613] shadow-sm cursor-pointer
+                                            ${currentStatus?.color === 'green' ? 'bg-[#f0fdf4] text-[#15803d]' :
+                                                currentStatus?.color === 'blue' ? 'bg-[#eff6ff] text-[#1d4ed8]' :
+                                                    currentStatus?.color === 'red' ? 'bg-[#fef2f2] text-[#b91c1c]' :
+                                                        currentStatus?.color === 'orange' ? 'bg-[#fff7ed] text-[#c2410c]' : 'bg-white dark:bg-slate-900 text-gray-700 dark:text-white'
+                                            }`}
+                                    >
+                                        {statuses.map(s => (
+                                            <option key={s.id} value={s.id} className="bg-white text-gray-900">{s.nazev}</option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                        <svg className="w-4 h-4 opacity-50" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                                     </div>
-                                    <div className="relative">
-                                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1 ml-1">Platnost do</label>
-                                        <input
-                                            type="date"
-                                            value={editValidUntil}
-                                            onChange={e => setEditValidUntil(e.target.value)}
-                                            className="w-full text-sm rounded-xl border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5 dark:text-white focus:ring-[#E30613] focus:border-[#E30613]"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex gap-2 mt-2">
-                                    <button onClick={saveChanges} className="bg-[#E30613] text-white px-4 py-1.5 rounded-lg text-sm font-medium">Uložit</button>
-                                    <button onClick={cancelEditing} className="bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 px-4 py-1.5 rounded-lg text-sm font-medium">Zrušit</button>
                                 </div>
                             </div>
-                        ) : (
-                            <>
-                                <div className="flex items-center gap-3 group">
-                                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                                        <span className="text-gray-400 font-normal mr-2">{offer.cislo || offer.id}</span>
-                                        {offer.nazev}
-                                    </h1>
-                                    <button onClick={startEditing} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                    </button>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                                    <span className="flex items-center gap-1">
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                                        Klient: <span className="font-medium text-gray-900 dark:text-gray-200">{offer.klienti?.nazev || 'Nezadáno'}</span>
-                                    </span>
-                                    <span className="hidden sm:inline text-gray-300 dark:text-slate-700">•</span>
-                                    <span className="flex items-center gap-1">
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m8-10h2m-2 4h2m-2-8h2m-2-4h2" /></svg>
-                                        Akce: <span className="font-medium text-gray-900 dark:text-gray-200">{offer.akce?.nazev || '—'}</span>
-                                    </span>
-                                    <span className="hidden sm:inline text-gray-300 dark:text-slate-700">•</span>
-                                    <span className="flex items-center gap-1">
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                        Platnost: <span className="font-medium text-gray-900 dark:text-gray-200">{offer.platnost_do ? new Date(offer.platnost_do).toLocaleDateString('cs-CZ') : 'Neurčeno'}</span>
-                                    </span>
-                                    <span className="hidden sm:inline text-gray-300 dark:text-slate-700">•</span>
-                                    <span className="flex items-center gap-2">
-                                        Stav:
-                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize border`}
-                                            style={{
-                                                backgroundColor: offer.nabidky_stavy?.color === 'green' ? '#f0fdf4' :
-                                                    offer.nabidky_stavy?.color === 'blue' ? '#eff6ff' :
-                                                        offer.nabidky_stavy?.color === 'red' ? '#fef2f2' :
-                                                            offer.nabidky_stavy?.color === 'orange' ? '#fff7ed' : '#f3f4f6',
-                                                color: offer.nabidky_stavy?.color === 'green' ? '#15803d' :
-                                                    offer.nabidky_stavy?.color === 'blue' ? '#1d4ed8' :
-                                                        offer.nabidky_stavy?.color === 'red' ? '#b91c1c' :
-                                                            offer.nabidky_stavy?.color === 'orange' ? '#c2410c' : '#374151',
-                                                borderColor: 'transparent'
-                                            }}>
-                                            {offer.nabidky_stavy?.nazev || 'Neznámý'}
-                                        </span>
-                                    </span>
-                                </div>
-                                <div className="mt-4">
-                                    <div className="mt-4">
-                                        <OfferPdfDownloadButton offer={offer} items={items} />
-                                    </div>
-                                </div>
-                            </>
-                        )}
+                        </div>
                     </div>
-                    <div className="text-right bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm ring-1 ring-slate-200/50 dark:ring-slate-800">
+
+                    {/* Price Box */}
+                    <div className="text-right bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm ring-1 ring-slate-200/50 dark:ring-slate-800 w-full md:w-auto min-w-[200px]">
                         <div className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums tracking-tight">
                             {currency.format(offer.celkova_cena)}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mt-1">Celková cena</div>
+                        <div className="mt-4">
+                            <OfferPdfDownloadButton offer={offer} items={items} />
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Content Placeholder for Items */}
             {/* Items Section */}
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -313,10 +339,17 @@ export default function NabidkaDetailPage() {
                     <svg className="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     Poznámky
                 </h3>
-                <div className="bg-gray-50 dark:bg-slate-950/50 rounded-xl p-4 border border-gray-100 dark:border-slate-800">
-                    <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
-                        {offer.poznamka || 'Žádné poznámky'}
-                    </p>
+                <div className="relative">
+                    <textarea
+                        value={note}
+                        onChange={e => setNote(e.target.value)}
+                        onBlur={handleNoteBlur}
+                        className="w-full text-sm rounded-xl border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-950/50 p-4 dark:text-gray-300 focus:ring-[#E30613] focus:border-[#E30613] min-h-[120px] shadow-inner"
+                        placeholder="Zde můžete připsat interní poznámky k nabídce..."
+                    />
+                    <div className="absolute bottom-3 right-3 text-xs text-gray-400 pointer-events-none">
+                        {saving ? 'Ukládám...' : 'Kliknutím mimo uložíte'}
+                    </div>
                 </div>
             </div>
         </div>
