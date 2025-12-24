@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     },
     separator: {
         borderBottomWidth: 3,
-        borderBottomColor: '#FF5E5E', // Light red similar to image
+        borderBottomColor: '#E30613', // Light red similar to image
         marginBottom: 20
     },
     // Title & Customer
@@ -58,13 +58,13 @@ const styles = StyleSheet.create({
     },
     mainTitle: {
         fontSize: 26,
-        color: '#FF5E5E',
+        color: '#E30613',
         fontWeight: 'bold',
         marginBottom: 5
     },
     subTitle: {
         fontSize: 26,
-        color: '#FF5E5E',
+        color: '#E30613',
         fontWeight: 'normal'
     },
     customerRight: {
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
         marginBottom: 30
     },
     boxRed: {
-        backgroundColor: '#FF5E5E',
+        backgroundColor: '#E30613',
         borderRadius: 8,
         paddingVertical: 8,
         paddingHorizontal: 15,
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     // Table
     tableHeader: {
         flexDirection: 'row',
-        backgroundColor: '#FF5E5E',
+        backgroundColor: '#E30613',
         paddingVertical: 8,
         paddingHorizontal: 10,
         borderTopLeftRadius: 4,
@@ -273,13 +273,13 @@ export default function OfferPdf({ offer, items }: OfferPdfProps) {
                 {/* Title & Customer */}
                 <View style={styles.titleRow}>
                     <View style={styles.titleLeft}>
-                        <Text style={styles.mainTitle}>Cenová nabídka -</Text>
+                        <Text style={styles.mainTitle}>Cenová nabídka</Text>
+                        <View style={{ height: 20 }} />
                         <Text style={styles.subTitle}>{offer.nazev}</Text>
                     </View>
                     <View style={styles.customerRight}>
                         <Text style={styles.customerLabel}>Zákazník</Text>
                         <Text style={styles.customerName}>{offer.klienti?.nazev}</Text>
-                        <Text style={styles.customerAddress}>{offer.akce?.nazev}</Text>
                         {/* If we had full address, we would print it here */}
                         <Text style={[styles.customerAddress, { marginTop: 4 }]}>
                             {/* Placeholder for ICO/DIC if added later */}
@@ -368,7 +368,7 @@ export default function OfferPdf({ offer, items }: OfferPdfProps) {
                     </View>
                     <View style={[styles.finalRow, { borderTopWidth: 1, borderTopColor: '#000', paddingTop: 5, marginTop: 5 }]}>
                         <Text style={[styles.finalLabel, { fontSize: 14 }]}>CELKEM S DPH:</Text>
-                        <Text style={[styles.finalValue, { fontSize: 14, color: '#FF5E5E' }]}>{currency.format(totalWithVat)}</Text>
+                        <Text style={[styles.finalValue, { fontSize: 14, color: '#E30613' }]}>{currency.format(totalWithVat)}</Text>
                     </View>
                 </View>
 
