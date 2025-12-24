@@ -6,7 +6,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38B2AC)
 ![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E)
 
-Comprehensive internal management system designed for **Interiéry Horyna**. This application streamlines business operations including client management, employee shifts, automated salary calculations, project tracking, and financial analytics.
+Comprehensive internal management system designed for **Interiéry Horyna**. This application streamlines business operations including client management, employee shifts, automated salary calculations, project tracking, financial analytics, and offer management.
 
 Built with performance, modern aesthetics, and ease of use in mind.
 
@@ -19,7 +19,13 @@ Built with performance, modern aesthetics, and ease of use in mind.
 - **Financial Metrics**: Track turnover, profit, and costs (fixed vs. variable).
 - **Interactive Charts**: Dynamic data visualization for monthly performance.
 
-### 👥 Client Management serve (Klienti)
+### 💰 Offers (Nabídky)
+- **Create & Manage**: Create price offers for clients.
+- **Itemized Lists**: Add items, services, and custom descriptions using a "shopping cart" style interface.
+- **PDF Generation**: Automatically generate professional PDF offers including images.
+- **Validity Tracking**: Set and track offer validity dates (default 30 days).
+
+### 👥 Client Management (Klienti)
 - **Centralized Database**: Store and manage all client contact details and billing information.
 - **Action Tracking**: Link specific projects and actions to individual clients.
 
@@ -36,10 +42,6 @@ Built with performance, modern aesthetics, and ease of use in mind.
 - **Expense Tracking**: Categorize and log all business expenses.
 - **Fixed Costs Automation**: Automatically generates recurring monthly costs for better financial forecasting.
 
-### 🔐 Security & Auth
-- **Face Authentication**: seamless and secure login using facial recognition via `FaceAuthContext`.
-- **RBAC**: Role-based access control ensuring sensitive financial data is restricted to administrators.
-
 ---
 
 ## 🛠️ Technology Stack
@@ -51,13 +53,17 @@ This project leverages the bleeding edge of the React ecosystem:
 - **Styling**: [Tailwind CSS 4](https://tailwindcss.com/) for a utility-first design system.
 - **Database**: [Supabase](https://supabase.com/) (PostgreSQL) for reliable data storage.
 - **State Management**: React Context API + SWR for data fetching.
+- **PDF Generation**: `@react-pdf/renderer` for client-side PDF creation.
 - **Icons**: Heroicons & specialized SVG assets.
 
 ---
 
-## �️ Database Schema
+## 🗄️ Database Schema
 
-The application uses **Supabase (PostgreSQL)** with the following relational model:
+The application uses **Supabase (PostgreSQL)**.
+> **Note:** A complete schema definition including indexes, functions, and policies can be found in [`db/schema.sql`](db/schema.sql).
+
+### Entity Relationship Diagram
 
 ```mermaid
 erDiagram
@@ -66,15 +72,21 @@ erDiagram
     organizations ||--o{ akce : pro
     organizations ||--o{ finance : tracks
     organizations ||--o{ fixed_costs : defines
+    organizations ||--o{ nabidky : manages
 
     klienti ||--o{ akce : "requested by"
     klienti ||--o{ prace : "billed for"
-    
+    klienti ||--o{ nabidky : "receives"
+
     pracovnici ||--o{ prace : "logs"
     pracovnici ||--o{ mzdy : "earns"
 
     akce ||--o{ prace : "composed of"
-    
+    akce ||--o{ nabidky : "related to"
+
+    nabidky ||--o{ polozky_nabidky : "contains"
+    nabidky_stavy ||--o{ nabidky : "defines status"
+
     klienti {
         bigint id PK
         text nazev
@@ -92,14 +104,20 @@ erDiagram
         text nazev
         date datum
         numeric cena_klient
-        numeric material_klient
-        numeric material_my
     }
 
-    prace {
+    nabidky {
         bigint id PK
-        date datum
-        numeric pocet_hodin
+        text nazev
+        numeric celkova_cena
+        date platnost_do
+        text stav
+    }
+
+    polozky_nabidky {
+        bigint id PK
+        text nazev
+        numeric celkem
     }
 
     mzdy {
@@ -119,14 +137,25 @@ erDiagram
         bigint id PK
         text nazev
         numeric castka
-        integer rok
-        integer mesic
     }
 ```
 
+### Core Tables
+
+- **`akce`**: Projects/Events linked to clients.
+- **`nabidky`**: Price offers with status, validity, and total price.
+- **`polozky_nabidky`**: Individual items within an offer.
+- **`klienti`**: Customer database.
+- **`pracovnici`**: Employee database.
+- **`prace`**: Work logs linked to employees and projects.
+- **`mzdy`**: Monthly salary records/calculations.
+- **`finance`**: Income/Expense tracking.
+- **`fixed_costs`**: Recurring monthly expenses.
+- **`organizations`**: Multi-tenancy support.
+
 ---
 
-## �🚀 Getting Started
+## 🚀 Getting Started
 
 Follow these steps to get the project up and running on your local machine.
 
@@ -163,33 +192,33 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ---
 
+## 📚 Documentation & Workflows
+
+- **Setup Supabase CLI**: Instructions for setting up local development with Supabase can be found in [`.agent/workflows/setup_supabase.md`](.agent/workflows/setup_supabase.md).
+
+---
+
 ## 📂 Project Structure
 
 ```bash
 ├── app/                  # App Router pages and layouts
 │   ├── dashboard/        # Analytics dashboard
+│   ├── nabidky/          # Offers management
 │   ├── klienti/          # Client management
 │   ├── mzdy/             # Salary & payroll
 │   ├── vykazy/           # Time reporting
 │   └── ...
 ├── components/           # Reusable UI components
+│   ├── nabidky/          # Offer-specific components (PDF, Forms)
 │   ├── FaceAuthModal.tsx # Face authentication logic
-│   ├── Header.tsx        # Main navigation
 │   └── ...
 ├── lib/                  # Business logic and utilities
-│   ├── dashboard.ts      # Dashboard data aggregations
+│   ├── api/              # API wrappers for Supabase
+│   ├── types/            # TypeScript interfaces
 │   └── supabase.js       # Database client initialization
-├── context/              # React Context Providers (Auth, etc.)
+├── db/                   # Database schema and migration scripts
 └── public/               # Static assets & images
 ```
-
----
-
-## 🔮 Future Roadmap
-
-- [ ] **Mobile App**: Dedicated mobile interface for field workers.
-- [ ] **Advanced Invoicing**: Generate PDF invoices directly from client data.
-- [ ] **AI Insights**: Predictive analytics for future project costs.
 
 ---
 

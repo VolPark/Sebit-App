@@ -15,6 +15,7 @@ export default function OffersTable() {
     // New Offer Form State
     const [newOfferName, setNewOfferName] = useState('');
     const [newOfferNote, setNewOfferNote] = useState('');
+    const [validUntil, setValidUntil] = useState('');
     const [selectedClient, setSelectedClient] = useState<ComboBoxItem | null>(null);
     const [selectedAction, setSelectedAction] = useState<ComboBoxItem | null>(null);
 
@@ -46,7 +47,13 @@ export default function OffersTable() {
     };
 
     useEffect(() => {
-        if (showModal) fetchOptions();
+        if (showModal) {
+            fetchOptions();
+            // Set default valid until date (today + 30 days)
+            const date = new Date();
+            date.setDate(date.getDate() + 30);
+            setValidUntil(date.toISOString().split('T')[0]);
+        }
     }, [showModal]);
 
     // Handle Client Change -> Filter Actions
@@ -140,8 +147,10 @@ export default function OffersTable() {
                 stav_id: defaultStatus ? defaultStatus.id : null,
                 celkova_cena: parseFloat(newActionDetails.cena_klient) || 0, // Offer price matches action revenue
                 klient_id: clientId || null,
-                akce_id: actionId || null
+                akce_id: actionId || null,
+                platnost_do: validUntil || undefined
             });
+
             setShowModal(false);
             setNewOfferName('');
             setNewOfferNote('');
@@ -266,6 +275,16 @@ export default function OffersTable() {
                                     className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-300 dark:border-slate-700 rounded-xl px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613]"
                                     placeholder="Volitelná poznámka..."
                                     rows={3}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Platnost do</label>
+                                <input
+                                    type="date"
+                                    value={validUntil}
+                                    onChange={e => setValidUntil(e.target.value)}
+                                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-300 dark:border-slate-700 rounded-xl px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613]"
                                 />
                             </div>
                             <div className="flex justify-end gap-2 mt-6">
