@@ -57,15 +57,16 @@ const styles = StyleSheet.create({
         width: '50%'
     },
     mainTitle: {
-        fontSize: 26,
+        fontSize: 24,
         color: '#E30613',
         fontWeight: 'bold',
-        marginBottom: 5
+        marginBottom: 10
     },
     subTitle: {
-        fontSize: 26,
+        fontSize: 18,
         color: '#E30613',
-        fontWeight: 'normal'
+        fontWeight: 'normal',
+        marginTop: 5
     },
     customerRight: {
         width: '40%'
