@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createOfferItem, getItemTypes, createItemType, uploadOfferImage } from '@/lib/api/nabidky-api';
 import CreatableComboBox, { ComboBoxItem } from '@/components/CreatableCombobox';
+import { compressImage } from '@/lib/utils/image-utils';
 
 interface AddOfferItemFormProps {
     nabidkaId: number;
@@ -169,9 +170,18 @@ export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFor
                             id="offer-item-image"
                             type="file"
                             accept="image/*"
-                            onChange={e => {
+                            onChange={async e => {
                                 const file = e.target.files?.[0];
-                                if (file) setImageFile(file);
+                                if (file) {
+                                    try {
+                                        const compressed = await compressImage(file);
+                                        setImageFile(compressed);
+                                    } catch (err) {
+                                        console.error("Compression failed", err);
+                                        // Fallback to original
+                                        setImageFile(file);
+                                    }
+                                }
                             }}
                             className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                         />

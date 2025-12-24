@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { updateOfferItem, getItemTypes, createItemType, uploadOfferImage } from '@/lib/api/nabidky-api';
 import CreatableComboBox, { ComboBoxItem } from '@/components/CreatableCombobox';
 import { NabidkaPolozka } from '@/lib/types/nabidky-types';
+import { compressImage } from '@/lib/utils/image-utils';
 
 interface EditOfferItemModalProps {
     item: NabidkaPolozka;
@@ -177,9 +178,17 @@ export default function EditOfferItemModal({ item, onClose, onSaved }: EditOffer
                             <input
                                 type="file"
                                 accept="image/*"
-                                onChange={e => {
+                                onChange={async e => {
                                     const file = e.target.files?.[0];
-                                    if (file) setImageFile(file);
+                                    if (file) {
+                                        try {
+                                            const compressed = await compressImage(file);
+                                            setImageFile(compressed);
+                                        } catch (err) {
+                                            console.error("Compression failed", err);
+                                            setImageFile(file);
+                                        }
+                                    }
                                 }}
                                 className="flex-1 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                             />
