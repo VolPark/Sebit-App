@@ -91,13 +91,10 @@ export default function NabidkaDetailPage() {
         setSaving(true);
         try {
             await updateNabidka(offer.id, payload);
-            // We update the local offer object slightly to reflect changes without full reload if needed,
-            // but for simplicity and correctness with relations, we might want to reload or just trust the state.
-            // For now, let's keep the `offer` object roughly in sync or just rely on local state for UI.
-            // A full reload ensures relations (like new action/client names) are correct if they changed.
-            // await loadData(); // Heavy for every keystroke/blur, maybe just setSaving(false) is enough?
-            // Actually, for things like status color etc, we rely on `offer.nabidky_stavy`.
-            // Let's reload only for Status or Client change which affects other UI parts significantly.
+
+            // Update local state to reflect changes immediately (important for PDF generation etc.)
+            setOffer(prev => prev ? ({ ...prev, ...payload }) : null);
+
             if (payload.stav_id || payload.klient_id || payload.akce_id) {
                 await loadData();
             }

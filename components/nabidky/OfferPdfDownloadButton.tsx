@@ -14,7 +14,7 @@ export default function OfferPdfDownloadButton({ offer, items }: OfferPdfDownloa
         <PDFDownloadLink
             document={<OfferPdf offer={offer} items={items} />}
             fileName={`Nabidka_${offer.id}_${offer.nazev.replace(/\s+/g, '_')}.pdf`}
-            className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-2 bg-[#E30613] hover:bg-[#C00000] text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
         >
             {({ loading }) =>
                 loading ? 'Generuji...' : (
