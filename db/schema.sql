@@ -627,3 +627,17 @@ $function$;
 
 -- Policy: Enable read access for all users on polozky_typy
 -- Qual: true (SELECT)
+
+-- ==========================================
+-- 6. STORAGE
+-- ==========================================
+
+-- Bucket: offer-images
+-- Public: true
+
+-- Policy: Allow All Public Access offer-images
+-- ON storage.objects
+-- FOR ALL
+-- TO public
+-- USING (bucket_id = 'offer-images')
+-- WITH CHECK (bucket_id = 'offer-images');
