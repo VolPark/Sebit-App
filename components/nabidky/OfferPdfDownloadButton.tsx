@@ -9,11 +9,16 @@ interface OfferPdfDownloadButtonProps {
     items: NabidkaPolozka[];
 }
 
+
+const sanitizeFilename = (name: string) => {
+    return name.replace(/[<>:"/\\|?*]/g, '').trim();
+};
+
 export default function OfferPdfDownloadButton({ offer, items }: OfferPdfDownloadButtonProps) {
     return (
         <PDFDownloadLink
             document={<OfferPdf offer={offer} items={items} />}
-            fileName={`Nabidka_${offer.id}_${offer.nazev.replace(/\s+/g, '_')}.pdf`}
+            fileName={`Horyna - ${sanitizeFilename(offer.nazev)} (${sanitizeFilename(offer.cislo || offer.id.toString())}).pdf`}
             className="inline-flex items-center gap-2 bg-[#E30613] hover:bg-[#C00000] text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
         >
             {({ loading }) =>
