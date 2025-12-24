@@ -62,9 +62,15 @@ export default function EditOfferItemModal({ item, onClose, onSaved }: EditOffer
             let imageUrl = currentImageUrl;
 
             if (imageFile) {
-                const uploadedUrl = await uploadOfferImage(imageFile);
-                if (uploadedUrl) imageUrl = uploadedUrl;
+                try {
+                    const uploadedUrl = await uploadOfferImage(imageFile);
+                    if (uploadedUrl) imageUrl = uploadedUrl;
+                } catch (uploadErr: any) {
+                    console.error('Image upload failed but continuing item update', uploadErr);
+                    alert(`Nepodařilo se nahrát obrázek: ${uploadErr.message || JSON.stringify(uploadErr)}`);
+                }
             }
+
 
             await updateOfferItem(item.id, {
                 nazev,

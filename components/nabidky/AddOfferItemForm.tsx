@@ -60,9 +60,9 @@ export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFor
                 try {
                     const uploadedUrl = await uploadOfferImage(imageFile);
                     if (uploadedUrl) imageUrl = uploadedUrl;
-                } catch (uploadErr) {
+                } catch (uploadErr: any) {
                     console.error('Image upload failed but continuing item creation', uploadErr);
-                    alert('Nepodařilo se nahrát obrázek, položka bude vytvořena bez něj.');
+                    alert(`Nepodařilo se nahrát obrázek: ${uploadErr.message || JSON.stringify(uploadErr)}`);
                 }
             }
 
