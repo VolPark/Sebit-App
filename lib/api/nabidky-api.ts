@@ -232,7 +232,7 @@ export const updateOfferItem = async (id: number, updates: any) => {
         .single();
 
     if (error) {
-        console.error('Error updating item:', error);
+        console.error('Error updating item:', JSON.stringify(error, null, 2));
         throw error;
     }
 

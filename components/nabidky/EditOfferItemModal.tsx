@@ -72,9 +72,7 @@ export default function EditOfferItemModal({ item, onClose, onSaved }: EditOffer
                 cena_ks: parseFloat(cenaKs) || 0,
                 popis: popis || null,
                 sazba_dph: sazbaDph,
-                obrazek_url: imageUrl,
-                // Recalculate total immediately for UI consistency (though DB trigger/stored col handles it usually)
-                celkem: mnozstvi * (parseFloat(cenaKs) || 0)
+                obrazek_url: imageUrl
             });
 
             onSaved();
