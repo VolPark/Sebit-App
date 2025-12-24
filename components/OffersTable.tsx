@@ -17,38 +17,24 @@ export default function OffersTable() {
     const [newOfferNote, setNewOfferNote] = useState('');
     const [validUntil, setValidUntil] = useState('');
     const [selectedClient, setSelectedClient] = useState<ComboBoxItem | null>(null);
-    const [selectedAction, setSelectedAction] = useState<ComboBoxItem | null>(null);
-
-    // Extended Action Form State
-    const [isCreatingAction, setIsCreatingAction] = useState(false);
-    const [newActionDetails, setNewActionDetails] = useState({
-        cena_klient: '',
-        material_my: '',
-        material_klient: '',
-        odhad_hodin: ''
-    });
 
     // Options
     const [clients, setClients] = useState<ComboBoxItem[]>([]);
-    const [allActions, setAllActions] = useState<any[]>([]);
-    const [actionOptions, setActionOptions] = useState<ComboBoxItem[]>([]);
     const [statuses, setStatuses] = useState<any[]>([]);
-
-    const fetchOptions = async () => {
-        try {
-            const [clientsData, actionsData, statusesData] = await Promise.all([getClients(), getActions(), getStatuses()]);
-            setClients(clientsData.map(c => ({ id: c.id, name: c.nazev })));
-            setAllActions(actionsData);
-            setActionOptions(actionsData.map(a => ({ id: a.id, name: a.nazev })));
-            setStatuses(statusesData);
-        } catch (error) {
-            console.error('Failed to load options', error);
-        }
-    };
-
     useEffect(() => {
         if (showModal) {
-            fetchOptions();
+            // Load options sequentially to avoid race conditions or just Promise.all
+            const loadOpts = async () => {
+                try {
+                    const [clientsData, statusesData] = await Promise.all([getClients(), getStatuses()]);
+                    setClients(clientsData.map(c => ({ id: c.id, name: c.nazev })));
+                    setStatuses(statusesData);
+                } catch (error) {
+                    console.error('Failed to load options', error);
+                }
+            };
+            loadOpts();
+
             // Set default valid until date (today + 30 days)
             const date = new Date();
             date.setDate(date.getDate() + 30);
@@ -59,21 +45,6 @@ export default function OffersTable() {
     // Handle Client Change -> Filter Actions
     const handleClientChange = (client: ComboBoxItem | null) => {
         setSelectedClient(client);
-        if (client && client.id !== 'NEW') {
-            // Filter actions
-            const filtered = allActions
-                .filter(a => a.klient_id === client.id)
-                .map(a => ({ id: a.id, name: a.nazev }));
-            setActionOptions(filtered);
-            // Clear selected action if it doesn't belong to the client
-            if (selectedAction) {
-                const actionBelongs = filtered.find(a => a.id === selectedAction.id);
-                if (!actionBelongs) setSelectedAction(null);
-            }
-        } else {
-            // Reset to all actions if no client selected
-            setActionOptions(allActions.map(a => ({ id: a.id, name: a.nazev })));
-        }
     };
 
     const handleCreateClient = async (name: string) => {
@@ -82,20 +53,13 @@ export default function OffersTable() {
             const clientItem = { id: newClient.id, name: newClient.nazev };
             setClients(prev => [...prev, clientItem].sort((a, b) => a.name.localeCompare(b.name)));
             setSelectedClient(clientItem);
-            // Re-filter actions (empty for new client)
-            setActionOptions([]);
         } catch (error) {
             console.error(error);
             alert('Chyba při vytváření klienta.');
         }
     };
 
-    const handleCreateAction = (name: string) => {
-        // Instead of creating immediately, switch to "Creation Mode"
-        setIsCreatingAction(true);
-        // Set the selected action to a temporary object so the combobox shows the name
-        setSelectedAction({ id: 'NEW', name: name });
-    };
+
 
     const fetchOffers = async () => {
         setLoading(true);
@@ -119,24 +83,8 @@ export default function OffersTable() {
 
         try {
             let clientId = selectedClient?.id as number | undefined;
-            let actionId = selectedAction?.id as number | undefined;
-
             // If "NEW" ID somehow passed (shoudn't happen if handle created correctly), handle it or fail
             if (clientId && String(clientId) === 'NEW') clientId = undefined;
-
-            // Handle New Action Creation synchronously
-            if (isCreatingAction && selectedAction && selectedAction.id === 'NEW') {
-                const actionPayload = {
-                    nazev: selectedAction.name,
-                    klient_id: clientId || null,
-                    cena_klient: parseFloat(newActionDetails.cena_klient) || 0,
-                    material_my: parseFloat(newActionDetails.material_my) || 0,
-                    material_klient: parseFloat(newActionDetails.material_klient) || 0,
-                    odhad_hodin: parseFloat(newActionDetails.odhad_hodin) || 0
-                };
-                const createdAction = await createAction(actionPayload);
-                actionId = createdAction.id;
-            }
 
             // Find default status ID or handle in DB
             const defaultStatus = statuses.find(s => s.nazev === 'Rozpracováno');
@@ -145,9 +93,9 @@ export default function OffersTable() {
                 nazev: newOfferName,
                 poznamka: newOfferNote,
                 stav_id: defaultStatus ? defaultStatus.id : null,
-                celkova_cena: parseFloat(newActionDetails.cena_klient) || 0, // Offer price matches action revenue
+                celkova_cena: 0,
                 klient_id: clientId || null,
-                akce_id: actionId || null,
+                akce_id: null,
                 platnost_do: validUntil || undefined
             });
 
@@ -155,9 +103,6 @@ export default function OffersTable() {
             setNewOfferName('');
             setNewOfferNote('');
             setSelectedClient(null);
-            setSelectedAction(null);
-            setIsCreatingAction(false);
-            setNewActionDetails({ cena_klient: '', material_my: '', material_klient: '', odhad_hodin: '' });
             fetchOffers(); // Refresh
         } catch (err) {
             console.error(err);
@@ -212,60 +157,16 @@ export default function OffersTable() {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <CreatableComboBox
-                                        label="Klient"
-                                        items={clients}
-                                        selected={selectedClient}
-                                        setSelected={handleClientChange}
-                                        onCreate={handleCreateClient}
-                                        placeholder="Vybrat nebo vytvořit klienta"
-                                    />
-                                </div>
-                                <div>
-                                    <CreatableComboBox
-                                        label="Akce / Projekt"
-                                        items={actionOptions}
-                                        selected={selectedAction}
-                                        setSelected={(val) => {
-                                            setSelectedAction(val);
-                                            setIsCreatingAction(false); // Reset if selecting existing
-                                        }}
-                                        onCreate={handleCreateAction}
-                                        placeholder="Vybrat nebo vytvořit akci"
-                                    />
-                                </div>
+                            <div>
+                                <CreatableComboBox
+                                    label="Klient"
+                                    items={clients}
+                                    selected={selectedClient}
+                                    setSelected={handleClientChange}
+                                    onCreate={handleCreateClient}
+                                    placeholder="Vybrat nebo vytvořit klienta"
+                                />
                             </div>
-
-                            {/* Expanded Action Form */}
-                            {isCreatingAction && (
-                                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3 animate-in fade-in slide-in-from-top-2">
-                                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Detaily nové akce</h4>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Cena pro klienta (Kč)</label>
-                                            <input type="number" className="w-full text-sm rounded-lg border-gray-300 dark:border-slate-600 dark:bg-slate-900 p-2"
-                                                value={newActionDetails.cena_klient} onChange={e => setNewActionDetails({ ...newActionDetails, cena_klient: e.target.value })} placeholder="0" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Odhad hodin</label>
-                                            <input type="number" className="w-full text-sm rounded-lg border-gray-300 dark:border-slate-600 dark:bg-slate-900 p-2"
-                                                value={newActionDetails.odhad_hodin} onChange={e => setNewActionDetails({ ...newActionDetails, odhad_hodin: e.target.value })} placeholder="0" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Náklad materiálu (Kč)</label>
-                                            <input type="number" className="w-full text-sm rounded-lg border-gray-300 dark:border-slate-600 dark:bg-slate-900 p-2"
-                                                value={newActionDetails.material_my} onChange={e => setNewActionDetails({ ...newActionDetails, material_my: e.target.value })} placeholder="0" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Fakturace materiálu (Kč)</label>
-                                            <input type="number" className="w-full text-sm rounded-lg border-gray-300 dark:border-slate-600 dark:bg-slate-900 p-2"
-                                                value={newActionDetails.material_klient} onChange={e => setNewActionDetails({ ...newActionDetails, material_klient: e.target.value })} placeholder="0" />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
 
                             <div>
                                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Poznámka</label>

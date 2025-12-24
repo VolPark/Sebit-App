@@ -39,7 +39,7 @@ export default function NabidkaDetailPage() {
     // Options
     const [clients, setClients] = useState<ComboBoxItem[]>([]);
     const [allActions, setAllActions] = useState<any[]>([]);
-    const [actionOptions, setActionOptions] = useState<ComboBoxItem[]>([]);
+
     const [statuses, setStatuses] = useState<any[]>([]);
 
     useEffect(() => {
@@ -51,6 +51,13 @@ export default function NabidkaDetailPage() {
         setLoading(true);
         try {
             const data = await getNabidkaById(id);
+            if (!data) {
+                // Handle case where offer is not found (although component handles null offer render later, let's allow it to flow through or return)
+                // If data is null, the subsequent render will show "Nabídka nenalezena" because offer is null.
+                // But we must NOT continue here to access data properties.
+                setLoading(false);
+                return;
+            }
             setOffer(data);
 
             // Initialize Form State
@@ -72,16 +79,6 @@ export default function NabidkaDetailPage() {
             setClients(clientsData.map(c => ({ id: c.id, name: c.nazev })));
             setAllActions(actionsData);
             setStatuses(statusesData);
-
-            // Set action options based on loaded client
-            if (c) {
-                const filtered = actionsData
-                    .filter(act => act.klient_id === c.id)
-                    .map(act => ({ id: act.id, name: act.nazev }));
-                setActionOptions(filtered);
-            } else {
-                setActionOptions(actionsData.map(act => ({ id: act.id, name: act.nazev })));
-            }
 
         } catch (e) {
             console.error(e);
@@ -134,26 +131,54 @@ export default function NabidkaDetailPage() {
         updateField({ platnost_do: val || undefined });
     };
 
-    const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const val = Number(e.target.value);
-        setStatusId(val);
-        updateField({ stav_id: val });
+        const newStatus = statuses.find(s => s.id === val);
+
+        // Auto-create action if Accepted and no action exists
+        if (newStatus?.nazev === 'Akceptováno' && !action && offer) {
+            setSaving(true);
+            try {
+                // Create Action
+                const createdAction = await createAction({
+                    nazev: name, // Use current offer name
+                    klient_id: client?.id !== 'NEW' ? client?.id as number : null,
+                    // datum is handled by backend default or we can send today
+                });
+
+                // Update Offer with new Status AND new Action
+                await updateNabidka(offer.id, {
+                    stav_id: val,
+                    akce_id: createdAction.id
+                });
+
+                // Update Local State
+                setAction({ id: createdAction.id, name: createdAction.nazev });
+                setStatusId(val);
+
+                // Refresh data to be safe
+                await loadData();
+            } catch (err) {
+                console.error("Failed to auto-create action", err);
+                alert("Chyba při zakládání akce");
+            } finally {
+                setSaving(false);
+            }
+        } else {
+            // Normal status update
+            setStatusId(val);
+            updateField({ stav_id: val });
+        }
     };
 
     const handleClientChange = (newClient: ComboBoxItem | null) => {
         setClient(newClient);
 
-        // Filter actions
+        // Check if existing action belongs to new client
         if (newClient && newClient.id !== 'NEW') {
-            const filtered = allActions
-                .filter(a => a.klient_id === newClient.id)
-                .map(a => ({ id: a.id, name: a.nazev }));
-            setActionOptions(filtered);
-
-            // Check if current action makes sense
             if (action) {
-                const actionBelongs = filtered.find(a => a.id === action.id);
-                if (!actionBelongs) {
+                const actionMatches = allActions.find(a => a.id === action.id && a.klient_id === newClient.id);
+                if (!actionMatches) {
                     setAction(null);
                     updateField({ klient_id: newClient.id as number, akce_id: null });
                     return;
@@ -161,19 +186,9 @@ export default function NabidkaDetailPage() {
             }
             updateField({ klient_id: newClient.id as number });
         } else {
-            setActionOptions(allActions.map(a => ({ id: a.id, name: a.nazev })));
             if (newClient === null) {
                 updateField({ klient_id: null });
             }
-        }
-    };
-
-    const handleActionChange = (newAction: ComboBoxItem | null) => {
-        setAction(newAction);
-        if (newAction && newAction.id !== 'NEW') {
-            updateField({ akce_id: newAction.id as number });
-        } else if (newAction === null) {
-            updateField({ akce_id: null });
         }
     };
 
@@ -185,24 +200,18 @@ export default function NabidkaDetailPage() {
             setClient(clientItem);
             // Save immediately
             updateField({ klient_id: newClient.id });
-            setActionOptions([]); // New client has no actions
-            setAction(null);
-            updateField({ klient_id: newClient.id, akce_id: null });
+            // New client has no actions, reset action state if it was somehow set
+            if (action) {
+                setAction(null);
+                updateField({ klient_id: newClient.id, akce_id: null });
+            } else {
+                updateField({ klient_id: newClient.id });
+            }
 
         } catch (error) { console.error(error); alert('Chyba'); }
     };
 
-    const handleCreateAction = async (name: string) => {
-        try {
-            const clientId = client?.id !== 'NEW' ? (client?.id as number) : null;
-            const newAction = await createAction({ nazev: name, klient_id: clientId });
-            const actionItem = { id: newAction.id, name: newAction.nazev };
-            setAllActions(prev => [...prev, newAction]);
-            setActionOptions(prev => [...prev, actionItem]);
-            setAction(actionItem);
-            updateField({ akce_id: newAction.id });
-        } catch (error) { console.error(error); alert('Chyba'); }
-    };
+
 
     if (loading) {
         return <div className="p-8 text-center text-gray-500 dark:text-gray-400 max-w-7xl mx-auto mt-20">Načítám detail nabídky...</div>;
@@ -258,12 +267,18 @@ export default function NabidkaDetailPage() {
                                 />
                             </div>
 
-                            {/* Action */}
+                            {/* Action (Read-only / Auto) */}
                             <div className="flex flex-col gap-1">
                                 <label className="text-xs text-gray-500 font-medium ml-1">Akce</label>
-                                <CreatableComboBox
-                                    items={actionOptions} selected={action} setSelected={handleActionChange} onCreate={handleCreateAction} placeholder="Vybrat akci..."
-                                />
+                                <div className="text-sm p-2.5 dark:text-gray-300 min-h-[42px] flex items-center">
+                                    {action ? (
+                                        <div className="font-semibold text-blue-600">
+                                            {action.name}
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-400 italic text-xs">Vytvoří se po akceptaci</span>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Date */}
