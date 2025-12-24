@@ -12,7 +12,13 @@ export const compressImage = async (file: File): Promise<File> => {
     };
 
     try {
-        const compressedFile = await imageCompression(file, options);
+        const compressedBlob = await imageCompression(file, options);
+        // Create a new File object with the correct extension
+        const newFileName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+        const compressedFile = new File([compressedBlob], newFileName, {
+            type: "image/jpeg",
+            lastModified: Date.now(),
+        });
         return compressedFile;
     } catch (error) {
         console.error('Image compression failed:', error);

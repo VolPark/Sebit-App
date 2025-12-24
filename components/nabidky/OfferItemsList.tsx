@@ -37,7 +37,7 @@ export default function OfferItemsList({ items, nabidkaId, onRefresh }: OfferIte
 
     return (
         <>
-            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
                 <table className="w-full text-left text-sm">
                     <thead className="bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white font-semibold">
                         <tr>
