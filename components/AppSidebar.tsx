@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { useFaceAuth } from '@/context/FaceAuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 // Icons (HeroIcons style SVGs)
 const Icons = {
@@ -71,13 +71,42 @@ const NAVIGATION: NavGroup[] = [
 export default function AppSidebar() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { userImage } = useFaceAuth();
+    const { user, role, signOut, isLoading } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
 
     // Close sidebar on route change (mobile)
     const handleLinkClick = () => {
         setIsOpen(false);
     };
+
+    // RBAC Filtering
+    const filteredNavigation = NAVIGATION.map(group => {
+        // Clone items to avoid mutating original
+        let items = [...group.items];
+
+        if (isLoading || !role) {
+            // If loading or role not yet loaded, return empty to prevent flashing forbidden content
+            return null;
+        }
+
+        if (role === 'office') {
+            // Office sees everything EXCEPT 'Přehled' section
+            if (group.title === 'Přehled') return null;
+        }
+
+        if (role === 'reporter') {
+            // Reporter sees ONLY 'Výkazy'
+            items = items.filter(item => item.name === 'Výkazy');
+            if (items.length === 0) return null;
+        }
+
+        if (items.length === 0) return null;
+
+        return {
+            ...group,
+            items
+        };
+    }).filter(Boolean) as NavGroup[];
 
     const SidebarContent = () => (
         <div className="flex flex-col h-full bg-[#1A1C23] text-white overflow-y-auto w-[260px] border-r border-[#2C2E36]">
@@ -94,78 +123,109 @@ export default function AppSidebar() {
 
             {/* Navigation Links */}
             <nav className="flex-1 px-4 space-y-8">
-                {NAVIGATION.map((group) => (
-                    <div key={group.title}>
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-3">
-                            {group.title}
-                        </h3>
-                        <div className="space-y-1">
-                            {group.items.map((item) => {
-                                // Check active state
-                                const currentTab = searchParams?.get('tab') || 'firma'; // Default to firma if no tab
-
-                                let isActive = false;
-
-                                if (item.href.startsWith('/dashboard')) {
-                                    // Logic for dashboard internal tabs
-                                    if (pathname === '/dashboard') {
-                                        const itemTab = item.href.split('tab=')[1] || 'firma';
-                                        isActive = currentTab === itemTab;
-                                    }
-                                } else {
-                                    // Logic for standard routes (e.g. /nabidky)
-                                    // prevent / from matching everything if we had a root link (we don't active, but good practice)
-                                    if (item.href === '/' && pathname !== '/') {
-                                        isActive = false;
+                {isLoading ? (
+                    // Skeleton Loading
+                    <div className="space-y-8 animate-pulse">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i}>
+                                <div className="h-4 w-20 bg-gray-700 rounded mb-4 mx-3"></div>
+                                <div className="space-y-2">
+                                    <div className="h-10 w-full bg-gray-800 rounded-xl"></div>
+                                    <div className="h-10 w-full bg-gray-800 rounded-xl"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    filteredNavigation.map((group) => (
+                        <div key={group.title}>
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-3">
+                                {group.title}
+                            </h3>
+                            <ul className="space-y-1">
+                                {group.items.map((item) => {
+                                    // Check if active
+                                    let isActive = false;
+                                    if (item.href.startsWith('/dashboard')) {
+                                        // Dashboard logic: check tab param
+                                        const itemTab = item.href.split('=')[1];
+                                        const currentTab = searchParams?.get('tab') || 'firma'; // default tab
+                                        isActive = pathname === '/dashboard' && itemTab === currentTab;
                                     } else {
+                                        // Standard link logic
                                         isActive = pathname.startsWith(item.href);
                                     }
-                                }
 
-                                return (
-                                    <Link
-                                        key={item.name}
-                                        href={item.href}
-                                        onClick={handleLinkClick}
-                                        className={`
-                      group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200
-                      ${isActive
-                                                ? 'bg-[#E30613] text-white shadow-lg shadow-red-900/20'
-                                                : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                                            }
-                    `}
-                                    >
-                                        <item.icon
-                                            className={`mr-3 h-5 w-5 flex-shrink-0 transition-colors ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-white'}`}
-                                            aria-hidden="true"
-                                        />
-                                        {item.name}
-                                    </Link>
-                                );
-                            })}
+                                    return (
+                                        <li key={item.name}>
+                                            <Link
+                                                href={item.href}
+                                                onClick={handleLinkClick}
+                                                className={`
+                                                group flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200
+                                                ${isActive
+                                                        ? 'bg-[#E30613] text-white shadow-lg shadow-red-900/20'
+                                                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                                    }
+                                            `}
+                                            >
+                                                <item.icon
+                                                    className={`
+                                                    mr-3 h-5 w-5 flex-shrink-0 transition-colors
+                                                    ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-white'}
+                                                `}
+                                                    aria-hidden="true"
+                                                />
+                                                {item.name}
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
                         </div>
-                    </div>
-                ))}
+                    ))
+                )}
             </nav>
 
             {/* Footer / User Profile */}
             <div className="p-4 mt-auto border-t border-[#2C2E36]">
-                <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl hover:bg-white/10 transition-colors cursor-pointer group">
+                <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl hover:bg-white/10 transition-colors group relative">
                     <div className="h-10 w-10 rounded-full bg-gray-700 ring-2 ring-transparent group-hover:ring-[#E30613] transition-all overflow-hidden flex items-center justify-center">
-                        {userImage ? (
-                            <img src={userImage} alt="User" className="h-full w-full object-cover" />
-                        ) : (
-                            <Icons.Users className="h-5 w-5 text-gray-400" />
-                        )}
+                        <Icons.Users className="h-5 w-5 text-gray-400" />
                     </div>
-                    <div className="overflow-hidden">
-                        <p className="text-sm font-medium text-white truncate">Jan Novák</p>
-                        <p className="text-xs text-gray-400 truncate">Majitel</p>
+                    <div className="overflow-hidden flex-1">
+                        <p className="text-sm font-medium text-white truncate max-w-[100px]">
+                            {user?.email || 'Uživatel'}
+                        </p>
+                        <p className="text-xs text-gray-400 truncate capitalize">
+                            {isLoading ? '...' : (role || 'načítání...')}
+                        </p>
                     </div>
+
+                    {/* Sign Out Button */}
+                    <button
+                        onClick={signOut}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-red-500/20 transition-all"
+                        title="Odhlásit se"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                        </svg>
+                    </button>
                 </div>
             </div>
         </div>
     );
+
+    // If strictly NOT logged in and NOT loading (finished check), we can return null to hide.
+    // BUT! Since we now have Skeleton, we should show the sidebar structure while loading even if user is null initially?
+    // Actually no, if user is null, middleware redirects. But while middleware redirects, we might see a flash.
+    // The safest bet:
+    // If loading -> Show Skeleton.
+    // If !loading && !user -> Return null (or empty div).
+    // If !loading && user -> Show Content.
+
+    if (!user && !isLoading) return null;
 
     return (
         <>
@@ -198,24 +258,25 @@ export default function AppSidebar() {
 
             {/* Mobile Sidebar (Drawer) */}
             {isOpen && (
-                <div className="lg:hidden relative z-50">
+                <div className="relative z-50 lg:hidden" role="dialog" aria-modal="true">
                     {/* Backdrop */}
                     <div
-                        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
+                        className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm transition-opacity"
                         onClick={() => setIsOpen(false)}
                     />
 
                     {/* Drawer */}
-                    <div className="fixed inset-y-0 left-0 flex w-[85%] max-w-[300px]">
+                    <div className="fixed inset-y-0 left-0 flex w-full max-w-xs transition-transform">
                         <div className="relative flex-1 flex flex-col w-full">
                             {/* Close Button */}
-                            <div className="absolute top-0 right-0 -mr-12 pt-4">
+                            <div className="absolute top-0 right-0 -mr-12 pt-2">
                                 <button
                                     type="button"
-                                    className="ml-1 flex items-center justify-center p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                                    className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                                     onClick={() => setIsOpen(false)}
                                 >
-                                    <Icons.XMark className="h-8 w-8 text-white" />
+                                    <span className="sr-only">Close sidebar</span>
+                                    <Icons.XMark className="h-6 w-6 text-white" aria-hidden="true" />
                                 </button>
                             </div>
 
