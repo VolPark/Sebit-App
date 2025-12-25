@@ -57,7 +57,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             } catch (err) {
                 console.error('Error fetching role:', err);
                 // Fail-safe: stop loading even if role fetch fails
-                if (mounted) setRole('reporter');
+                // MAJOR FIX: Only fallback to 'reporter' if we don't have a role yet.
+                // If we already have a role (e.g. from previous session), don't overwrite it with 'reporter' just because a background refresh failed.
+                if (mounted) {
+                    setRole(prev => prev || 'reporter');
+                }
             }
         };
 
