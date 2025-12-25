@@ -11,6 +11,7 @@ interface AuthContextType {
     user: User | null;
     role: AppRole | null;
     isLoading: boolean;
+    isSigningOut: boolean;
     signOut: () => Promise<void>;
 }
 
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType>({
     user: null,
     role: null,
     isLoading: true,
+    isSigningOut: false,
     signOut: async () => { },
 });
 
@@ -25,6 +27,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [role, setRole] = useState<AppRole | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isSigningOut, setIsSigningOut] = useState(false);
     const router = useRouter();
 
     // Optimize: Create client once
@@ -98,8 +101,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setUser(null);
                 setRole(null);
                 setIsLoading(false);
-                router.push('/login');
-                router.refresh();
+                setUser(null);
+                setRole(null);
+                setIsLoading(false);
+                // Use hard redirect here too if event fires unexpectedly
+                window.location.href = '/login?logout=true';
             } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 if (session?.user) {
                     setUser(session.user);
@@ -126,7 +132,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setRole(null);
         setIsLoading(false);
-        router.push('/login?logout=true');
+
+        // Force hard redirect to clear all client state
+        window.location.href = '/login?logout=true';
 
         try {
             await supabase.auth.signOut();
@@ -136,7 +144,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, role, isLoading, signOut }}>
+        <AuthContext.Provider value={{ user, role, isLoading, isSigningOut, signOut }}>
             {children}
         </AuthContext.Provider>
     );
