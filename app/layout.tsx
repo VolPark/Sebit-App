@@ -35,6 +35,10 @@ import FixedCostsAutomator from '@/components/FixedCostsAutomator';
 
 // ... (imports)
 
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
+
+// ... (imports)
+
 export default function RootLayout({
   children,
 }: {
@@ -43,6 +47,7 @@ export default function RootLayout({
   return (
     <html lang="cs" suppressHydrationWarning>
       <body className={`${inter.className} bg-white min-h-screen flex flex-col text-[#333333]`}>
+        <ServiceWorkerRegister />
         <FaceAuthProvider>
           <FixedCostsAutomator />
           {/* SKIP LINK for A11y */}
