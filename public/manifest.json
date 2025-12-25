@@ -4,8 +4,8 @@
     "description": "Interiéry Horyna",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#E30613",
+    "background_color": "#111827",
+    "theme_color": "#111827",
     "id": "/",
     "categories": [
         "productivity",
