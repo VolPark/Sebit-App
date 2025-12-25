@@ -54,7 +54,9 @@ export async function updateSession(request: NextRequest) {
     }
 
     // If user exists and is on /login -> redirect to /dashboard
-    if (user && request.nextUrl.pathname.startsWith('/login')) {
+    // FIX: Check for logout param to allow optimistic signout navigation
+    const isLogout = request.nextUrl.searchParams.get('logout') === 'true';
+    if (user && request.nextUrl.pathname.startsWith('/login') && !isLogout) {
         const url = request.nextUrl.clone()
         url.pathname = '/dashboard'
         return NextResponse.redirect(url)

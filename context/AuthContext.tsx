@@ -126,7 +126,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setRole(null);
         setIsLoading(false);
-        router.push('/login');
+        router.push('/login?logout=true');
 
         try {
             await supabase.auth.signOut();
