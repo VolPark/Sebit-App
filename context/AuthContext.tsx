@@ -98,12 +98,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             console.log('Auth Event:', event);
 
             if (event === 'SIGNED_OUT') {
-                setUser(null);
-                setRole(null);
-                setIsLoading(false);
-                setUser(null);
-                setRole(null);
-                setIsLoading(false);
+                setIsSigningOut(true);
+                // Do NOT clear user/role immediately to avoid UI flash.
+                // Leave state "stale" until hard redirect kicks in.
+
                 // Use hard redirect here too if event fires unexpectedly
                 window.location.href = '/login?logout=true';
             } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
@@ -128,10 +126,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, [router, supabase]);
 
     const signOut = async () => {
-        // Optimistic sign out - clear state immediately
-        setUser(null);
-        setRole(null);
-        setIsLoading(false);
+        setIsSigningOut(true);
+        // Optimistic sign out - but KEEP state to prevent UI flash
+        // The overlay will cover the screen, then hard redirect happens.
 
         // Force hard redirect to clear all client state
         window.location.href = '/login?logout=true';

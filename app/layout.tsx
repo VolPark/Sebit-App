@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/context/AuthContext'
 import AppShell from '@/components/AppShell'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
+import SignOutOverlay from '@/components/SignOutOverlay'
 import { Metadata, Viewport } from 'next'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -39,6 +40,7 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-screen bg-white dark:bg-[#111827]`}>
         <AuthProvider>
           <ServiceWorkerRegister />
+          <SignOutOverlay />
           <AppShell>
             {children}
           </AppShell>
