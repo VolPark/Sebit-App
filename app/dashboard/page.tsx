@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, Fragment, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getDashboardData, getDetailedStats, getExperimentalStats, DashboardData, MonthlyData, WorkerStats, ClientStats, ExperimentalStats, ProjectHealthStats } from '@/lib/dashboard';
 import { supabase } from '@/lib/supabase';
@@ -497,19 +497,20 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
 
 
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Default to 'firma' if no tab param is present
   const currentTab = (searchParams.get('tab') as 'firma' | 'workers' | 'clients' | 'experimental' | 'ai') || 'firma';
 
   const [view, setView] = useState<'firma' | 'workers' | 'clients' | 'experimental' | 'ai'>(currentTab);
 
-  // Sync state with URL
+  // Sync state with URL changes
   useEffect(() => {
     setView(currentTab);
   }, [currentTab]);
 
-  // Update URL when view changes via internal controls (if any)
+  // Update URL manually if needed
   const handleSetView = (newView: 'firma' | 'workers' | 'clients' | 'experimental' | 'ai') => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', newView);
@@ -702,5 +703,17 @@ export default function DashboardPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Fragment>
+      <div className="relative">
+        <Suspense fallback={<DashboardSkeleton view="firma" />}>
+          <DashboardContent />
+        </Suspense>
+      </div>
+    </Fragment>
   );
 }
