@@ -6,6 +6,48 @@
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#E30613",
+    "id": "/",
+    "categories": [
+        "productivity",
+        "finance",
+        "business"
+    ],
+    "orientation": "portrait",
+    "shortcuts": [
+        {
+            "name": "Přehled",
+            "url": "/dashboard",
+            "icons": [
+                {
+                    "src": "/web-app-icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        },
+        {
+            "name": "Výkazy",
+            "url": "/vykazy",
+            "icons": [
+                {
+                    "src": "/web-app-icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        },
+        {
+            "name": "Pracovníci",
+            "url": "/pracovnici",
+            "icons": [
+                {
+                    "src": "/web-app-icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        }
+    ],
     "icons": [
         {
             "src": "/web-app-icon-192.png",
