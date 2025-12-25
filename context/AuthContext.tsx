@@ -35,11 +35,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         const fetchRole = async (userId: string) => {
             try {
-                const { data: profile } = await supabase
+                // Timeout after 5 seconds to prevent hanging
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Fetch role timeout')), 5000)
+                );
+
+                const fetchPromise = supabase
                     .from('profiles')
                     .select('role')
                     .eq('id', userId)
                     .single();
+
+                const { data: profile } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
                 if (mounted && profile) {
                     setRole(profile.role as AppRole);
@@ -49,19 +56,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 }
             } catch (err) {
                 console.error('Error fetching role:', err);
-                if (mounted) setRole('reporter'); // Fallback
+                // Fail-safe: stop loading even if role fetch fails
+                if (mounted) setRole('reporter');
             }
         };
 
         const checkUser = async () => {
             try {
-                const { data: { session } } = await supabase.auth.getSession();
+                // Session check timeout
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Session check timeout')), 2000)
+                );
+
+                const { data: { session } } = await Promise.race([supabase.auth.getSession(), timeoutPromise]) as any;
+
                 if (mounted) {
                     if (session?.user) {
                         setUser(session.user);
                         await fetchRole(session.user.id);
                     }
-                    // Always finish loading after explicit check
                     setIsLoading(false);
                 }
             } catch (error) {
@@ -105,7 +118,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, [router, supabase]);
 
     const signOut = async () => {
-        await supabase.auth.signOut();
+        // Optimistic sign out - clear state immediately
+        setUser(null);
+        setRole(null);
+        setIsLoading(false);
+        router.push('/login');
+
+        try {
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error('Error signing out:', error);
+        }
     };
 
     return (
