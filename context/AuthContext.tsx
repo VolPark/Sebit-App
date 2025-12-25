@@ -10,6 +10,7 @@ type AppRole = 'owner' | 'admin' | 'office' | 'reporter';
 interface AuthContextType {
     user: User | null;
     role: AppRole | null;
+    userName: string | null;
     isLoading: boolean;
     isSigningOut: boolean;
     signOut: () => Promise<void>;
@@ -18,6 +19,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
     user: null,
     role: null,
+    userName: null,
     isLoading: true,
     isSigningOut: false,
     signOut: async () => { },
@@ -26,6 +28,7 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [role, setRole] = useState<AppRole | null>(null);
+    const [userName, setUserName] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSigningOut, setIsSigningOut] = useState(false);
     const router = useRouter();
@@ -45,7 +48,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
                 const fetchPromise = supabase
                     .from('profiles')
-                    .select('role')
+                    .select('role, full_name')
                     .eq('id', userId)
                     .single();
 
@@ -53,6 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
                 if (mounted && profile) {
                     setRole(profile.role as AppRole);
+                    setUserName(profile.full_name);
                 } else if (mounted) {
                     console.warn('Profile not found, defaulting to reporter');
                     setRole('reporter');
@@ -141,7 +145,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, role, isLoading, isSigningOut, signOut }}>
+        <AuthContext.Provider value={{ user, role, userName, isLoading, isSigningOut, signOut }}>
             {children}
         </AuthContext.Provider>
     );

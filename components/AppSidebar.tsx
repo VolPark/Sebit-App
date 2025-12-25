@@ -71,7 +71,7 @@ const NAVIGATION: NavGroup[] = [
 export default function AppSidebar() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { user, role, signOut, isLoading } = useAuth();
+    const { user, role, userName, signOut, isLoading } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
 
     // Close sidebar on route change (mobile)
@@ -195,7 +195,7 @@ export default function AppSidebar() {
                     </div>
                     <div className="overflow-hidden flex-1">
                         <p className="text-sm font-medium text-white truncate max-w-[100px]">
-                            {user?.email || 'Uživatel'}
+                            {userName || user?.email || 'Uživatel'}
                         </p>
                         <p className="text-xs text-gray-400 truncate capitalize">
                             {isLoading ? '...' : (role || 'načítání...')}
