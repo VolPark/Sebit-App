@@ -33,6 +33,14 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
+    // OPTIMIZATION: Skip getUser() for prefetch requests to prevent Supabase API spam
+    const purpose = request.headers.get('purpose');
+    const isPrefetch = purpose === 'prefetch' || request.headers.get('next-router-prefetch');
+
+    if (isPrefetch) {
+        return response;
+    }
+
     const {
         data: { user },
     } = await supabase.auth.getUser()

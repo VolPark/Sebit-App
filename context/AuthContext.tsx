@@ -53,10 +53,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
         };
 
+        const checkUser = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (mounted) {
+                    if (session?.user) {
+                        setUser(session.user);
+                        await fetchRole(session.user.id);
+                    }
+                    // Always finish loading after explicit check
+                    setIsLoading(false);
+                }
+            } catch (error) {
+                console.error('Error getting session:', error);
+                if (mounted) setIsLoading(false);
+            }
+        };
+
+        checkUser();
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
 
-            console.log('Auth Event:', event); // Debugging
+            console.log('Auth Event:', event);
 
             if (event === 'SIGNED_OUT') {
                 setUser(null);
@@ -64,19 +83,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setIsLoading(false);
                 router.push('/login');
                 router.refresh();
-            } else if (session?.user) {
-                // User is authenticated
-                setUser(session.user);
-
-                // Fetch role if not set or if strictly needed
-                // We'll just fetch it to be safe and ensure it's up to date
-                await fetchRole(session.user.id);
-
+            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                if (session?.user) {
+                    setUser(session.user);
+                    await fetchRole(session.user.id);
+                }
                 if (mounted) setIsLoading(false);
             } else if (event === 'INITIAL_SESSION') {
-                // No session found during initialization
-                setUser(null);
-                setRole(null);
+                if (session?.user) {
+                    setUser(session.user);
+                    await fetchRole(session.user.id);
+                }
                 if (mounted) setIsLoading(false);
             }
         });
