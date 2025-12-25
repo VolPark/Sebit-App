@@ -1,20 +1,25 @@
 import './globals.css'
-import { Inter } from 'next/font/google' // Import moderního fontu
-import Header from '@/components/Header'
+import { Inter } from 'next/font/google'
+import FaceAuthProvider from '@/components/FaceAuthProvider'
+import FixedCostsAutomator from '@/components/FixedCostsAutomator'
+import AppSidebar from '@/components/AppSidebar'
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
+import { Metadata } from 'next'
 
-// Načtení fontu (Google standard)
 const inter = Inter({ subsets: ['latin'] })
 
-import { Viewport, type Metadata } from 'next';
-
 export const metadata: Metadata = {
-  title: "Interiéry Horyna",
-  description: "Inteligentní nástroj pro řízení firmy, mezd a výkaznictví",
-  manifest: "/manifest.json",
+  title: 'Horyna',
+  description: 'Interní systém pro správu zakázek a fakturace',
+  manifest: '/manifest.json',
   icons: {
-    icon: "/logo_small.png",
-    shortcut: "/logo_small.png",
-    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: '/web-app-icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/web-app-icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png' },
+    ],
   },
   appleWebApp: {
     capable: true,
@@ -26,18 +31,13 @@ export const metadata: Metadata = {
   },
 }
 
-export const viewport: Viewport = {
-  themeColor: '#E30613',
+export const viewport = {
+  themeColor: "#E30613",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 }
-
-import FaceAuthProvider from '@/components/FaceAuthProvider';
-import FixedCostsAutomator from '@/components/FixedCostsAutomator';
-
-// ... (imports)
-
-import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
-
-// ... (imports)
 
 export default function RootLayout({
   children,
@@ -46,26 +46,27 @@ export default function RootLayout({
 }) {
   return (
     <html lang="cs" suppressHydrationWarning>
-      <body className={`${inter.className} bg-white min-h-screen flex flex-col text-[#333333]`}>
+      <body className={`${inter.className} bg-gray-50 dark:bg-slate-950 min-h-screen text-[#333333]`}>
         <ServiceWorkerRegister />
         <FaceAuthProvider>
           <FixedCostsAutomator />
-          {/* SKIP LINK for A11y */}
-          <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-white px-3 py-2 rounded shadow-md z-50">
-            Přejít na obsah
-          </a>
 
-          <Header />
+          <div className="flex min-h-screen">
+            {/* Sidebar Navigation */}
+            <AppSidebar />
 
-          {/* OBSAH STRÁNKY */}
-          <main id="content" className="flex-grow pt-28 px-4 md:px-8 max-w-6xl mx-auto w-full">
-            {children}
-          </main>
+            {/* Main Content Area */}
+            {/* 
+                lg:pl-[260px] = Pushes content to right on desktop to make room for fixed sidebar.
+                pt-16 = Adds top padding on mobile for the fixed mobile header. 
+            */}
+            <main className="flex-1 w-full lg:pl-[260px] pt-16 lg:pt-0">
+              <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+                {children}
+              </div>
+            </main>
+          </div>
 
-          {/* Footer - Minimalistický a čistý */}
-          <footer className="py-8 text-center text-gray-400 text-sm">
-            <p>© {new Date().getFullYear()} SEBIT Solutions &bull; <span className="hover:text-gray-600 cursor-pointer transition-colors">Podmínky</span> &bull; <span className="hover:text-gray-600 cursor-pointer transition-colors">Soukromí</span></p>
-          </footer>
         </FaceAuthProvider>
       </body>
     </html>

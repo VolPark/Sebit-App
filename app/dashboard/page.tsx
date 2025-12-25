@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { getDashboardData, getDetailedStats, getExperimentalStats, DashboardData, MonthlyData, WorkerStats, ClientStats, ExperimentalStats, ProjectHealthStats } from '@/lib/dashboard';
 import { supabase } from '@/lib/supabase';
 import { APP_START_YEAR } from '@/lib/config';
@@ -493,21 +494,37 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
 
 
 
-import { useRouter, useSearchParams } from 'next/navigation';
+
 
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentTab = (searchParams.get('tab') as 'firma' | 'workers' | 'clients' | 'experimental' | 'ai') || 'firma';
+
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [view, setView] = useState<'firma' | 'workers' | 'clients' | 'experimental' | 'ai'>(currentTab);
+
+  // Sync state with URL
+  useEffect(() => {
+    setView(currentTab);
+  }, [currentTab]);
+
+  // Update URL when view changes via internal controls (if any)
+  const handleSetView = (newView: 'firma' | 'workers' | 'clients' | 'experimental' | 'ai') => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', newView);
+    router.push(`/dashboard?${params.toString()}`);
+  }
+
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  // Authentication State
   const [pinInput, setPinInput] = useState('');
   const [authError, setAuthError] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  const searchParams = useSearchParams();
-  const initialTab = searchParams.get('tab');
-
   // Dashboard State
-  const [view, setView] = useState<'firma' | 'workers' | 'clients' | 'experimental' | 'ai'>('firma');
   const [aiMessages, setAiMessages] = useState<Message[]>([]);
   const [data, setData] = useState<DashboardData | null>(null);
   const [detailedStats, setDetailedStats] = useState<{ workers: WorkerStats[], clients: ClientStats[] } | null>(null);
@@ -656,7 +673,13 @@ export default function DashboardPage() {
   return (
     <div className="w-full px-4 md:px-6 mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-black dark:text-white">Dashboard</h2>
+        <h2 className="text-3xl font-bold text-black dark:text-white">
+          {view === 'firma' && 'Přehled firmy'}
+          {view === 'workers' && 'Produktivita zaměstnanců'}
+          {view === 'clients' && 'Přehled klientů'}
+          {view === 'experimental' && 'Experimentální přehled'}
+          {view === 'ai' && 'AI Asistent'}
+        </h2>
         <button
           onClick={() => {
             localStorage.removeItem('sebit_dashboard_auth');
@@ -670,82 +693,6 @@ export default function DashboardPage() {
           </svg>
           <span className="hidden sm:inline">Uzamknout</span>
         </button>
-      </div>
-
-      <div className="relative mb-8 sm:w-fit sm:mb-8">
-        {/* Fade Overlay for Mobile Scroll Hint */}
-        <div className="absolute top-0 right-0 bottom-2 w-12 bg-gradient-to-l from-white dark:from-slate-950 to-transparent pointer-events-none sm:hidden z-10 rounded-r-lg" />
-
-        <div className={`
-          flex overflow-x-auto pb-2 -mx-4 px-4 w-[calc(100%+32px)] no-scrollbar gap-2
-          sm:flex sm:flex-row sm:items-center sm:gap-1 sm:w-fit sm:mx-0 sm:px-1.5 sm:bg-gray-100/80 sm:dark:bg-slate-800/80 sm:p-1.5 sm:rounded-full sm:border sm:border-gray-200/50 sm:dark:border-slate-700 sm:mb-0
-        `}>
-          {[
-            {
-              id: 'firma', label: 'Firma', icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
-                </svg>
-              )
-            },
-            {
-              id: 'workers', label: 'Zaměstnanci', icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                </svg>
-              )
-            },
-            {
-              id: 'clients', label: 'Klienti', icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-                </svg>
-              )
-            },
-            {
-              id: 'experimental', label: 'Exp.', icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-                </svg>
-              )
-            },
-            {
-              id: 'ai', label: 'AI Asistent', icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-                </svg>
-              )
-            }
-          ].map(v => {
-            const isActive = view === v.id;
-            let buttonClasses = `
-            group relative flex items-center justify-center gap-2 transition-all duration-300
-            flex-shrink-0 whitespace-nowrap px-5 py-2 rounded-full
-            sm:flex-row sm:text-sm
-          `;
-            let iconTextClasses = `transition-colors`;
-
-            buttonClasses += isActive
-              ? ' bg-white text-[#E30613] shadow-md ring-1 ring-black/5 font-bold'
-              : ' font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700';
-            iconTextClasses += isActive ? ' text-[#E30613]' : '';
-
-            return (
-              <button
-                key={v.id}
-                onClick={() => setView(v.id as any)}
-                className={buttonClasses}
-              >
-                <div className={iconTextClasses}>
-                  {v.icon}
-                </div>
-                <span className={`font-semibold sm:font-medium ${iconTextClasses}`}>
-                  {v.label}
-                </span>
-              </button>
-            )
-          })}
-        </div>
       </div>
 
       {/* Filters (Desktop) */}
@@ -857,7 +804,7 @@ export default function DashboardPage() {
               <AiChat
                 messages={aiMessages}
                 setMessages={setAiMessages}
-                className="h-[calc(100dvh-350px)] md:h-[calc(100dvh-350px)]"
+                className="h-[calc(100vh-140px)]"
               />
             </div>
           )}

@@ -476,25 +476,43 @@ const AiMessageBubble = React.memo(function AiMessageBubble({ role, content, isL
         };
     }, [isTyping]);
 
+    // Zen Canvas Layout
+    if (isUser) {
+        return (
+            <div className="flex w-full justify-end mb-6">
+                <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-[#E30613] text-white px-5 py-3 shadow-md">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed font-medium">
+                        {content}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Assistant Layout (Document Style with Avatar)
     return (
-        <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-            <div
-                className={`max-w-[90%] md:max-w-[85%] rounded-2xl px-5 py-4 shadow-sm overflow-hidden ${isUser
-                    ? 'bg-[#E30613] text-white rounded-br-none'
-                    : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-slate-700 rounded-bl-none shadow-md'
-                    }`}
-            >
-                <div className={`text-sm leading-relaxed ${isUser ? '' : 'prose prose-sm dark:prose-invert max-w-none prose-p:mb-3 prose-p:leading-relaxed prose-headings:font-bold prose-headings:text-gray-900 dark:prose-headings:text-white prose-li:my-0.5'}`}>
-                    {isUser ? (
-                        <div className="whitespace-pre-wrap">{content}</div>
-                    ) : (
-                        <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={markdownComponents}
-                        >
-                            {displayedContent}
-                        </ReactMarkdown>
-                    )}
+        <div className="flex w-full gap-4 mb-8">
+            {/* Avatar Column */}
+            <div className="pt-1 flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-700 dark:to-slate-800 border border-white dark:border-slate-600 shadow-sm flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-[#E30613]">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                    </svg>
+                </div>
+            </div>
+
+            {/* Content Column */}
+            <div className="flex-1 min-w-0 overflow-hidden">
+                {/* Name (Optional, good for identifying) */}
+                <div className="text-xs font-bold text-gray-900 dark:text-white mb-1.5 ml-1">AI Asistent</div>
+
+                <div className="text-[15px] leading-relaxed text-gray-800 dark:text-gray-200 prose prose-slate dark:prose-invert max-w-none prose-p:mb-4 prose-headings:font-bold prose-headings:text-gray-900 dark:prose-headings:text-white prose-li:my-1 prose-img:rounded-xl">
+                    <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={markdownComponents}
+                    >
+                        {displayedContent}
+                    </ReactMarkdown>
                 </div>
             </div>
         </div>

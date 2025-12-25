@@ -158,50 +158,53 @@ export default function AiChat({ messages, setMessages, className = "h-[700px]" 
     const showLoadingIndicator = isLoading && !isStreamingResponse;
 
     return (
-        <div className={`flex flex-col w-full bg-gray-50/50 dark:bg-slate-900/50 rounded-2xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm ${className}`}>
+        <div className={`flex flex-col w-full relative h-full ${className}`}>
             {/* Messages Area */}
             <div
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth"
+                className="flex-1 overflow-y-auto px-4 sm:px-6 scroll-smooth"
             >
-                {messages.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
-                        <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-2xl shadow-sm flex items-center justify-center mb-4">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-[#E30613]">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-                            </svg>
+                <div className="max-w-5xl mx-auto w-full py-8">
+                    {messages.length === 0 && (
+                        <div className="h-full flex flex-col items-center justify-center text-center opacity-60 min-h-[400px]">
+                            <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-2xl shadow-sm flex items-center justify-center mb-4 ring-1 ring-gray-100 dark:ring-slate-700">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-[#E30613]">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Jak vám mohu pomoci?</h3>
+                            <p className="text-gray-500 dark:text-gray-400 max-w-sm">
+                                Analyzuji vaše finance, projekty a výkonnost týmu.
+                            </p>
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-800 dark:text-white">AI Asistent</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mt-1">
-                            Zeptejte se na finance, pracovníky nebo projekty. Mám přístup k vašim datům.
-                        </p>
-                    </div>
-                )}
+                    )}
 
-                {messages.map((m, idx) => (
-                    <AiMessageBubble
-                        key={m.id}
-                        role={m.role === 'user' ? 'user' : 'assistant'}
-                        content={m.content}
-                        isLast={idx === messages.length - 1}
-                        isLoading={isLoading && idx === messages.length - 1}
-                    />
-                ))}
+                    {messages.map((m, idx) => (
+                        <AiMessageBubble
+                            key={m.id}
+                            role={m.role === 'user' ? 'user' : 'assistant'}
+                            content={m.content}
+                            isLast={idx === messages.length - 1}
+                            isLoading={isLoading && idx === messages.length - 1}
+                        />
+                    ))}
 
-                {showLoadingIndicator && (
-                    <div className="flex justify-start mb-4">
-                        <div className="bg-white dark:bg-slate-800 rounded-2xl px-4 py-3 rounded-bl-none shadow-sm flex gap-1 items-center">
-                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                    {showLoadingIndicator && (
+                        <div className="flex justify-start mb-8 pl-14">
+                            <div className="flex gap-2 items-center text-gray-400">
+                                <span className="text-sm font-medium">Přemýšlím</span>
+                                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
                         </div>
-                    </div>
-                )}
-                <div ref={messagesEndRef} />
+                    )}
+                    <div ref={messagesEndRef} className="h-4" />
+                </div>
             </div>
 
-            {/* Input Area - isolated component */}
+            {/* Input Area - Floating Command Bar */}
             <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
         </div>
     );
@@ -219,23 +222,41 @@ function ChatInput({ onSend, isLoading }: { onSend: (text: string) => void, isLo
     };
 
     return (
-        <div className="p-4 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700">
-            <form onSubmit={handleSubmit} className="flex gap-2">
-                <input
-                    className="flex-1 min-w-0 p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613]"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Např.: Jaký byl zisk minulý měsíc?"
-                    autoFocus
-                />
-                <button
-                    type="submit"
-                    disabled={isLoading || !(input || '').trim()}
-                    className="px-4 py-2 bg-[#E30613] text-white rounded-xl font-medium hover:bg-[#c40510] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        <div className="w-full px-4 pb-6 pt-2 z-10">
+            <div className="max-w-5xl mx-auto">
+                <form
+                    onSubmit={handleSubmit}
+                    className="relative flex items-center bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-slate-700/50 shadow-2xl rounded-full p-2 ring-1 ring-black/5 dark:ring-white/5 transition-shadow hover:shadow-black/5 focus-within:shadow-xl focus-within:ring-[#E30613]/20"
                 >
-                    Odeslat
-                </button>
-            </form>
+                    <input
+                        className="flex-1 min-w-0 px-4 py-3 bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none text-base"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Zeptejte se na cokoliv..."
+                        autoFocus
+                    />
+                    <button
+                        type="submit"
+                        disabled={isLoading || !(input || '').trim()}
+                        className="p-3 bg-[#E30613] text-white rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transition-all shadow-md shadow-red-600/20"
+                    >
+                        {isLoading ? (
+                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 pl-0.5">
+                                <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                            </svg>
+                        )}
+                    </button>
+                </form>
+                {/* Micro-hint */}
+                <div className="text-center mt-3 text-xs text-gray-400 dark:text-slate-500 font-medium">
+                    AI Asistent může dělat chyby. Ověřte si důležité informace.
+                </div>
+            </div>
         </div>
     );
 }
