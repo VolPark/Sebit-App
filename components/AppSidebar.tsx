@@ -109,7 +109,7 @@ export default function AppSidebar() {
     }).filter(Boolean) as NavGroup[];
 
     const SidebarContent = () => (
-        <div className="flex flex-col h-full bg-[#1A1C23] text-white overflow-y-auto w-[260px] border-r border-[#2C2E36]">
+        <div className="flex flex-col h-full bg-[#111827] text-white overflow-y-auto w-[260px] border-r border-gray-800">
             {/* Header / Logo */}
             <div className="p-6">
                 <Link href="/" onClick={handleLinkClick}>
@@ -188,7 +188,7 @@ export default function AppSidebar() {
             </nav>
 
             {/* Footer / User Profile */}
-            <div className="p-4 mt-auto border-t border-[#2C2E36]">
+            <div className="p-4 mt-auto border-t border-gray-800">
                 <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl hover:bg-white/10 transition-colors group relative">
                     <div className="h-10 w-10 rounded-full bg-gray-700 ring-2 ring-transparent group-hover:ring-[#E30613] transition-all overflow-hidden flex items-center justify-center">
                         <Icons.Users className="h-5 w-5 text-gray-400" />
@@ -230,29 +230,24 @@ export default function AppSidebar() {
     return (
         <>
             {/* Mobile Trigger */}
-            <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-[#1A1C23] border-b border-gray-200 dark:border-[#2C2E36] p-4 flex items-center justify-between">
+            <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[#111827] border-b border-gray-800 p-4 flex items-center justify-between">
                 <Link href="/">
-                    <img
-                        src="/logo_full.png"
-                        alt="Interiéry Horyna"
-                        className="h-8 w-auto block dark:hidden"
-                    />
                     <img
                         src="/logo_full_dark.png"
                         alt="Interiéry Horyna"
-                        className="h-8 w-auto hidden dark:block"
+                        className="h-8 w-auto block"
                     />
                 </Link>
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="p-2 -mr-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg"
+                    className="p-2 -mr-2 text-gray-300 hover:bg-white/5 rounded-lg"
                 >
                     <Icons.Bars3 className="w-6 h-6" />
                 </button>
             </div>
 
             {/* Desktop Sidebar (Fixed) */}
-            <div className="hidden lg:block fixed inset-y-0 left-0 z-40 w-[260px] bg-[#1A1C23]">
+            <div className="hidden lg:block fixed inset-y-0 left-0 z-40 w-[260px] bg-[#111827]">
                 <SidebarContent />
             </div>
 
