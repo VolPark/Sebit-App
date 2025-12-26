@@ -20,8 +20,11 @@ export async function GET(request: Request) {
             console.log('[Auth Callback Debug] URL:', request.url, '| Origin:', origin, '| Forwarded:', forwardedHost, '| Host:', hostHeader);
 
             // Prioritize standard Next.js logic for handling proxies, even in dev
-            if (forwardedHost) {
-                return NextResponse.redirect(`https://${forwardedHost}${next}`);
+            const targetHost = forwardedHost || hostHeader;
+            if (targetHost) {
+                const isLocal = targetHost.includes('localhost') || targetHost.includes('127.0.0.1');
+                const protocol = isLocal ? 'http' : 'https';
+                return NextResponse.redirect(`${protocol}://${targetHost}${next}`);
             } else {
                 return NextResponse.redirect(`${origin}${next}`);
             }
