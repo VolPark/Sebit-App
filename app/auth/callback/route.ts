@@ -16,8 +16,6 @@ export async function GET(request: Request) {
         if (!error) {
             const forwardedHost = request.headers.get('x-forwarded-host');
             const hostHeader = request.headers.get('host');
-            const forwardedProto = request.headers.get('x-forwarded-proto');
-            console.log('[Auth Callback Debug] URL:', request.url, '| ForwardedHost:', forwardedHost, '| Host:', hostHeader, '| Proto:', forwardedProto);
 
             // Determine the valid domain to redirect to
             const targetHost = forwardedHost || hostHeader;
