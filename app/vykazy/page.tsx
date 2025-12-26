@@ -69,6 +69,7 @@ export default function VykazyPage() {
         const linkedWorker = pData.find((p: any) => p.user_id === user.id)
         if (linkedWorker) {
           setSelectedPracovnik({ id: linkedWorker.id, name: linkedWorker.jmeno })
+          setSelectedPracovnikFilter({ id: linkedWorker.id, name: linkedWorker.jmeno }) // Also set filter
         }
       }
     }
