@@ -11,13 +11,13 @@ export async function GET(request: Request) {
     if (code) {
         const cookieStore = await cookies();
         const supabase = createClient(cookieStore);
-        console.log('[Auth Callback] Exchanging code for session...');
         const { error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (!error) {
             const forwardedHost = request.headers.get('x-forwarded-host');
             const hostHeader = request.headers.get('host');
-            console.log('[Auth Callback Debug] URL:', request.url, '| Origin:', origin, '| Forwarded:', forwardedHost, '| Host:', hostHeader);
+            const forwardedProto = request.headers.get('x-forwarded-proto');
+            console.log('[Auth Callback Debug] URL:', request.url, '| ForwardedHost:', forwardedHost, '| Host:', hostHeader, '| Proto:', forwardedProto);
 
             // Prioritize standard Next.js logic for handling proxies, even in dev
             const targetHost = forwardedHost || hostHeader;
