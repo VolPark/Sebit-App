@@ -102,12 +102,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             console.log('Auth Event:', event);
 
             if (event === 'SIGNED_OUT') {
-                setIsSigningOut(true);
-                // Do NOT clear user/role immediately to avoid UI flash.
-                // Leave state "stale" until hard redirect kicks in.
+                // Prevent infinite loop and overlay on login page
+                const isLoginPage = window.location.pathname === '/login';
+                const isLogoutParam = window.location.search.includes('logout=true');
 
-                // Use hard redirect here too if event fires unexpectedly
-                window.location.href = '/login?logout=true';
+                if (!isLoginPage || (isLoginPage && !isLogoutParam)) {
+                    setIsSigningOut(true);
+                    // Force hard redirect to clear all client state if not already doing so
+                    window.location.href = '/login?logout=true';
+                }
             } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 if (session?.user) {
                     setUser(session.user);
