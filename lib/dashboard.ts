@@ -867,6 +867,8 @@ export interface ProjectHealthStats {
   totalActualHours: number;
   budgetUsage: number; // 0-1 (e.g. 0.8 for 80%)
   wipValue: number; // Cost based value of work done
+  laborCost: number; // NEW
+  materialCost: number; // NEW
   revenuePotential: number; // If fixed price: price * % completion (or just price if we assume full payment). Let's use Proportional.
   status: 'ok' | 'warning' | 'critical';
   lastActivity: string | null;
@@ -962,6 +964,8 @@ export async function getExperimentalStats(): Promise<ExperimentalStats> {
       totalActualHours,
       budgetUsage,
       wipValue: totalCost,
+      laborCost,
+      materialCost,
       revenuePotential,
       status,
       lastActivity: lastActivityDate ? (lastActivityDate as Date).toISOString().split('T')[0] : null

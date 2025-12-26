@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             try {
                 // Timeout after 1 second to prevent hanging
                 const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Fetch role timeout')), 1000)
+                    setTimeout(() => reject(new Error('Fetch role timeout')), 10000)
                 );
 
                 const fetchPromise = supabase
