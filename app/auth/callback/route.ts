@@ -19,11 +19,15 @@ export async function GET(request: Request) {
             const forwardedProto = request.headers.get('x-forwarded-proto');
             console.log('[Auth Callback Debug] URL:', request.url, '| ForwardedHost:', forwardedHost, '| Host:', hostHeader, '| Proto:', forwardedProto);
 
-            // Prioritize standard Next.js logic for handling proxies, even in dev
+            // Determine the valid domain to redirect to
             const targetHost = forwardedHost || hostHeader;
+
+            // Determine protocol: prioritize X-Forwarded-Proto, then request protocol
+            const forwardedProto = request.headers.get('x-forwarded-proto');
+            const currentProtocol = new URL(request.url).protocol.replace(':', '');
+            const protocol = forwardedProto || currentProtocol;
+
             if (targetHost) {
-                const isLocal = targetHost.includes('localhost') || targetHost.includes('127.0.0.1');
-                const protocol = isLocal ? 'http' : 'https';
                 return NextResponse.redirect(`${protocol}://${targetHost}${next}`);
             } else {
                 return NextResponse.redirect(`${origin}${next}`);
