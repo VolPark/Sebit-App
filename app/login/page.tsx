@@ -43,7 +43,23 @@ function LoginForm() {
                 throw error;
             }
 
-            router.push('/dashboard');
+            // Fetch role to determine redirect
+            const { data: { user } } = await supabase.auth.getUser();
+            let targetPath = '/vykazy'; // Default fallback
+
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .single();
+
+                if (profile?.role === 'owner' || profile?.role === 'admin') {
+                    targetPath = '/dashboard';
+                }
+            }
+
+            router.push(targetPath);
             router.refresh();
         } catch (err: any) {
             setError(err.message || 'Chyba při přihlášení');
