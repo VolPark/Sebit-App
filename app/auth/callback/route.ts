@@ -15,7 +15,10 @@ export async function GET(request: Request) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (!error) {
-            const forwardedHost = request.headers.get('x-forwarded-host'); // original origin before load balancer
+            const forwardedHost = request.headers.get('x-forwarded-host');
+            const hostHeader = request.headers.get('host');
+            console.log('[Auth Callback Debug] URL:', request.url, '| Origin:', origin, '| Forwarded:', forwardedHost, '| Host:', hostHeader);
+
             // Prioritize standard Next.js logic for handling proxies, even in dev
             if (forwardedHost) {
                 return NextResponse.redirect(`https://${forwardedHost}${next}`);
