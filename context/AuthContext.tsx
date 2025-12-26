@@ -41,9 +41,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         const fetchRole = async (userId: string) => {
             try {
-                // Timeout after 1 second to prevent hanging
+                // Timeout after 3 seconds to prevent hanging (profiles table might be missing or blocked by RLS)
                 const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Fetch role timeout')), 10000)
+                    setTimeout(() => reject(new Error('Fetch role timeout')), 3000)
                 );
 
                 const fetchPromise = supabase
@@ -61,11 +61,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     console.warn('Profile not found, defaulting to reporter');
                     setRole('reporter');
                 }
-            } catch (err) {
-                console.error('Error fetching role:', err);
+            } catch (err: any) {
+                if (err.message === 'Fetch role timeout') {
+                    console.warn('Role fetch timed out, defaulting to reporter');
+                } else {
+                    console.error('Error fetching role:', err);
+                }
+
                 // Fail-safe: stop loading even if role fetch fails
-                // MAJOR FIX: Only fallback to 'reporter' if we don't have a role yet.
-                // If we already have a role (e.g. from previous session), don't overwrite it with 'reporter' just because a background refresh failed.
                 if (mounted) {
                     setRole(prev => prev || 'reporter');
                 }
