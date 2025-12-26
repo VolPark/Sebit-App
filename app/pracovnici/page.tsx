@@ -6,17 +6,20 @@ import { Menu, Transition } from '@headlessui/react'
 export default function PracovniciPage() {
   // Data state
   const [pracovnici, setPracovnici] = useState<any[]>([])
+  const [profiles, setProfiles] = useState<any[]>([]) // Add profiles state
   const [loading, setLoading] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
 
   // Form state for adding new workers
   const [jmeno, setJmeno] = useState('')
   const [hodinovaMzda, setHodinovaMzda] = useState('')
+  const [selectedUserId, setSelectedUserId] = useState<string>('') // Add selectedUserId state for form
 
   // State for inline editing
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editJmeno, setEditJmeno] = useState('')
   const [editHodinovaMzda, setEditHodinovaMzda] = useState('')
+  const [editUserId, setEditUserId] = useState<string>('') // Add editUserId state for editing
 
   // State for filtering
   const [showInactive, setShowInactive] = useState(false);
@@ -33,7 +36,14 @@ export default function PracovniciPage() {
       .eq('is_active', !showInactive)
       .order('jmeno')
 
+    // Fetch profiles for the dropdown
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, full_name, role')
+
     if (data) setPracovnici(data)
+    if (profilesData) setProfiles(profilesData)
+
     if (error) {
       console.error('Chyba při načítání pracovníků:', error)
       setStatusMessage('Chyba při načítání dat.')
@@ -79,12 +89,14 @@ export default function PracovniciPage() {
       .from('pracovnici')
       .insert({
         jmeno: jmeno,
-        hodinova_mzda: sazba
+        hodinova_mzda: sazba,
+        user_id: selectedUserId || null // Add user_id
       })
 
     if (!error) {
       setJmeno('')
       setHodinovaMzda('')
+      setSelectedUserId('') // Reset user selection
       setStatusMessage('Pracovník úspěšně přidán')
       fetchData()
     } else {
@@ -97,6 +109,7 @@ export default function PracovniciPage() {
     setEditingId(p.id)
     setEditJmeno(p.jmeno)
     setEditHodinovaMzda(String(p.hodinova_mzda || ''))
+    setEditUserId(p.user_id || '') // Set editUserId
   }
 
   function cancelEdit() {
@@ -108,7 +121,8 @@ export default function PracovniciPage() {
     setLoading(true)
     const { error } = await supabase.from('pracovnici').update({
       jmeno: editJmeno,
-      hodinova_mzda: parseFloat(editHodinovaMzda.replace(',', '.')) || 0
+      hodinova_mzda: parseFloat(editHodinovaMzda.replace(',', '.')) || 0,
+      user_id: editUserId || null // Update user_id
     }).eq('id', editingId)
 
     if (!error) {
@@ -218,6 +232,21 @@ export default function PracovniciPage() {
               onChange={e => setHodinovaMzda(e.target.value)}
             />
           </div>
+          <div className="md:col-span-1">
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Napárovat uživatele</label>
+            <select
+              className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
+              value={selectedUserId}
+              onChange={e => setSelectedUserId(e.target.value)}
+            >
+              <option value="">-- Žádný --</option>
+              {profiles.map(profile => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.full_name || profile.email || 'Uživatel bez jména'}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="md:col-span-1 flex justify-start md:justify-end w-full">
             <button type="button" onClick={pridatPracovnika} className="w-full md:w-auto inline-flex items-center justify-center bg-[#E30613] text-white rounded-full px-8 py-3 text-base shadow-sm hover:bg-[#C00000] transition">
               Uložit pracovníka
@@ -277,6 +306,7 @@ export default function PracovniciPage() {
             <tr>
               <th className="p-3">Jméno</th>
               <th className="p-3">Hodinová sazba</th>
+              <th className="p-3">Napárovaný uživatel</th>
               <th className="p-3 text-right">Akce</th>
             </tr>
           </thead>
@@ -297,6 +327,20 @@ export default function PracovniciPage() {
                     <td className="p-2">
                       <input type="number" className="border dark:border-slate-700 p-2 rounded w-24 bg-white dark:bg-slate-950 dark:text-white" value={editHodinovaMzda} onChange={e => setEditHodinovaMzda(e.target.value)} />
                     </td>
+                    <td className="p-2">
+                      <select
+                        className="border dark:border-slate-700 p-2 rounded w-full bg-white dark:bg-slate-950 dark:text-white"
+                        value={editUserId}
+                        onChange={e => setEditUserId(e.target.value)}
+                      >
+                        <option value="">-- Žádný --</option>
+                        {profiles.map(profile => (
+                          <option key={profile.id} value={profile.id}>
+                            {profile.full_name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                     <td className="p-2 text-right">
                       <button onClick={saveEdit} className="bg-[#E30613] text-white px-3 py-1 rounded-md mr-2 text-sm">Uložit změny</button>
                       <button onClick={cancelEdit} className="bg-gray-200 dark:bg-slate-700 px-3 py-1 rounded-md text-sm dark:text-white">Zrušit</button>
@@ -306,6 +350,9 @@ export default function PracovniciPage() {
                   <tr className={`hover:bg-gray-50 dark:hover:bg-slate-800 text-black dark:text-gray-100 ${!p.is_active ? 'bg-gray-50 dark:bg-slate-800/50 text-gray-400 dark:text-gray-500' : ''}`}>
                     <td className={`p-3 font-medium ${!p.is_active ? 'line-through' : ''}`}>{p.jmeno}</td>
                     <td className="p-3">{p.hodinova_mzda} Kč/h</td>
+                    <td className="p-3 text-sm text-gray-500">
+                      {profiles.find(prof => prof.id === p.user_id)?.full_name || '-'}
+                    </td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button

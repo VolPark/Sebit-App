@@ -58,8 +58,20 @@ export default function VykazyPage() {
     const { data: pData } = await supabase.from('pracovnici').select('*').eq('is_active', true)
     // Filter actions >= APP_START_DATE
     const { data: aData } = await supabase.from('akce').select('*').eq('is_completed', false).gte('datum', APP_START_DATE).order('datum', { ascending: false })
+    // 2. Worker Auto-Selection based on current User
+    const { data: { user } } = await supabase.auth.getUser()
+
     if (kData) setKlienti(kData)
-    if (pData) setPracovnici(pData)
+    if (pData) {
+      setPracovnici(pData)
+      if (user) {
+        // Find worker linked to current user
+        const linkedWorker = pData.find((p: any) => p.user_id === user.id)
+        if (linkedWorker) {
+          setSelectedPracovnik({ id: linkedWorker.id, name: linkedWorker.jmeno })
+        }
+      }
+    }
     if (aData) { setAllAkce(aData); setActionOptions(aData) } // inicialně zobrazíme všechny akce
 
     // 2. Načteme výkazy A ZÁROVEŇ data z propojených tabulek
