@@ -29,6 +29,9 @@ export default function UpdatePasswordPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        console.log('UpdatePasswordPage: Submit clicked');
+        // alert('Kliknuto na uložit');
+
         setError(null)
 
         if (password !== confirmPassword) {
@@ -42,51 +45,41 @@ export default function UpdatePasswordPage() {
         }
 
         if (!user && !authLoading) {
-            return (
-                <div className="flex flex-col items-center justify-center space-y-4">
-                    <div className="text-red-500 text-sm text-center">
-                        Čekám na přihlášení...
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => window.location.reload()}
-                        className="text-indigo-600 hover:text-indigo-500 text-sm underline"
-                    >
-                        Klikněte zde pro obnovení stránky
-                    </button>
-                    <div className="text-xs text-gray-400">
-                        (Hash: {typeof window !== 'undefined' ? (window.location.hash.length > 10 ? 'Present' : 'Missing') : 'Checking...'})
-                    </div>
-                </div>
-            )
-        }
-
-        if (authLoading) {
-            // Just wait
-            return
+            console.error('UpdatePasswordPage: User missing on submit!');
+            setError('Chybí přihlášení. Obnovte stránku.');
+            return;
         }
 
         setLoading(true)
 
         try {
-            const { error } = await supabase.auth.updateUser({
+            console.log('UpdatePasswordPage: Calling supabase.auth.updateUser');
+            // Explicitly verify the user token before updating
+            const { data: { session } } = await supabase.auth.getSession();
+            console.log('UpdatePasswordPage: Current session for update:', session);
+
+            const { error: updateError, data } = await supabase.auth.updateUser({
                 password: password
             })
+            console.log('UpdatePasswordPage: Result', updateError, data);
 
-            if (error) {
-                setError(error.message)
+            if (updateError) {
+                console.error('UpdatePasswordPage: Update failed', updateError);
+                setError(updateError.message)
+                alert('Chyba při ukládání: ' + updateError.message);
             } else {
-                // Password set successfully, verify session is active and redirect
-                const { data: { session } } = await supabase.auth.getSession();
+                console.log('UpdatePasswordPage: Success');
+
                 if (session) {
                     window.location.href = '/';
                 } else {
-                    // Fallback to login if somehow session is lost, but password was set
                     window.location.href = '/login?success=Heslo+nastaveno';
                 }
             }
         } catch (err: any) {
-            setError('Nastala chyba při ukládání hesla')
+            console.error('UpdatePasswordPage: Exception', err);
+            setError('Kritická chyba: ' + err.message)
+            alert('Kritická chyba: ' + err.message);
         } finally {
             setLoading(false)
         }
