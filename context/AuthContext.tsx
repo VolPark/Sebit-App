@@ -109,8 +109,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 const isLoginPage = window.location.pathname === '/login';
                 const isPasswordSetupPage = window.location.pathname.startsWith('/auth/update-password');
                 const isLogoutParam = window.location.search.includes('logout=true');
+                const isErrorParam = window.location.search.includes('error=');
 
-                if (!isLoginPage && !isPasswordSetupPage || (isLoginPage && !isLogoutParam)) {
+                if (!isLoginPage && !isPasswordSetupPage || (isLoginPage && !isLogoutParam && !isErrorParam)) {
                     console.log('Force logout redirect triggered. Path:', window.location.pathname, 'Params:', window.location.search);
                     setIsSigningOut(true);
                     // Force hard redirect to clear all client state if not already doing so
