@@ -25,7 +25,6 @@ export default function UpdatePasswordPage() {
 
             // Fallback: Check for hash presence immediately
             if (!user && window.location.hash.includes('access_token')) {
-                // ... (rest of the logic)
                 console.log('UpdatePasswordPage: Hash detected, executing IMMEDIATE manual recovery');
 
                 try {
@@ -55,7 +54,8 @@ export default function UpdatePasswordPage() {
                     console.error('UpdatePasswordPage: Error resolving hash', e);
                 }
             }
-        }, [supabase]);
+        }
+    }, [user, supabase]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
