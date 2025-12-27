@@ -11,6 +11,21 @@ export default function UpdatePasswordPage() {
     const [loading, setLoading] = useState(false)
     const [oauthLoading, setOauthLoading] = useState(false)
 
+    useEffect(() => {
+        // Fallback: If AuthContext didn't catch the value from hash, try to force it
+        if (!user && typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+            console.log('UpdatePasswordPage: Hash detected, forcing session check');
+            supabase.auth.getSession().then(({ data }) => {
+                if (data.session) {
+                    console.log('UpdatePasswordPage: Session recovered manually');
+                    // This might not automatically update AuthContext if the event doesn't fire,
+                    // but usually getSession recovers it.
+                    // If not, we might need to reload or rely on the fact that the token is now stored.
+                }
+            });
+        }
+    }, [user, supabase]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError(null)
@@ -26,8 +41,23 @@ export default function UpdatePasswordPage() {
         }
 
         if (!user && !authLoading) {
-            setError('Čekám na přihlášení... (pokud se nic neděje, zkuste stránku obnovit)')
-            return
+            return (
+                <div className="flex flex-col items-center justify-center space-y-4">
+                    <div className="text-red-500 text-sm text-center">
+                        Čekám na přihlášení...
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="text-indigo-600 hover:text-indigo-500 text-sm underline"
+                    >
+                        Klikněte zde pro obnovení stránky
+                    </button>
+                    <div className="text-xs text-gray-400">
+                        (Hash: {typeof window !== 'undefined' ? (window.location.hash.length > 10 ? 'Present' : 'Missing') : 'Checking...'})
+                    </div>
+                </div>
+            )
         }
 
         if (authLoading) {
