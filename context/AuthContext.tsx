@@ -107,7 +107,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (event === 'SIGNED_OUT') {
                 // Prevent infinite loop and overlay on login page
                 const isLoginPage = window.location.pathname === '/login';
-                const isPasswordSetupPage = window.location.pathname === '/auth/update-password';
+                const isPasswordSetupPage = window.location.pathname.startsWith('/auth/update-password');
                 const isLogoutParam = window.location.search.includes('logout=true');
 
                 if (!isLoginPage && !isPasswordSetupPage || (isLoginPage && !isLogoutParam)) {
