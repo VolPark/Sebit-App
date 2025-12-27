@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 
 export default function UpdatePasswordPage() {
-    const { user, isLoading: authLoading, supabase } = useAuth()
+    const { user: ctxUser, isLoading: authLoading, supabase } = useAuth()
+    const [forceUser, setForceUser] = useState<any>(null)
+    const user = ctxUser || forceUser; // Prefer context, fallback to forced
+
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [error, setError] = useState<string | null>(null)
@@ -17,10 +20,8 @@ export default function UpdatePasswordPage() {
             console.log('UpdatePasswordPage: Hash detected, forcing session check');
             supabase.auth.getSession().then(({ data }) => {
                 if (data.session) {
-                    console.log('UpdatePasswordPage: Session recovered manually');
-                    // This might not automatically update AuthContext if the event doesn't fire,
-                    // but usually getSession recovers it.
-                    // If not, we might need to reload or rely on the fact that the token is now stored.
+                    console.log('UpdatePasswordPage: Session recovered manually', data.session.user.email);
+                    setForceUser(data.session.user);
                 }
             });
         }
