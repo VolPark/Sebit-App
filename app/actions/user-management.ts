@@ -113,7 +113,9 @@ export async function updateUserRole(userId: string, newRole: string) {
 export async function inviteUser(email: string, role: string) {
     const supabase = createAdminClient()
 
-    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email)
+    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback?next=/auth/update-password`
+    })
 
     if (error) {
         console.error('Error inviting user:', error)

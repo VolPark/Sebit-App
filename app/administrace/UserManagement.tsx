@@ -6,6 +6,7 @@ import { UserData, deleteUser, inviteUser, updateUserRole, updateUserName } from
 export default function UserManagement({ initialUsers }: { initialUsers: UserData[] }) {
     const [users, setUsers] = useState<UserData[]>(initialUsers);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     // Invite Form State
@@ -24,8 +25,6 @@ export default function UserManagement({ initialUsers }: { initialUsers: UserDat
             setIsLoading(false);
         }
     };
-
-
 
     const handleNameUpdate = async (userId: string, newName: string) => {
         const originalName = users.find(u => u.id === userId)?.name;
@@ -63,19 +62,21 @@ export default function UserManagement({ initialUsers }: { initialUsers: UserDat
         try {
             setIsLoading(true);
             await inviteUser(inviteEmail, inviteRole);
-            alert(`Pozvánka odeslána na ${inviteEmail}`);
             setIsInviteModalOpen(false);
-            setInviteEmail('');
-            setInviteRole('member');
-            // Refresh logic would ideally re-fetch users or we can optimistically add if we knew the ID
-            // For now, we rely on page reload or simple feedback
-            window.location.reload();
+            setShowSuccessModal(true);
         } catch (error: any) {
             console.error(error);
             alert('Chyba při odesílání pozvánky: ' + error.message);
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const handleSuccessClose = () => {
+        setShowSuccessModal(false);
+        setInviteEmail('');
+        setInviteRole('member');
+        window.location.reload();
     };
 
     const roles = ['owner', 'admin', 'office', 'reporter'];
@@ -215,76 +216,99 @@ export default function UserManagement({ initialUsers }: { initialUsers: UserDat
 
             {/* Invite Modal */}
             {isInviteModalOpen && (
-                <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setIsInviteModalOpen(false)}></div>
-
-                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-                        <div className="inline-block align-bottom bg-white dark:bg-[#1f2937] rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                            <form onSubmit={handleInvite}>
-                                <div className="bg-white dark:bg-[#1f2937] px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white" id="modal-title">
-                                                Pozvat nového uživatele
-                                            </h3>
-                                            <div className="mt-4 space-y-4">
-                                                <div>
-                                                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                        Email
-                                                    </label>
-                                                    <input
-                                                        type="email"
-                                                        name="email"
-                                                        id="email"
-                                                        required
-                                                        value={inviteEmail}
-                                                        onChange={(e) => setInviteEmail(e.target.value)}
-                                                        className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#E30613] focus:border-[#E30613] bg-white dark:bg-gray-700 text-gray-900 dark:text-white sm:text-sm"
-                                                        placeholder="email@example.com"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                        Role
-                                                    </label>
-                                                    <select
-                                                        id="role"
-                                                        name="role"
-                                                        value={inviteRole}
-                                                        onChange={(e) => setInviteRole(e.target.value)}
-                                                        className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#E30613] focus:border-[#E30613] bg-white dark:bg-gray-700 text-gray-900 dark:text-white sm:text-sm"
-                                                    >
-                                                        {roles.map(r => (
-                                                            <option key={r} value={r}>{r}</option>
-                                                        ))}
-                                                    </select>
-                                                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                                        {roleDescriptions[inviteRole]}
-                                                    </p>
-                                                </div>
-                                            </div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-500/75 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-[#1f2937] rounded-lg shadow-xl max-w-lg w-full overflow-hidden transform transition-all">
+                        <form onSubmit={handleInvite}>
+                            <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4" id="modal-title">
+                                    Pozvat nového uživatele
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Email
+                                        </label>
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            id="email"
+                                            required
+                                            value={inviteEmail}
+                                            onChange={(e) => setInviteEmail(e.target.value)}
+                                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#E30613] focus:border-[#E30613] bg-white dark:bg-gray-700 text-gray-900 dark:text-white sm:text-sm"
+                                            placeholder="email@example.com"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Role
+                                        </label>
+                                        <select
+                                            id="role"
+                                            name="role"
+                                            value={inviteRole}
+                                            onChange={(e) => setInviteRole(e.target.value)}
+                                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#E30613] focus:border-[#E30613] bg-white dark:bg-gray-700 text-gray-900 dark:text-white sm:text-sm"
+                                        >
+                                            {roles.map(r => (
+                                                <option key={r} value={r}>{r}</option>
+                                            ))}
+                                        </select>
+                                        <div className="mt-3 bg-red-50 dark:bg-red-900/20 p-3 rounded-md border border-red-100 dark:border-red-800 flex gap-3 items-start">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-[#E30613] dark:text-red-400 flex-shrink-0 mt-0.5">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                                            </svg>
+                                            <p className="text-sm text-[#E30613] dark:text-red-300">
+                                                {roleDescriptions[inviteRole]}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="submit"
-                                        disabled={isLoading}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#E30613] text-base font-medium text-white hover:bg-[#c90511] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E30613] sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-                                    >
-                                        {isLoading ? 'Odesílání...' : 'Odeslat pozvánku'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                        onClick={() => setIsInviteModalOpen(false)}
-                                    >
-                                        Zrušit
-                                    </button>
-                                </div>
-                            </form>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200 dark:border-gray-700">
+                                <button
+                                    type="submit"
+                                    disabled={isLoading}
+                                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#E30613] text-base font-medium text-white hover:bg-[#c90511] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E30613] sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                                >
+                                    {isLoading ? 'Odesílání...' : 'Odeslat pozvánku'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                                    onClick={() => setIsInviteModalOpen(false)}
+                                >
+                                    Zrušit
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Success Modal */}
+            {showSuccessModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-500/75 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-[#1f2937] rounded-lg shadow-xl max-w-sm w-full overflow-hidden transform transition-all animate-in fade-in zoom-in duration-200">
+                        <div className="p-6 text-center">
+                            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900 mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6 text-green-600 dark:text-green-400">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                            </div>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-2">
+                                Pozvánka odeslána
+                            </h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                                Pozvánka byla úspěšně odeslána na email <span className="font-semibold text-gray-900 dark:text-white">{inviteEmail}</span>.
+                            </p>
+                            <button
+                                type="button"
+                                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#E30613] text-base font-medium text-white hover:bg-[#c90511] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E30613] sm:text-sm"
+                                onClick={handleSuccessClose}
+                            >
+                                Skvělé, díky
+                            </button>
                         </div>
                     </div>
                 </div>
