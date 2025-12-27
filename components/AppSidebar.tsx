@@ -53,6 +53,7 @@ const NAVIGATION: NavGroup[] = [
     {
         title: 'Administrace',
         items: [
+            { name: 'Uživatelé', href: '/administrace', icon: Icons.UserGroup },
             { name: 'Akce', href: '/akce', icon: Icons.Action },
             { name: 'Klienti', href: '/klienti', icon: Icons.Users },
             { name: 'Pracovníci', href: '/pracovnici', icon: Icons.UserGroup },
@@ -98,6 +99,11 @@ export default function AppSidebar() {
             // Reporter sees ONLY 'Výkazy'
             items = items.filter(item => item.name === 'Výkazy');
             if (items.length === 0) return null;
+        }
+
+        // Only owner and admin can see 'Uživatelé'
+        if (role !== 'owner' && role !== 'admin') {
+            items = items.filter(item => item.name !== 'Uživatelé');
         }
 
         if (items.length === 0) return null;
