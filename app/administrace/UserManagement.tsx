@@ -13,7 +13,7 @@ export default function UserManagement({ initialUsers }: { initialUsers: UserDat
 
     // Invite Form State
     const [inviteEmail, setInviteEmail] = useState('');
-    const [inviteRole, setInviteRole] = useState('member');
+    const [inviteRole, setInviteRole] = useState('reporter');
 
     const handleRoleChange = async (userId: string, newRole: string) => {
         try {
@@ -84,7 +84,7 @@ export default function UserManagement({ initialUsers }: { initialUsers: UserDat
     const handleSuccessClose = () => {
         setShowSuccessModal(false);
         setInviteEmail('');
-        setInviteRole('member');
+        setInviteRole('reporter');
         window.location.reload();
     };
 
