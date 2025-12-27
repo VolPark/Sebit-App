@@ -111,6 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 const isLogoutParam = window.location.search.includes('logout=true');
 
                 if (!isLoginPage && !isPasswordSetupPage || (isLoginPage && !isLogoutParam)) {
+                    console.log('Force logout redirect triggered. Path:', window.location.pathname, 'Params:', window.location.search);
                     setIsSigningOut(true);
                     // Force hard redirect to clear all client state if not already doing so
                     window.location.href = '/login?logout=true';
