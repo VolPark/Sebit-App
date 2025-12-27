@@ -15,41 +15,38 @@ export default function UpdatePasswordPage() {
     const [oauthLoading, setOauthLoading] = useState(false)
 
     useEffect(() => {
-        // Fallback: If AuthContext didn't catch the value from hash, try to force it
-        if (!user && typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
-            console.log('UpdatePasswordPage: Hash detected, initiating manual recovery');
+        // Fallback: Check for hash presence immediately
+        if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+            console.log('UpdatePasswordPage: Hash detected, executing IMMEDIATE manual recovery');
 
-            // Try standard getSession first
-            supabase.auth.getSession().then(({ data }) => {
-                if (data.session) {
-                    console.log('UpdatePasswordPage: Session recovered via getSession', data.session.user.email);
-                    setForceUser(data.session.user);
+            try {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1)); // remove #
+                const accessToken = hashParams.get('access_token');
+                const refreshToken = hashParams.get('refresh_token');
+
+                if (accessToken && refreshToken) {
+                    console.log('UpdatePasswordPage: Tokens parsed from hash, forcing setSession');
+
+                    supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken
+                    }).then(({ data, error }) => {
+                        if (error) {
+                            console.error('UpdatePasswordPage: Manual setSession failed', error);
+                        }
+                        if (data.session) {
+                            console.log('UpdatePasswordPage: Manual setSession success', data.session.user.email);
+                            setForceUser(data.session.user);
+                        }
+                    });
                 } else {
-                    console.warn('UpdatePasswordPage: getSession failed, attempting manual hash parsing');
-                    // Manual parsing as last resort
-                    const hashParams = new URLSearchParams(window.location.hash.substring(1)); // remove #
-                    const accessToken = hashParams.get('access_token');
-                    const refreshToken = hashParams.get('refresh_token');
-
-                    if (accessToken && refreshToken) {
-                        console.log('UpdatePasswordPage: Tokens found in hash, calling setSession');
-                        supabase.auth.setSession({
-                            access_token: accessToken,
-                            refresh_token: refreshToken
-                        }).then(({ data, error }) => {
-                            if (error) {
-                                console.error('UpdatePasswordPage: Manual setSession failed', error);
-                            }
-                            if (data.session) {
-                                console.log('UpdatePasswordPage: Manual setSession success', data.session.user.email);
-                                setForceUser(data.session.user);
-                            }
-                        });
-                    }
+                    console.warn('UpdatePasswordPage: Hash present but tokens missing');
                 }
-            });
+            } catch (e) {
+                console.error('UpdatePasswordPage: Error resolving hash', e);
+            }
         }
-    }, [user, supabase]);
+    }, [supabase]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
