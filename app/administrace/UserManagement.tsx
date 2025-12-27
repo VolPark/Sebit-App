@@ -7,6 +7,8 @@ export default function UserManagement({ initialUsers }: { initialUsers: UserDat
     const [users, setUsers] = useState<UserData[]>(initialUsers);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [userToDelete, setUserToDelete] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     // Invite Form State
@@ -42,13 +44,20 @@ export default function UserManagement({ initialUsers }: { initialUsers: UserDat
         }
     };
 
-    const handleDelete = async (userId: string) => {
-        if (!confirm('Opravdu chcete odstranit tohoto uživatele?')) return;
+    const confirmDelete = (userId: string) => {
+        setUserToDelete(userId);
+        setDeleteModalOpen(true);
+    };
+
+    const handleDelete = async () => {
+        if (!userToDelete) return;
 
         try {
             setIsLoading(true);
-            await deleteUser(userId);
-            setUsers(users.filter(u => u.id !== userId));
+            await deleteUser(userToDelete);
+            setUsers(users.filter(u => u.id !== userToDelete));
+            setDeleteModalOpen(false);
+            setUserToDelete(null);
         } catch (error) {
             console.error(error);
             alert('Nepodařilo se odstranit uživatele.');
@@ -186,7 +195,7 @@ export default function UserManagement({ initialUsers }: { initialUsers: UserDat
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button
-                                            onClick={() => handleDelete(user.id)}
+                                            onClick={() => confirmDelete(user.id)}
                                             className="p-2 text-gray-400 hover:text-red-600 transition"
                                             title="Odstranit"
                                         >
@@ -309,6 +318,44 @@ export default function UserManagement({ initialUsers }: { initialUsers: UserDat
                             >
                                 Skvělé, díky
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-500/75 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-[#1f2937] rounded-lg shadow-xl max-w-sm w-full overflow-hidden transform transition-all animate-in fade-in zoom-in duration-200">
+                        <div className="p-6 text-center">
+                            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6 text-red-600 dark:text-red-400">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                </svg>
+                            </div>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-2">
+                                Opravdu odstranit?
+                            </h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                                Opravdu chcete odstranit tohoto uživatele? Tato akce je nevratná.
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    className="w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm"
+                                    onClick={() => setDeleteModalOpen(false)}
+                                >
+                                    Zrušit
+                                </button>
+                                <button
+                                    type="button"
+                                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm"
+                                    onClick={handleDelete}
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? 'Mažu...' : 'Odstranit'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
