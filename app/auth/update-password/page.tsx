@@ -15,38 +15,47 @@ export default function UpdatePasswordPage() {
     const [oauthLoading, setOauthLoading] = useState(false)
 
     useEffect(() => {
-        // Fallback: Check for hash presence immediately
-        if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
-            console.log('UpdatePasswordPage: Hash detected, executing IMMEDIATE manual recovery');
-
-            try {
-                const hashParams = new URLSearchParams(window.location.hash.substring(1)); // remove #
-                const accessToken = hashParams.get('access_token');
-                const refreshToken = hashParams.get('refresh_token');
-
-                if (accessToken && refreshToken) {
-                    console.log('UpdatePasswordPage: Tokens parsed from hash, forcing setSession');
-
-                    supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken
-                    }).then(({ data, error }) => {
-                        if (error) {
-                            console.error('UpdatePasswordPage: Manual setSession failed', error);
-                        }
-                        if (data.session) {
-                            console.log('UpdatePasswordPage: Manual setSession success', data.session.user.email);
-                            setForceUser(data.session.user);
-                        }
-                    });
-                } else {
-                    console.warn('UpdatePasswordPage: Hash present but tokens missing');
-                }
-            } catch (e) {
-                console.error('UpdatePasswordPage: Error resolving hash', e);
+        if (typeof window !== 'undefined') {
+            // Check for error in hash (e.g. link expired)
+            if (window.location.hash.includes('error=access_denied') || window.location.hash.includes('error_code=otp_expired')) {
+                console.error('UpdatePasswordPage: Invite link expired or invalid');
+                setError('Tento invitační odkaz již vypršel nebo je neplatný. Požádejte administrátora o nové pozvání.');
+                return;
             }
-        }
-    }, [supabase]);
+
+            // Fallback: Check for hash presence immediately
+            if (!user && window.location.hash.includes('access_token')) {
+                // ... (rest of the logic)
+                console.log('UpdatePasswordPage: Hash detected, executing IMMEDIATE manual recovery');
+
+                try {
+                    const hashParams = new URLSearchParams(window.location.hash.substring(1)); // remove #
+                    const accessToken = hashParams.get('access_token');
+                    const refreshToken = hashParams.get('refresh_token');
+
+                    if (accessToken && refreshToken) {
+                        console.log('UpdatePasswordPage: Tokens parsed from hash, forcing setSession');
+
+                        supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken
+                        }).then(({ data, error }) => {
+                            if (error) {
+                                console.error('UpdatePasswordPage: Manual setSession failed', error);
+                            }
+                            if (data.session) {
+                                console.log('UpdatePasswordPage: Manual setSession success', data.session.user.email);
+                                setForceUser(data.session.user);
+                            }
+                        });
+                    } else {
+                        console.warn('UpdatePasswordPage: Hash present but tokens missing');
+                    }
+                } catch (e) {
+                    console.error('UpdatePasswordPage: Error resolving hash', e);
+                }
+            }
+        }, [supabase]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
