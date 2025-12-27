@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { updatePassword } from '@/app/actions/auth'
 import { createClient } from '@/utils/supabase/client'
 
 export default function UpdatePasswordPage() {
@@ -29,9 +28,21 @@ export default function UpdatePasswordPage() {
         setLoading(true)
 
         try {
-            const result = await updatePassword(password)
-            if (result?.error) {
-                setError(result.error)
+            const { error } = await supabase.auth.updateUser({
+                password: password
+            })
+
+            if (error) {
+                setError(error.message)
+            } else {
+                // Password set successfully, verify session is active and redirect
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    window.location.href = '/';
+                } else {
+                    // Fallback to login if somehow session is lost, but password was set
+                    window.location.href = '/login?success=Heslo+nastaveno';
+                }
             }
         } catch (err: any) {
             setError('Nastala chyba při ukládání hesla')
