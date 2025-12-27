@@ -2,35 +2,18 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import { useAuth } from '@/context/AuthContext'
 
 export default function UpdatePasswordPage() {
+    const { user, isLoading: authLoading } = useAuth()
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [oauthLoading, setOauthLoading] = useState(false)
-    const [sessionReady, setSessionReady] = useState(false)
 
+    // We still need a client for the operations, but we rely on AuthContext for state
     const supabase = useMemo(() => createClient(), [])
-
-    useEffect(() => {
-        // Check if we have a session (either from local storage or URL hash)
-        const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session) {
-                setSessionReady(true)
-            } else {
-                // Listen for auth changes (Implicit flow handling)
-                const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-                    if (event === 'SIGNED_IN' && session) {
-                        setSessionReady(true)
-                    }
-                })
-                return () => subscription.unsubscribe()
-            }
-        }
-        checkSession()
-    }, [supabase])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -46,11 +29,14 @@ export default function UpdatePasswordPage() {
             return
         }
 
-        if (!sessionReady) {
-            setError('Čekám na přihlášení... (zkuste stránku obnovit)')
-            // Try one last check
-            const { data: { session } } = await supabase.auth.getSession()
-            if (!session) return
+        if (!user && !authLoading) {
+            setError('Čekám na přihlášení... (pokud se nic neděje, zkuste stránku obnovit)')
+            return
+        }
+
+        if (authLoading) {
+            // Just wait
+            return
         }
 
         setLoading(true)
