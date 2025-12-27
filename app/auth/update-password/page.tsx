@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 
 export default function UpdatePasswordPage() {
@@ -9,7 +9,28 @@ export default function UpdatePasswordPage() {
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [oauthLoading, setOauthLoading] = useState(false)
-    const supabase = createClient()
+    const [sessionReady, setSessionReady] = useState(false)
+
+    const supabase = useMemo(() => createClient(), [])
+
+    useEffect(() => {
+        // Check if we have a session (either from local storage or URL hash)
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session) {
+                setSessionReady(true)
+            } else {
+                // Listen for auth changes (Implicit flow handling)
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+                    if (event === 'SIGNED_IN' && session) {
+                        setSessionReady(true)
+                    }
+                })
+                return () => subscription.unsubscribe()
+            }
+        }
+        checkSession()
+    }, [supabase])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -23,6 +44,13 @@ export default function UpdatePasswordPage() {
         if (password.length < 6) {
             setError('Heslo musí mít alespoň 6 znaků')
             return
+        }
+
+        if (!sessionReady) {
+            setError('Čekám na přihlášení... (zkuste stránku obnovit)')
+            // Try one last check
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session) return
         }
 
         setLoading(true)
