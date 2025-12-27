@@ -107,9 +107,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (event === 'SIGNED_OUT') {
                 // Prevent infinite loop and overlay on login page
                 const isLoginPage = window.location.pathname === '/login';
+                const isPasswordSetupPage = window.location.pathname === '/auth/update-password';
                 const isLogoutParam = window.location.search.includes('logout=true');
 
-                if (!isLoginPage || (isLoginPage && !isLogoutParam)) {
+                if (!isLoginPage && !isPasswordSetupPage || (isLoginPage && !isLogoutParam)) {
                     setIsSigningOut(true);
                     // Force hard redirect to clear all client state if not already doing so
                     window.location.href = '/login?logout=true';
