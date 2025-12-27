@@ -132,7 +132,6 @@ function LoginForm() {
                     <p className="text-gray-400 text-sm">
                         {mode === 'signin' ? 'Přihlaste se pro přístup do aplikace' : 'Zaregistrujte se pro přístup'}
                     </p>
-                    <p className="text-xs text-gray-600 mt-2">v1.1</p>
                 </div>
 
                 {error && (
