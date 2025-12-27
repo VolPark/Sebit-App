@@ -1,19 +1,15 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
-import { createClient } from '@/utils/supabase/client'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 
 export default function UpdatePasswordPage() {
-    const { user, isLoading: authLoading } = useAuth()
+    const { user, isLoading: authLoading, supabase } = useAuth()
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [oauthLoading, setOauthLoading] = useState(false)
-
-    // We still need a client for the operations, but we rely on AuthContext for state
-    const supabase = useMemo(() => createClient(), [])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()

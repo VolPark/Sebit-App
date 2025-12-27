@@ -14,6 +14,7 @@ interface AuthContextType {
     isLoading: boolean;
     isSigningOut: boolean;
     signOut: () => Promise<void>;
+    supabase: any; // Using 'any' briefly to avoid circular type dependency or complex import, ideally TypedSupabaseClient
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -23,6 +24,7 @@ const AuthContext = createContext<AuthContextType>({
     isLoading: true,
     isSigningOut: false,
     signOut: async () => { },
+    supabase: {} as any,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -154,7 +156,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, role, userName, isLoading, isSigningOut, signOut }}>
+        <AuthContext.Provider value={{ user, role, userName, isLoading, isSigningOut, signOut, supabase }}>
             {children}
         </AuthContext.Provider>
     );
