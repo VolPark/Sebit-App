@@ -21,6 +21,11 @@ export default function PracovniciPage() {
   const [editHodinovaMzda, setEditHodinovaMzda] = useState('')
   const [editUserId, setEditUserId] = useState<string>('') // Add editUserId state for editing
 
+  // Divisions State
+  const [divisions, setDivisions] = useState<any[]>([])
+  const [selectedDivisions, setSelectedDivisions] = useState<number[]>([])
+  const [editSelectedDivisions, setEditSelectedDivisions] = useState<number[]>([])
+
   // State for filtering
   const [showInactive, setShowInactive] = useState(false);
 
@@ -41,8 +46,29 @@ export default function PracovniciPage() {
       .from('profiles')
       .select('id, full_name, role')
 
-    if (data) setPracovnici(data)
+    // Fetch divisions
+    const { data: divisionsData } = await supabase
+      .from('divisions')
+      .select('id, nazev')
+      .order('id')
+
+    // Fetch worker_divisions to link them
+    const { data: workerDivisionsData } = await supabase
+      .from('worker_divisions')
+      .select('worker_id, division_id')
+
+    if (data) {
+      // Merge divisions into workers for easier UI handling
+      const enrichedWorkers = data.map(worker => ({
+        ...worker,
+        divisions: workerDivisionsData
+          ? workerDivisionsData.filter((wd: any) => wd.worker_id === worker.id).map((wd: any) => wd.division_id)
+          : []
+      }))
+      setPracovnici(enrichedWorkers)
+    }
     if (profilesData) setProfiles(profilesData)
+    if (divisionsData) setDivisions(divisionsData)
 
     if (error) {
       console.error('Chyba při načítání pracovníků:', error)
@@ -85,18 +111,34 @@ export default function PracovniciPage() {
       return
     }
 
-    const { error } = await supabase
+    const { data: insertedWorker, error } = await supabase
       .from('pracovnici')
       .insert({
         jmeno: jmeno,
         hodinova_mzda: sazba,
         user_id: selectedUserId || null // Add user_id
       })
+      .select()
+      .single()
 
-    if (!error) {
+    if (!error && insertedWorker) {
+      // Insert links to divisions
+      if (selectedDivisions.length > 0) {
+        const links = selectedDivisions.map(divId => ({
+          worker_id: insertedWorker.id,
+          division_id: divId
+        }))
+        const { error: divError } = await supabase
+          .from('worker_divisions')
+          .insert(links)
+
+        if (divError) console.error('Error linking divisions:', divError)
+      }
+
       setJmeno('')
       setHodinovaMzda('')
       setSelectedUserId('') // Reset user selection
+      setSelectedDivisions([]) // Reset divisions
       setStatusMessage('Pracovník úspěšně přidán')
       fetchData()
     } else {
@@ -110,6 +152,7 @@ export default function PracovniciPage() {
     setEditJmeno(p.jmeno)
     setEditHodinovaMzda(String(p.hodinova_mzda || ''))
     setEditUserId(p.user_id || '') // Set editUserId
+    setEditSelectedDivisions(p.divisions || [])
   }
 
   function cancelEdit() {
@@ -126,6 +169,19 @@ export default function PracovniciPage() {
     }).eq('id', editingId)
 
     if (!error) {
+      // Sync divisions
+      // 1. Delete all existing links for this worker
+      await supabase.from('worker_divisions').delete().eq('worker_id', editingId)
+
+      // 2. Insert new links
+      if (editSelectedDivisions.length > 0) {
+        const links = editSelectedDivisions.map(divId => ({
+          worker_id: editingId,
+          division_id: divId
+        }))
+        await supabase.from('worker_divisions').insert(links)
+      }
+
       setStatusMessage('Pracovník upraven')
       cancelEdit()
       fetchData()
@@ -247,7 +303,28 @@ export default function PracovniciPage() {
               ))}
             </select>
           </div>
-          <div className="md:col-span-1 flex justify-start md:justify-end w-full">
+
+          <div className="md:col-span-3">
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Divize</label>
+            <div className="flex flex-wrap gap-4">
+              {divisions.map(div => (
+                <label key={div.id} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedDivisions.includes(div.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedDivisions([...selectedDivisions, div.id])
+                      else setSelectedDivisions(selectedDivisions.filter(id => id !== div.id))
+                    }}
+                    className="rounded border-gray-300 text-[#E30613] focus:ring-[#E30613]"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">{div.nazev}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="md:col-span-3 flex justify-end w-full mt-4">
             <button type="button" onClick={pridatPracovnika} className="w-full md:w-auto inline-flex items-center justify-center bg-[#E30613] text-white rounded-full px-8 py-3 text-base shadow-sm hover:bg-[#C00000] transition">
               Uložit pracovníka
             </button>
@@ -307,6 +384,7 @@ export default function PracovniciPage() {
               <th className="p-3">Jméno</th>
               <th className="p-3">Hodinová sazba</th>
               <th className="p-3">Napárovaný uživatel</th>
+              <th className="p-3">Divize</th>
               <th className="p-3 text-right">Akce</th>
             </tr>
           </thead>
@@ -341,6 +419,24 @@ export default function PracovniciPage() {
                         ))}
                       </select>
                     </td>
+                    <td className="p-2">
+                      <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
+                        {divisions.map(div => (
+                          <label key={div.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                            <input
+                              type="checkbox"
+                              checked={editSelectedDivisions.includes(div.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setEditSelectedDivisions([...editSelectedDivisions, div.id])
+                                else setEditSelectedDivisions(editSelectedDivisions.filter(id => id !== div.id))
+                              }}
+                              className="rounded border-gray-300 text-[#E30613] focus:ring-[#E30613] h-4 w-4"
+                            />
+                            <span className="text-gray-900 dark:text-white">{div.nazev}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </td>
                     <td className="p-2 text-right">
                       <button onClick={saveEdit} className="bg-[#E30613] text-white px-3 py-1 rounded-md mr-2 text-sm">Uložit změny</button>
                       <button onClick={cancelEdit} className="bg-gray-200 dark:bg-slate-700 px-3 py-1 rounded-md text-sm dark:text-white">Zrušit</button>
@@ -352,6 +448,18 @@ export default function PracovniciPage() {
                     <td className="p-3">{p.hodinova_mzda} Kč/h</td>
                     <td className="p-3 text-sm text-gray-500">
                       {profiles.find(prof => prof.id === p.user_id)?.full_name || '-'}
+                    </td>
+                    <td className="p-3 text-sm">
+                      <div className="flex flex-wrap gap-1">
+                        {p.divisions?.map((divId: number) => {
+                          const div = divisions.find(d => d.id === divId)
+                          return div ? (
+                            <span key={divId} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                              {div.nazev}
+                            </span>
+                          ) : null
+                        })}
+                      </div>
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-2">

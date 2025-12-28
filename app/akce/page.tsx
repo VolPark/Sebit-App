@@ -9,6 +9,7 @@ import { APP_START_DATE } from '@/lib/config'
 export default function AkcePage() {
   const [akce, setAkce] = useState<any[]>([])
   const [klienti, setKlienti] = useState<any[]>([])
+  const [divisions, setDivisions] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -39,6 +40,7 @@ export default function AkcePage() {
     return today < APP_START_DATE ? APP_START_DATE : today;
   })
   const [selectedKlient, setSelectedKlient] = useState<{ id: string | number, name: string } | null>(null)
+  const [selectedDivisionId, setSelectedDivisionId] = useState<number | null>(null)
   const [showNewClientForm, setShowNewClientForm] = useState(false)
   const [newClientName, setNewClientName] = useState('')
   const [cenaKlient, setCenaKlient] = useState('')
@@ -64,6 +66,10 @@ export default function AkcePage() {
           aValue = a.klienti?.nazev || ''
           bValue = b.klienti?.nazev || ''
         }
+        if (sortConfig.key === 'division') {
+          aValue = a.divisions?.nazev || ''
+          bValue = b.divisions?.nazev || ''
+        }
         if (aValue < bValue) {
           return sortConfig.direction === 'asc' ? -1 : 1
         }
@@ -88,12 +94,14 @@ export default function AkcePage() {
 
   async function fetchAll() {
     setLoading(true)
-    const [kResp, aResp] = await Promise.all([
+    const [kResp, aResp, dResp] = await Promise.all([
       supabase.from('klienti').select('*').order('nazev'),
-      supabase.from('akce').select('*, klienti(nazev)').eq('is_completed', showCompleted).order('datum', { ascending: false })
+      supabase.from('akce').select('*, klienti(nazev), divisions(nazev)').eq('is_completed', showCompleted).order('datum', { ascending: false }),
+      supabase.from('divisions').select('id, nazev').order('id')
     ])
     if (kResp.data) setKlienti(kResp.data)
     if (aResp.data) setAkce(aResp.data)
+    if (dResp.data) setDivisions(dResp.data)
     setLoading(false)
   }
 
@@ -101,6 +109,7 @@ export default function AkcePage() {
     setNazev('')
     setDatum(new Date().toISOString().split('T')[0])
     setSelectedKlient(null)
+    setSelectedDivisionId(null)
     setCenaKlient('')
     setMaterialKlient('')
     setMaterialMy('')
@@ -118,6 +127,7 @@ export default function AkcePage() {
     } else {
       setSelectedKlient(null)
     }
+    setSelectedDivisionId(a.division_id || null)
     setCenaKlient(String(a.cena_klient || ''))
     setMaterialKlient(String(a.material_klient || ''))
     setMaterialMy(String(a.material_my || ''))
@@ -167,6 +177,7 @@ export default function AkcePage() {
       nazev,
       datum,
       klient_id: finalKlientId,
+      division_id: selectedDivisionId,
       cena_klient: parseFloat(cenaKlient || '0') || 0,
       material_klient: parseFloat(materialKlient || '0') || 0,
       material_my: parseFloat(materialMy || '0') || 0,
@@ -281,8 +292,22 @@ export default function AkcePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Datum</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Datum zahájení</label>
             <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" type="date" value={datum} onChange={e => setDatum(e.target.value)} />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Divize</label>
+            <select
+              value={selectedDivisionId || ''}
+              onChange={e => setSelectedDivisionId(Number(e.target.value) || null)}
+              className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
+            >
+              <option value="">-- Vyberte divizi --</option>
+              {divisions.map(d => (
+                <option key={d.id} value={d.id}>{d.nazev}</option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -360,7 +385,14 @@ export default function AkcePage() {
                 <div className={`font-medium dark:text-white ${a.is_completed ? 'line-through' : ''}`}>{a.nazev}</div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">{formatDate(a.datum)}</div>
               </div>
-              <div className="text-sm text-gray-700 dark:text-gray-300">Klient: {a.klienti?.nazev || '—'}</div>
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="mr-3">Klient: {a.klienti?.nazev || '—'}</span>
+                {a.divisions && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                    {a.divisions.nazev}
+                  </span>
+                )}
+              </div>
               <div className="mt-3 text-sm space-y-1 dark:text-gray-300">
                 <div><span className="font-medium">Cena:</span> {currency(Number(a.cena_klient || 0))}</div>
                 <div><span className="font-medium">Materiál (klient):</span> {currency(Number(a.material_klient || 0))}</div>
@@ -430,6 +462,9 @@ export default function AkcePage() {
                 <th className="p-3 cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('klient')}>
                   <div className="flex items-center gap-1">Klient {sortConfig?.key === 'klient' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                 </th>
+                <th className="p-3 cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('division')}>
+                  <div className="flex items-center gap-1">Divize {sortConfig?.key === 'division' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                </th>
                 <th className="p-3 text-right cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('cena_klient')}>
                   <div className="flex items-center justify-end gap-1">Částka klient {sortConfig?.key === 'cena_klient' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                 </th>
@@ -451,6 +486,13 @@ export default function AkcePage() {
                   <td className={`p-3 font-medium ${a.is_completed ? 'line-through' : ''}`}>{a.nazev}</td>
                   <td className="p-3">{formatDate(a.datum)}</td>
                   <td className="p-3">{a.klienti?.nazev || '—'}</td>
+                  <td className="p-3">
+                    {a.divisions && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        {a.divisions.nazev}
+                      </span>
+                    )}
+                  </td>
                   <td className="p-3 text-right">{currency(Number(a.cena_klient || 0))}</td>
                   <td className="p-3 text-right">{currency(Number(a.material_klient || 0))}</td>
                   <td className="p-3 text-right">{currency(Number(a.material_my || 0))}</td>

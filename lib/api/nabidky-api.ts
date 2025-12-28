@@ -7,20 +7,25 @@ export const getNabidky = async (): Promise<Nabidka[]> => {
         .select(`
       *,
       cislo,
-      klienti (
-        id,
-        nazev
-      ),
-      akce (
-        id,
-        nazev
-      ),
-      nabidky_stavy (
-        id,
-        nazev,
-        color
-      )
-    `)
+        division_id,
+        divisions (
+          id,
+          nazev
+        ),
+        klienti (
+          id,
+          nazev
+        ),
+        akce (
+          id,
+          nazev
+        ),
+        nabidky_stavy (
+          id,
+          nazev,
+          color
+        )
+      `)
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -77,6 +82,11 @@ export const getNabidkaById = async (id: number): Promise<Nabidka | null> => {
         .select(`
       *,
       cislo,
+      division_id,
+      divisions (
+        id,
+        nazev
+      ),
       klienti (
         id,
         nazev
@@ -152,6 +162,11 @@ export const createItemType = async (type: string) => {
     const { data, error } = await supabase.from('polozky_typy').insert([{ nazev: type }]).select('id, nazev').single();
     if (error) throw error;
     return data;
+};
+
+export const getDivisionsList = async () => {
+    const { data } = await supabase.from('divisions').select('id, nazev').order('id');
+    return data || [];
 };
 
 // --- Offer Items (Položky) ---

@@ -31,7 +31,7 @@ export default function CreatableComboBox({ items, selected, setSelected, onCrea
             })
 
     return (
-        <Combobox as="div" value={selected} onChange={(value: ComboBoxItem) => {
+        <Combobox as="div" value={selected} onChange={(value: ComboBoxItem | null) => {
             if (value && value.id === 'NEW') {
                 onCreate(value.name)
             } else {
@@ -41,7 +41,7 @@ export default function CreatableComboBox({ items, selected, setSelected, onCrea
             {label && <Combobox.Label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</Combobox.Label>}
             <div className="relative">
                 <Combobox.Input
-                    className="w-full rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 py-2.5 pl-4 pr-10 shadow-sm focus:border-[#E30613] focus:outline-none focus:ring-1 focus:ring-[#E30613] sm:text-sm dark:text-white"
+                    className="w-full rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 py-3 pl-4 pr-10 shadow-sm focus:border-[#E30613] focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 sm:text-sm dark:text-white transition-all hover:border-gray-300 dark:hover:border-slate-600"
                     onChange={(event) => setQuery(event.target.value)}
                     displayValue={(item: ComboBoxItem) => item?.name || ''}
                     placeholder={placeholder}

@@ -10,11 +10,14 @@ export default function VykazyPage() {
   const [vykazy, setVykazy] = useState<any[]>([])
   const [klienti, setKlienti] = useState<any[]>([])
   const [pracovnici, setPracovnici] = useState<any[]>([])
+  const [divisions, setDivisions] = useState<any[]>([]) // All divisions
   const [allAkce, setAllAkce] = useState<any[]>([])        // všechny akce
   const [actionOptions, setActionOptions] = useState<any[]>([]) // akce filtrované podle klienta
   const [selectedAkce, setSelectedAkce] = useState<{ id: string | number, name: string } | null>(null)
   const [selectedPracovnik, setSelectedPracovnik] = useState<{ id: string | number, name: string } | null>(null)
   const [selectedKlient, setSelectedKlient] = useState<{ id: string | number, name: string } | null>(null)
+  const [selectedDivisionId, setSelectedDivisionId] = useState<number | null>(null)
+  const [availableDivisions, setAvailableDivisions] = useState<any[]>([]) // Divisions available for selected worker
 
   // Stavy pro formulář
   const [datum, setDatum] = useState(() => {
@@ -55,12 +58,17 @@ export default function VykazyPage() {
     setLoading(true)
     // 1. Načteme klienty a pracovníky do výběrových menu
     const { data: kData } = await supabase.from('klienti').select('*')
-    const { data: pData } = await supabase.from('pracovnici').select('*').eq('is_active', true)
+    // Fetch divisions
+    const { data: dData } = await supabase.from('divisions').select('*').order('nazev')
+    // Fetch workers with their divisions
+    const { data: pData } = await supabase.from('pracovnici').select('*, worker_divisions(division_id)').eq('is_active', true)
+
     // Filter actions >= APP_START_DATE
     const { data: aData } = await supabase.from('akce').select('*').eq('is_completed', false).gte('datum', APP_START_DATE).order('datum', { ascending: false })
     // 2. Worker Auto-Selection based on current User
     const { data: { user } } = await supabase.auth.getUser()
 
+    if (dData) setDivisions(dData)
     if (kData) setKlienti(kData)
     if (pData) {
       setPracovnici(pData)
@@ -70,6 +78,25 @@ export default function VykazyPage() {
         if (linkedWorker) {
           setSelectedPracovnik({ id: linkedWorker.id, name: linkedWorker.jmeno })
           setSelectedPracovnikFilter({ id: linkedWorker.id, name: linkedWorker.jmeno }) // Also set filter
+
+          // IMPORTANT: Check available divisions manually here because resolveDivisions relies on state 
+          // (which isn't updated yet for divisions/pracovnici/allAkce in this closure)
+          // Actually, we can pass the data explicitly if we refactor resolveDivisions,
+          // OR just do a quick manual check for initialization.
+
+          // Let's use the fetched data 'dData' assigned to 'divisions' var for this check?
+          // No, 'divisions' state is set but not usable in this render.
+          // Fallback logic for initial load:
+          const divs = dData || [];
+          if (!linkedWorker.worker_divisions || linkedWorker.worker_divisions.length === 0) {
+            setAvailableDivisions(divs);
+            if (divs.length === 1) setSelectedDivisionId(divs[0].id);
+          } else {
+            const ids = linkedWorker.worker_divisions.map((wd: any) => wd.division_id);
+            const allowed = divs.filter(d => ids.includes(d.id));
+            setAvailableDivisions(allowed);
+            if (allowed.length === 1) setSelectedDivisionId(allowed[0].id);
+          }
         }
       }
     }
@@ -80,13 +107,68 @@ export default function VykazyPage() {
     // Filter work reports >= 2025-01-01
     const { data: vData, error } = await supabase
       .from('prace')
-      .select('*, klienti(id, nazev, sazba), pracovnici(id, jmeno, hodinova_mzda), akce(id, nazev, klient_id, klienti(nazev))')
+      .select('*, klienti(id, nazev, sazba), pracovnici(id, jmeno, hodinova_mzda), akce(id, nazev, klient_id, klienti(nazev)), divisions(id, nazev)')
       .gte('datum', APP_START_DATE)
       .order('datum', { ascending: false })
 
     if (vData) setVykazy(vData)
     if (error) console.error(error)
     setLoading(false)
+  }
+
+  // Centralized logic to resolve available/selected divisions
+  function resolveDivisions(
+    workerId: string | number | undefined,
+    actionId: string | number | undefined,
+    currentDivisions: any[] = divisions,
+    currentPracovnici: any[] = pracovnici,
+    currentAllAkce: any[] = allAkce
+  ) {
+    // 1. If Action is selected and has a division, it FORCES the division
+    if (actionId) {
+      const actionFull = currentAllAkce.find(a => String(a.id) === String(actionId));
+      if (actionFull && actionFull.division_id) {
+        const forcedDiv = currentDivisions.find(d => d.id === actionFull.division_id);
+        if (forcedDiv) {
+          setAvailableDivisions([forcedDiv]);
+          setSelectedDivisionId(forcedDiv.id);
+          return;
+        }
+      }
+    }
+
+    // 2. Fallback to Worker's assigned divisions
+    if (workerId) {
+      const workerFull = currentPracovnici.find(w => String(w.id) === String(workerId));
+      if (workerFull) {
+        if (!workerFull.worker_divisions || workerFull.worker_divisions.length === 0) {
+          // No specific assignment -> Allow all
+          setAvailableDivisions(currentDivisions);
+          // Auto-select if only 1 total
+          if (currentDivisions.length === 1) setSelectedDivisionId(currentDivisions[0].id);
+          else setSelectedDivisionId(null);
+        } else {
+          // Filter allowed
+          const allowedIds = workerFull.worker_divisions.map((wd: any) => wd.division_id);
+          const allowedDivs = currentDivisions.filter(d => allowedIds.includes(d.id));
+          setAvailableDivisions(allowedDivs);
+
+          // Auto-select
+          if (allowedDivs.length === 1) setSelectedDivisionId(allowedDivs[0].id);
+          else setSelectedDivisionId(null);
+        }
+        return;
+      }
+    }
+
+    // 3. No Worker, No Action -> No options (or all? usually none until worker selected)
+    setAvailableDivisions([]);
+    setSelectedDivisionId(null);
+  }
+
+  function onPracovnikChange(p: { id: string | number, name: string } | null) {
+    setSelectedPracovnik(p);
+    resolveDivisions(p?.id, selectedAkce?.id);
   }
 
   // Pokud uživatel vybere klienta, nastavíme options jen pro tohoto klienta
@@ -104,16 +186,21 @@ export default function VykazyPage() {
   // Pokud uživatel vybere akci, předvyplníme klienta a zúžíme options
   function onAkceChange(akce: { id: string | number, name: string } | null) {
     setSelectedAkce(akce)
-    if (!akce) return
+    if (!akce) {
+      resolveDivisions(selectedPracovnik?.id, undefined); // If action is cleared, re-resolve based on worker only
+      return;
+    }
     const akc = allAkce.find(a => String(a.id) === String(akce.id))
     if (!akc) return
     if (akc.klient_id) {
       const correspondingKlient = klienti.find(k => k.id === akc.klient_id)
       if (correspondingKlient) setSelectedKlient({ id: correspondingKlient.id, name: correspondingKlient.nazev })
-      // zúžíme options na tento klienta
       const filtered = allAkce.filter(a => String(a.klient_id) === String(akc.klient_id))
       setActionOptions(filtered)
     }
+
+    // Resolve divisions with the NEW action
+    resolveDivisions(selectedPracovnik?.id, akce.id);
   }
 
   async function ulozitVykaz() {
@@ -128,6 +215,7 @@ export default function VykazyPage() {
       datum: datum,
       pracovnik_id: selectedPracovnik.id,
       klient_id: selectedKlient?.id || null,
+      division_id: selectedDivisionId,
       pocet_hodin: parseFloat(hodiny),
       popis: popis,
       akce_id: selectedAkce.id
@@ -156,6 +244,43 @@ export default function VykazyPage() {
     } else {
       setSelectedAkce(null)
     }
+
+    // Setup divisions for edit
+    if (v.pracovnici) {
+      // Manual resolve for edit since state might be stale or complex
+      // Actually resolveDivisions works if 'allAkce' is populated.
+      // But for Edit, we trust the loaded ID usually, but we want to populate the dropdown options correctly.
+
+      // 1. Is there an Action Division?
+      let forcedDiv = null;
+      if (v.akce_id) {
+        // We need to find the action in allAkce
+        // But allAkce might not be fully loaded? It is loaded in fetchData.
+        const actionFull = allAkce.find(a => a.id === v.akce_id);
+        // Note: allAkce state is updated in fetchData. ensure these run after.
+        // Actually startEdit is user-triggered, so data is there.
+        if (actionFull && actionFull.division_id) {
+          forcedDiv = divisions.find(d => d.id === actionFull.division_id);
+        }
+      }
+
+      if (forcedDiv) {
+        setAvailableDivisions([forcedDiv]);
+      } else {
+        // Worker Logic
+        const workerFull = pracovnici.find(w => w.id === v.pracovnik_id);
+        if (workerFull) {
+          if (!workerFull.worker_divisions || workerFull.worker_divisions.length === 0) {
+            setAvailableDivisions(divisions);
+          } else {
+            const ids = workerFull.worker_divisions.map((wd: any) => wd.division_id);
+            setAvailableDivisions(divisions.filter(d => ids.includes(d.id)));
+          }
+        }
+      }
+    }
+    setSelectedDivisionId(v.division_id || null);
+
     setPopis(v.popis || '')
     setHodiny(String(v.pocet_hodin || ''))
   }
@@ -166,6 +291,8 @@ export default function VykazyPage() {
     setSelectedPracovnik(null)
     setSelectedKlient(null)
     setSelectedAkce(null)
+    setSelectedDivisionId(null)
+    setAvailableDivisions([])
     setPopis('')
     setHodiny('')
   }
@@ -177,6 +304,7 @@ export default function VykazyPage() {
       pracovnik_id: selectedPracovnik?.id,
       klient_id: selectedKlient?.id,
       akce_id: selectedAkce?.id,
+      division_id: selectedDivisionId,
       popis: popis,
       pocet_hodin: parseFloat(hodiny || '0')
     }).eq('id', editingId)
@@ -239,6 +367,7 @@ export default function VykazyPage() {
         String(v.klient_id) === String(selectedKlientFilter.id) ||
         (v.akce && String(v.akce.klient_id) === String(selectedKlientFilter.id));
       const akceMatch = !selectedAkceFilter || String(v.akce_id) === String(selectedAkceFilter.id);
+      // Optional: Add Division Filter if needed
       return pracovnikMatch && klientMatch && akceMatch;
     });
 
@@ -335,7 +464,22 @@ export default function VykazyPage() {
 
           <div className="w-full">
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Pracovník</label>
-            <ComboBox items={formattedPracovnici} selected={selectedPracovnik} setSelected={setSelectedPracovnik} />
+            <ComboBox items={formattedPracovnici} selected={selectedPracovnik} setSelected={onPracovnikChange} />
+          </div>
+
+          <div className="w-full">
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Divize</label>
+            <select
+              value={selectedDivisionId || ''}
+              onChange={e => setSelectedDivisionId(Number(e.target.value) || null)}
+              className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
+              disabled={availableDivisions.length <= 1 && !!selectedDivisionId && availableDivisions.length > 0}
+            >
+              <option value="">-- {availableDivisions.length === 0 ? 'Žádné divize' : 'Vyberte divizi'} --</option>
+              {availableDivisions.map(d => (
+                <option key={d.id} value={d.id}>{d.nazev}</option>
+              ))}
+            </select>
           </div>
 
           <div className="w-full">
@@ -427,7 +571,10 @@ export default function VykazyPage() {
                               ) : (
                                 <>
                                   <div className="flex justify-between items-start mb-2">
-                                    <div className="text-sm font-medium dark:text-white">{formatDate(v.datum)}</div>
+                                    <div className="text-sm font-medium dark:text-white">
+                                      {formatDate(v.datum)}
+                                      {v.divisions && <span className="ml-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/50 px-1.5 py-0.5 rounded">{v.divisions.nazev}</span>}
+                                    </div>
                                     <div className="text-sm font-bold bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded text-gray-900 dark:text-white">{v.pocet_hodin} h</div>
                                   </div>
                                   <div className="text-sm text-gray-700 dark:text-gray-300 mb-1">
@@ -505,7 +652,10 @@ export default function VykazyPage() {
                       {expandedMonths.has(monthKey) && monthData.map(v => (
                         <Fragment key={v.id}>
                           <tr className="hover:bg-gray-50 dark:hover:bg-slate-800 text-black dark:text-gray-100">
-                            <td className="p-3">{formatDate(v.datum)}</td>
+                            <td className="p-3">
+                              {formatDate(v.datum)}
+                              {v.divisions && <div className="text-xs text-blue-600 dark:text-blue-400">{v.divisions.nazev}</div>}
+                            </td>
                             <td className="p-3 font-medium">{v.pracovnici?.jmeno}</td>
                             <td className="p-3">                              {v.klienti?.nazev ? (
                               v.klienti.nazev

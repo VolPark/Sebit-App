@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Nabidka } from '@/lib/types/nabidky-types';
-import { getNabidkaById, updateNabidka, getClients, getActions, createClient, createAction, getStatuses, getOfferItems } from '@/lib/api/nabidky-api';
+import { getNabidkaById, updateNabidka, getClients, getActions, createClient, createAction, getStatuses, getOfferItems, getDivisionsList } from '@/lib/api/nabidky-api';
 import { NabidkaPolozka } from '@/lib/types/nabidky-types';
 import Link from 'next/link';
 import CreatableComboBox, { ComboBoxItem } from '@/components/CreatableCombobox';
@@ -35,10 +35,12 @@ export default function NabidkaDetailPage() {
     const [validUntil, setValidUntil] = useState('');
     const [note, setNote] = useState('');
     const [statusId, setStatusId] = useState<number | null>(null);
+    const [divisionId, setDivisionId] = useState<number | null>(null);
 
     // Options
     const [clients, setClients] = useState<ComboBoxItem[]>([]);
     const [allActions, setAllActions] = useState<any[]>([]);
+    const [divisions, setDivisions] = useState<any[]>([]);
 
     const [statuses, setStatuses] = useState<any[]>([]);
 
@@ -69,16 +71,18 @@ export default function NabidkaDetailPage() {
             setValidUntil(data.platnost_do || '');
             setNote(data.poznamka || '');
             setStatusId(data.stav_id || (data.nabidky_stavy?.id || null));
+            setDivisionId(data.division_id || null);
 
             // Load items
             const itemsData = await getOfferItems(id);
             setItems(itemsData);
 
             // Load options
-            const [clientsData, actionsData, statusesData] = await Promise.all([getClients(), getActions(), getStatuses()]);
+            const [clientsData, actionsData, statusesData, divisionsData] = await Promise.all([getClients(), getActions(), getStatuses(), getDivisionsList()]);
             setClients(clientsData.map(c => ({ id: c.id, name: c.nazev })));
             setAllActions(actionsData);
             setStatuses(statusesData);
+            setDivisions(divisionsData);
 
         } catch (e) {
             console.error(e);
@@ -229,141 +233,188 @@ export default function NabidkaDetailPage() {
     const currentStatus = statuses.find(s => s.id === statusId);
 
     return (
-        <div className="w-full px-4 md:px-6 mx-auto mt-8 space-y-8">
+        <div className="w-full px-4 md:px-8 mx-auto mt-6 max-w-7xl animate-in fade-in duration-500">
             {/* Header */}
-            <div>
+            <div className="mb-8">
                 <div className="flex justify-between items-center mb-4">
                     <Link href="/nabidky" className="group text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white inline-flex items-center gap-1 transition-colors">
                         <svg className="w-4 h-4 transition-transform group-hover:-translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         Zpět na seznam
                     </Link>
-                    {saving && <span className="text-xs text-gray-400 font-medium animate-pulse">Ukládám...</span>}
+                    {saving && <span className="text-xs text-gray-400 font-medium animate-pulse">Ukládám změny...</span>}
                 </div>
 
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-200 dark:border-slate-800 pb-6">
-                    <div className="w-full md:w-3/4 space-y-4">
-                        {/* Name Input */}
-                        <div className="flex items-center gap-2">
-                            <span className="text-3xl font-light text-gray-400 select-none">{offer.cislo || `#${offer.id}`}</span>
-                            <input
-                                className="text-3xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-[#E30613] w-full focus:outline-none transition-colors px-1"
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                                onBlur={handleNameBlur}
-                                placeholder="Název nabídky"
-                            />
-                        </div>
+                <div className="flex items-center gap-3">
+                    <span className="text-4xl font-light text-gray-300 select-none tracking-tighter">{offer.cislo || `#${offer.id}`}</span>
+                    <input
+                        className="text-4xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-[#E30613] w-full focus:outline-none transition-all px-1 tracking-tight"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        onBlur={handleNameBlur}
+                        placeholder="Název nabídky"
+                    />
+                </div>
+            </div>
 
-                        {/* Metadata Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Content - Left Column */}
+                <div className="lg:col-span-2 space-y-8">
+
+                    {/* General Info Card */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            Základní informace
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Client */}
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs text-gray-500 font-medium ml-1">Klient</label>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs text-gray-500 font-bold uppercase tracking-wider ml-1">Klient</label>
                                 <CreatableComboBox
                                     items={clients} selected={client} setSelected={handleClientChange} onCreate={handleCreateClient} placeholder="Vybrat klienta..."
                                 />
                             </div>
 
-                            {/* Action (Read-only / Auto) */}
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs text-gray-500 font-medium ml-1">Akce</label>
-                                <div className="text-sm p-2.5 dark:text-gray-300 min-h-[42px] flex items-center">
+                            {/* Division */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs text-gray-500 font-bold uppercase tracking-wider ml-1">Divize</label>
+                                <div className="relative">
+                                    <select
+                                        value={divisionId || ''}
+                                        onChange={(e) => {
+                                            const val = Number(e.target.value) || null;
+                                            setDivisionId(val);
+                                            updateField({ division_id: val });
+                                        }}
+                                        className="w-full appearance-none text-sm rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-3 pl-4 pr-10 dark:text-white focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613] focus:outline-none transition-all cursor-pointer hover:border-gray-300 dark:hover:border-slate-600 shadow-sm"
+                                    >
+                                        <option value="">-- Žádná --</option>
+                                        {divisions.map(d => (
+                                            <option key={d.id} value={d.id}>{d.nazev}</option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
+                                        <svg className="w-5 h-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fillRule="evenodd" d="M10 3a.75.75 0 01.53.22l3.5 3.5a.75.75 0 01-1.06 1.06L10 4.81 7.03 7.78a.75.75 0 01-1.06-1.06l3.5-3.5A.75.75 0 0110 3zm-5.03 8.22a.75.75 0 011.06 0L10 15.19l2.97-2.97a.75.75 0 111.06 1.06l-3.5 3.5a.75.75 0 01-1.06 0l-3.5-3.5a.75.75 0 010-1.06z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Action */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs text-gray-500 font-bold uppercase tracking-wider ml-1">Akce</label>
+                                <div className="text-sm py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-900/50 dark:text-gray-300 min-h-[46px] flex items-center shadow-sm">
                                     {action ? (
-                                        <div className="font-semibold text-blue-600">
+                                        <Link href={`/akce`} className="font-semibold text-blue-600 hover:underline flex items-center gap-1">
                                             {action.name}
-                                        </div>
+                                            <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                        </Link>
                                     ) : (
-                                        <span className="text-gray-400 italic text-xs">Vytvoří se po akceptaci</span>
+                                        <span className="text-gray-400 italic text-xs flex items-center gap-1">
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            Vytvoří se automaticky po akceptaci
+                                        </span>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Date */}
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs text-gray-500 font-medium ml-1">Platnost do</label>
+                            {/* Validity */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs text-gray-500 font-bold uppercase tracking-wider ml-1">Platnost do</label>
                                 <input
                                     type="date"
                                     value={validUntil}
                                     onChange={handleDateChange}
-                                    className="w-full text-sm rounded-xl border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5 dark:text-white focus:ring-[#E30613] focus:border-[#E30613] shadow-sm"
+                                    className="w-full text-sm rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-3 px-4 dark:text-white focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613] focus:outline-none transition-all shadow-sm hover:border-gray-300 dark:hover:border-slate-600"
                                 />
                             </div>
+                        </div>
+                    </div>
 
-                            {/* Status */}
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs text-gray-500 font-medium ml-1">Stav</label>
-                                <div className="relative">
-                                    <select
-                                        value={statusId || ''}
-                                        onChange={handleStatusChange}
-                                        className={`w-full appearance-none text-sm font-bold rounded-xl border-gray-300 dark:border-slate-700 p-2.5 pr-8 focus:ring-[#E30613] focus:border-[#E30613] shadow-sm cursor-pointer
-                                            ${currentStatus?.color === 'green' ? 'bg-[#f0fdf4] text-[#15803d]' :
-                                                currentStatus?.color === 'blue' ? 'bg-[#eff6ff] text-[#1d4ed8]' :
-                                                    currentStatus?.color === 'red' ? 'bg-[#fef2f2] text-[#b91c1c]' :
-                                                        currentStatus?.color === 'orange' ? 'bg-[#fff7ed] text-[#c2410c]' : 'bg-white dark:bg-slate-900 text-gray-700 dark:text-white'
-                                            }`}
-                                    >
-                                        {statuses.map(s => (
-                                            <option key={s.id} value={s.id} className="bg-white text-gray-900">{s.nazev}</option>
-                                        ))}
-                                    </select>
-                                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                                        <svg className="w-4 h-4 opacity-50" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                                    </div>
+                    {/* Items Section */}
+                    <div>
+                        <div className="flex justify-between items-end mb-4 px-1">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Položky nabídky</h3>
+                            <div className="text-right">
+                                <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider">Celkem za položky</div>
+                                <div className="text-lg font-bold text-gray-900 dark:text-white tabular-nums">
+                                    {currency.format(items.reduce((sum, i) => sum + (Number(i.celkem) || 0), 0))}
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Price Box */}
-                    <div className="text-right bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm ring-1 ring-slate-200/50 dark:ring-slate-800 w-full md:w-auto min-w-[200px]">
-                        <div className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums tracking-tight">
-                            {currency.format(offer.celkova_cena)}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mt-1">Celková cena</div>
-                        <div className="mt-4">
-                            <OfferPdfDownloadButton offer={offer} items={items} />
+                        <div className="space-y-4">
+                            <OfferItemsList items={items} nabidkaId={id} onRefresh={loadData} />
+                            <AddOfferItemForm nabidkaId={id} onAdded={loadData} />
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {/* Items Section */}
-            <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Položky nabídky</h3>
-                    <div className="text-right">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Celkem položky:</span>
-                        <span className="ml-2 text-lg font-bold text-gray-900 dark:text-white">
-                            {currency.format(items.reduce((sum, i) => sum + (Number(i.celkem) || 0), 0))}
-                        </span>
+                    {/* Notes Section */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                            Poznámky
+                        </h3>
+                        <div className="relative group">
+                            <textarea
+                                value={note}
+                                onChange={e => setNote(e.target.value)}
+                                onBlur={handleNoteBlur}
+                                className="w-full text-sm rounded-xl border-slate-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950/50 p-4 dark:text-gray-300 focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613] min-h-[120px] transition-all resize-y"
+                                placeholder="Zde můžete připsat interní poznámky k nabídce..."
+                            />
+                            <div className="absolute bottom-3 right-3 text-xs text-gray-400 pointer-events-none transition-opacity opacity-50 group-hover:opacity-100">
+                                {saving ? 'Ukládám...' : 'Kliknutím mimo uložíte'}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <OfferItemsList items={items} nabidkaId={id} onRefresh={loadData} />
+                {/* Sidebar - Right Column */}
+                <div className="space-y-6 lg:col-span-1">
+                    {/* Status Card */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm lg:sticky lg:top-8">
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Stav nabídky</h3>
+                        <div className="relative">
+                            <select
+                                value={statusId || ''}
+                                onChange={handleStatusChange}
+                                className={`w-full appearance-none text-base font-bold rounded-xl border-slate-200 dark:border-slate-700 p-4 pr-10 focus:ring-2 focus:ring-offset-2 focus:ring-[#E30613] shadow-sm cursor-pointer transition-all
+                                        ${currentStatus?.color === 'green' ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' :
+                                        currentStatus?.color === 'blue' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' :
+                                            currentStatus?.color === 'red' ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
+                                                currentStatus?.color === 'orange' ? 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100' :
+                                                    'bg-white dark:bg-slate-900 text-gray-700 dark:text-white hover:bg-gray-50'
+                                    }`}
+                            >
+                                {statuses.map(s => (
+                                    <option key={s.id} value={s.id} className="bg-white text-gray-900">{s.nazev}</option>
+                                ))}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
+                                <svg className={`w-5 h-5 ${currentStatus ? 'text-current opacity-70' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                            </div>
+                        </div>
 
-                <AddOfferItemForm nabidkaId={id} onAdded={loadData} />
-            </div>
+                        {/* Price Summary Card (Integrated in Sidebar) */}
+                        <div className="mt-8 pt-8 border-t border-gray-100 dark:border-slate-800">
+                            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-2">Celková cena nabídky</div>
+                            <div className="text-4xl font-black text-[#E30613] tabular-nums tracking-tight">
+                                {currency.format(offer.celkova_cena)}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">bez DPH (informativní)</div>
 
-            {/* Notes Section */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    Poznámky
-                </h3>
-                <div className="relative">
-                    <textarea
-                        value={note}
-                        onChange={e => setNote(e.target.value)}
-                        onBlur={handleNoteBlur}
-                        className="w-full text-sm rounded-xl border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-950/50 p-4 dark:text-gray-300 focus:ring-[#E30613] focus:border-[#E30613] min-h-[120px] shadow-inner"
-                        placeholder="Zde můžete připsat interní poznámky k nabídce..."
-                    />
-                    <div className="absolute bottom-3 right-3 text-xs text-gray-400 pointer-events-none">
-                        {saving ? 'Ukládám...' : 'Kliknutím mimo uložíte'}
+                            <div className="mt-8">
+                                <OfferPdfDownloadButton offer={offer} items={items} />
+                                <p className="text-center text-xs text-gray-400 mt-3">
+                                    Generování PDF může chvíli trvat.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

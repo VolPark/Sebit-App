@@ -5,6 +5,7 @@ import { formatDate } from '@/lib/formatDate'
 
 export default function FinancePage() {
   const [transakce, setTransakce] = useState<any[]>([])
+  const [divisions, setDivisions] = useState<any[]>([])
 
   // Stavy pro souhrny
   const [celkemPrijmy, setCelkemPrijmy] = useState(0)
@@ -13,6 +14,7 @@ export default function FinancePage() {
   // Stavy formuláře
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0])
   const [typ, setTyp] = useState('Příjem')
+  const [selectedDivisionId, setSelectedDivisionId] = useState<number | null>(null)
   const [castka, setCastka] = useState('')
   const [popis, setPopis] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,6 +23,7 @@ export default function FinancePage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editDatum, setEditDatum] = useState('')
   const [editTyp, setEditTyp] = useState('Příjem')
+  const [editDivisionId, setEditDivisionId] = useState<number | null>(null)
   const [editCastka, setEditCastka] = useState('')
   const [editPopis, setEditPopis] = useState('')
 
@@ -30,14 +33,13 @@ export default function FinancePage() {
 
   async function fetchData() {
     setLoading(true)
-    const { data } = await supabase
-      .from('finance')
-      .select('*')
-      .order('datum', { ascending: false })
+    const [fResp, dResp] = await Promise.all([
+      supabase.from('finance').select('*, divisions(nazev)').order('datum', { ascending: false }),
+      supabase.from('divisions').select('id, nazev').order('id')
+    ])
 
-    if (data) {
-      setTransakce(data)
-    }
+    if (fResp.data) setTransakce(fResp.data)
+    if (dResp.data) setDivisions(dResp.data)
     setLoading(false)
   }
 
@@ -61,6 +63,7 @@ export default function FinancePage() {
     const { error } = await supabase.from('finance').insert({
       datum,
       typ,
+      division_id: selectedDivisionId,
       castka: parseFloat(castka),
       popis
     })
@@ -68,6 +71,7 @@ export default function FinancePage() {
     if (!error) {
       setCastka('')
       setPopis('')
+      setSelectedDivisionId(null)
       setStatusMessage('Transakce přidána')
       fetchData()
     } else {
@@ -80,12 +84,13 @@ export default function FinancePage() {
     setEditingId(t.id)
     setEditDatum(t.datum)
     setEditTyp(t.typ)
+    setEditDivisionId(t.division_id)
     setEditCastka(String(t.castka))
     setEditPopis(t.popis)
   }
   function cancelEdit() {
     setEditingId(null)
-    setEditDatum(''); setEditTyp('Příjem'); setEditCastka(''); setEditPopis('')
+    setEditDatum(''); setEditTyp('Příjem'); setEditCastka(''); setEditPopis(''); setEditDivisionId(null)
   }
   async function saveEdit() {
     if (!editingId) return
@@ -93,6 +98,7 @@ export default function FinancePage() {
     const { error } = await supabase.from('finance').update({
       datum: editDatum,
       typ: editTyp,
+      division_id: editDivisionId,
       castka: parseFloat(editCastka || '0'),
       popis: editPopis
     }).eq('id', editingId)
@@ -149,6 +155,13 @@ export default function FinancePage() {
               <option value="Výdej">Výdej (-)</option>
             </select>
           </div>
+          <div className="w-full md:w-40">
+            <label className="block text-xs text-gray-500 mb-1">Divize</label>
+            <select value={selectedDivisionId || ''} onChange={e => setSelectedDivisionId(Number(e.target.value) || null)} className="w-full rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200">
+              <option value="">-- Divize --</option>
+              {divisions.map(d => <option key={d.id} value={d.id}>{d.nazev}</option>)}
+            </select>
+          </div>
           <div className="flex-1">
             <label className="block text-xs text-gray-500 mb-1">Popis</label>
             <input id="f_popis" type="text" value={popis} onChange={e => setPopis(e.target.value)} className="w-full rounded-lg p-3 border border-transparent focus:ring-2 focus:ring-blue-200" placeholder="Např. Faktura 202301" />
@@ -175,6 +188,10 @@ export default function FinancePage() {
                   <option value="Příjem">Příjem</option>
                   <option value="Výdej">Výdej</option>
                 </select>
+                <select value={editDivisionId || ''} onChange={e => setEditDivisionId(Number(e.target.value) || null)} className="border p-2 rounded">
+                  <option value="">-- Divize --</option>
+                  {divisions.map(d => <option key={d.id} value={d.id}>{d.nazev}</option>)}
+                </select>
                 <input value={editPopis} onChange={e => setEditPopis(e.target.value)} className="border p-2 rounded" />
                 <input value={editCastka} onChange={e => setEditCastka(e.target.value)} className="border p-2 rounded" type="number" />
                 <div className="flex gap-2">
@@ -186,7 +203,7 @@ export default function FinancePage() {
               <div className="flex justify-between items-center">
                 <div>
                   <div className="text-sm font-medium">{formatDate(t.datum)} • {t.popis}</div>
-                  <div className="text-xs text-gray-500">{t.typ}</div>
+                  <div className="text-xs text-gray-500">{t.typ} {t.divisions ? `• ${t.divisions.nazev}` : ''}</div>
                 </div>
                 <div className="text-right">
                   <div className={`font-bold ${t.typ === 'Příjem' ? 'text-green-600' : 'text-red-600'}`}>{t.typ === 'Příjem' ? '+' : '-'}{currency.format(t.castka)}</div>
@@ -229,6 +246,10 @@ export default function FinancePage() {
                     <option value="Příjem">Příjem</option>
                     <option value="Výdej">Výdej</option>
                   </select>
+                  <select value={editDivisionId || ''} onChange={e => setEditDivisionId(Number(e.target.value) || null)} className="border p-2 rounded mr-2 w-24">
+                    <option value="">--</option>
+                    {divisions.map(d => <option key={d.id} value={d.id}>{d.nazev}</option>)}
+                  </select>
                   <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded mr-2">Uložit</button>
                   <button onClick={cancelEdit} className="bg-gray-200 px-3 py-1 rounded">Zrušit</button>
                 </td>
@@ -236,7 +257,10 @@ export default function FinancePage() {
             ) : (
               <tr key={t.id} className="hover:bg-gray-50 text-black">
                 <td className="p-3 w-32">{formatDate(t.datum)}</td>
-                <td className="p-3">{t.popis}</td>
+                <td className="p-3">
+                  {t.popis}
+                  {t.divisions && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{t.divisions.nazev}</span>}
+                </td>
                 <td className={`p-3 text-right font-bold w-40 ${t.typ === 'Příjem' ? 'text-green-600' : 'text-red-600'}`}>
                   {t.typ === 'Příjem' ? '+' : '-'}{currency.format(t.castka)}
                 </td>

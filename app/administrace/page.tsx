@@ -2,7 +2,13 @@ import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import UserManagement from './UserManagement';
+import DivisionsManagement from './DivisionsManagement'; // Import new component
 import { getUsers, UserData } from '@/app/actions/user-management';
+import { getDivisions } from '@/app/actions/divisions'; // Import divisions action
+import ClientAdminTabs from './ClientAdminTabs'; // We'll move the client-side tab logic here or inline it if simple. 
+// Actually, since this is a server component, I cannot use useState here. 
+// I should wrap the content in a client component or pass both data to a client wrapper.
+// Let's create `ClientAdminTabs` to handle the tab switching.
 
 export default async function AdministracePage() {
     const cookieStore = await cookies();
@@ -28,25 +34,13 @@ export default async function AdministracePage() {
         redirect('/dashboard');
     }
 
-    // Fetch users (Server Side)
-    let users: UserData[] = [];
-    try {
-        users = await getUsers();
-    } catch (error) {
-        console.error('Failed to fetch users:', error);
-        // We can render the page with empty list or error message
-    }
+    // Fetch data (Parallel)
+    const [users, divisions] = await Promise.all([
+        getUsers().catch(err => { console.error(err); return []; }),
+        getDivisions().catch(err => { console.error(err); return []; })
+    ]);
 
     return (
-        <div className="max-w-7xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Administrace</h1>
-                <p className="mt-2 text-gray-600 dark:text-gray-400">
-                    Správa uživatelů, rolí a přístupů.
-                </p>
-            </div>
-
-            <UserManagement initialUsers={users} />
-        </div>
+        <ClientAdminTabs users={users} divisions={divisions} />
     );
 }

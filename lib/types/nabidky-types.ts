@@ -26,6 +26,11 @@ export interface Nabidka {
         id: number;
         nazev: string;
     } | null;
+    division_id?: number | null;
+    divisions?: {
+        id: number;
+        nazev: string;
+    } | null;
     nabidky_stavy?: NabidkaStav | null;
 }
 

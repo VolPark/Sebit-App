@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Nabidka } from '@/lib/types/nabidky-types';
-import { getNabidky, createNabidka, deleteNabidka, getClients, getActions, createClient, createAction, getStatuses } from '@/lib/api/nabidky-api';
+import { getNabidky, createNabidka, deleteNabidka, getClients, getActions, createClient, createAction, getStatuses, getDivisionsList } from '@/lib/api/nabidky-api';
 import CreatableComboBox, { ComboBoxItem } from './CreatableCombobox';
 
 export default function OffersTable() {
@@ -17,18 +17,21 @@ export default function OffersTable() {
     const [newOfferNote, setNewOfferNote] = useState('');
     const [validUntil, setValidUntil] = useState('');
     const [selectedClient, setSelectedClient] = useState<ComboBoxItem | null>(null);
+    const [selectedDivisionId, setSelectedDivisionId] = useState<number | null>(null);
 
     // Options
     const [clients, setClients] = useState<ComboBoxItem[]>([]);
     const [statuses, setStatuses] = useState<any[]>([]);
+    const [divisions, setDivisions] = useState<any[]>([]);
     useEffect(() => {
         if (showModal) {
             // Load options sequentially to avoid race conditions or just Promise.all
             const loadOpts = async () => {
                 try {
-                    const [clientsData, statusesData] = await Promise.all([getClients(), getStatuses()]);
+                    const [clientsData, statusesData, divisionsData] = await Promise.all([getClients(), getStatuses(), getDivisionsList()]);
                     setClients(clientsData.map(c => ({ id: c.id, name: c.nazev })));
                     setStatuses(statusesData);
+                    setDivisions(divisionsData);
                 } catch (error) {
                     console.error('Failed to load options', error);
                 }
@@ -96,13 +99,15 @@ export default function OffersTable() {
                 celkova_cena: 0,
                 klient_id: clientId || null,
                 akce_id: null,
-                platnost_do: validUntil || undefined
+                platnost_do: validUntil || undefined,
+                division_id: selectedDivisionId || null
             });
 
             setShowModal(false);
             setNewOfferName('');
             setNewOfferNote('');
             setSelectedClient(null);
+            setSelectedDivisionId(null);
             fetchOffers(); // Refresh
         } catch (err) {
             console.error(err);
@@ -155,6 +160,20 @@ export default function OffersTable() {
                                     placeholder="např. Kuchyně Novák - Varianta A"
                                     autoFocus
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Divize</label>
+                                <select
+                                    value={selectedDivisionId || ''}
+                                    onChange={e => setSelectedDivisionId(Number(e.target.value) || null)}
+                                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-300 dark:border-slate-700 rounded-xl px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613]"
+                                >
+                                    <option value="">-- Vyberte divizi --</option>
+                                    {divisions.map(d => (
+                                        <option key={d.id} value={d.id}>{d.nazev}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div>
@@ -215,6 +234,7 @@ export default function OffersTable() {
                         <tr>
                             <th className="px-6 py-4 whitespace-nowrap">Název</th>
                             <th className="px-6 py-4 whitespace-nowrap">Klient</th>
+                            <th className="px-6 py-4 whitespace-nowrap">Divize</th>
                             <th className="px-6 py-4 text-right whitespace-nowrap">Cena</th>
                             <th className="px-6 py-4 whitespace-nowrap">Stav</th>
                             <th className="px-6 py-4 text-right whitespace-nowrap">Akce</th>
@@ -238,6 +258,11 @@ export default function OffersTable() {
                                         </Link>
                                     </td>
                                     <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{offer.klienti?.nazev || '—'}</td>
+                                    <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                            {offer.divisions?.nazev || '-'}
+                                        </span>
+                                    </td>
                                     <td className="px-6 py-4 text-right font-mono text-gray-700 dark:text-slate-300">
                                         {offer.celkova_cena?.toLocaleString('cs-CZ')} Kč
                                     </td>
