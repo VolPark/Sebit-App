@@ -11,6 +11,7 @@ export default function OffersTable() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [filterDivisionId, setFilterDivisionId] = useState<number | null>(null);
 
     // New Offer Form State
     const [newOfferName, setNewOfferName] = useState('');
@@ -23,6 +24,10 @@ export default function OffersTable() {
     const [clients, setClients] = useState<ComboBoxItem[]>([]);
     const [statuses, setStatuses] = useState<any[]>([]);
     const [divisions, setDivisions] = useState<any[]>([]);
+    useEffect(() => {
+        getDivisionsList().then(divs => setDivisions(divs)).catch(err => console.error('Failed to load divisions filter', err));
+    }, []);
+
     useEffect(() => {
         if (showModal) {
             // Load options sequentially to avoid race conditions or just Promise.all
@@ -67,7 +72,7 @@ export default function OffersTable() {
     const fetchOffers = async () => {
         setLoading(true);
         try {
-            const data = await getNabidky();
+            const data = await getNabidky(filterDivisionId);
             setOffers(data);
         } catch (error) {
             console.error('Failed to load offers', error);
@@ -78,7 +83,7 @@ export default function OffersTable() {
 
     useEffect(() => {
         fetchOffers();
-    }, []);
+    }, [filterDivisionId]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -135,6 +140,18 @@ export default function OffersTable() {
         <div>
 
             <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-4">
+                    <select
+                        value={filterDivisionId || ''}
+                        onChange={e => setFilterDivisionId(Number(e.target.value) || null)}
+                        className="rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 py-2 px-3 text-sm focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613] dark:text-white"
+                    >
+                        <option value="">Všechny divize</option>
+                        {divisions.map((d: any) => (
+                            <option key={d.id} value={d.id}>{d.nazev}</option>
+                        ))}
+                    </select>
+                </div>
 
                 <button
                     onClick={() => setShowModal(true)}

@@ -54,19 +54,28 @@ export default function NakladyPage() {
 
         const { data, error } = await supabase
             .from('fixed_costs')
-            .select('*')
+            .select('*, divisions(nazev)')
             .eq('rok', year)
             .eq('mesic', month)
             .order('nazev');
+
+        const { data: divisionsData } = await supabase.from('divisions').select('id, nazev').order('id');
 
         if (error) {
             console.error(error);
             setStatusMessage('Chyba při načítání dat.');
         } else {
             setCosts(data || []);
+            // load divisions
+            if (divisionsData) setDivisions(divisionsData);
         }
         setLoading(false);
     }
+
+    const [divisions, setDivisions] = useState<any[]>([]);
+
+    // Form State additions
+    const [formDivisionId, setFormDivisionId] = useState<number | null>(null);
 
     async function performAutoImport(targetYear: number, targetMonth: number): Promise<boolean> {
         // Calculate previous month
@@ -119,6 +128,7 @@ export default function NakladyPage() {
     const openAddModal = () => {
         setFormNazev('');
         setFormCastka('');
+        setFormDivisionId(null);
         setModalConfig({
             type: 'ADD',
             id: null,
@@ -132,8 +142,9 @@ export default function NakladyPage() {
     const openEditModal = (cost: any) => {
         setFormNazev(cost.nazev);
         setFormCastka(String(cost.castka));
+        setFormDivisionId(cost.division_id);
         setModalConfig({
-            type: 'edit', // using lowercase to distinguish from special check in confirmAction if needed, mainly reusing structure
+            type: 'edit',
             id: cost.id,
             title: 'Upravit náklad',
             actionLabel: 'Uložit',
@@ -160,10 +171,11 @@ export default function NakladyPage() {
         const month = selectedDate.getMonth() + 1;
 
         if (modalConfig.type === 'DELETE' && modalConfig.id) {
+            // ... (delete logic unchanged)
             const { error } = await supabase.from('fixed_costs').delete().eq('id', modalConfig.id);
             if (!error) {
                 setStatusMessage('Položka smazána');
-                fetchData(true); // avoid auto-import after delete
+                fetchData(true);
             } else {
                 setStatusMessage('Chyba: ' + error.message);
             }
@@ -177,11 +189,12 @@ export default function NakladyPage() {
                 nazev: formNazev,
                 castka: parseFloat(formCastka),
                 rok: year,
-                mesic: month
+                mesic: month,
+                division_id: formDivisionId
             });
             if (!error) {
                 setStatusMessage('Náklad přidán');
-                fetchData(true); // avoid auto-import loop if somehow empty
+                fetchData(true);
                 setModalOpen(false);
             } else {
                 setStatusMessage('Chyba: ' + error.message);
@@ -189,7 +202,8 @@ export default function NakladyPage() {
         } else if (modalConfig.type === 'edit' && modalConfig.id) {
             const { error } = await supabase.from('fixed_costs').update({
                 nazev: formNazev,
-                castka: parseFloat(formCastka)
+                castka: parseFloat(formCastka),
+                division_id: formDivisionId
             }).eq('id', modalConfig.id);
             if (!error) {
                 setStatusMessage('Náklad upraven');
@@ -199,10 +213,8 @@ export default function NakladyPage() {
                 setStatusMessage('Chyba: ' + error.message);
             }
         }
-        // setLoading is handled by fetchData or explicit set
         if (modalConfig.type === 'DELETE') setModalOpen(false);
     }
-
     const importPreviousMonth = async () => {
         setLoading(true);
         const year = selectedDate.getFullYear();
@@ -290,6 +302,11 @@ export default function NakladyPage() {
                         <div key={c.id} className="p-4 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-slate-800/50 transition">
                             <div>
                                 <div className="font-semibold text-gray-900 dark:text-white">{c.nazev}</div>
+                                {c.divisions && (
+                                    <div className="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full inline-block mt-1">
+                                        {c.divisions.nazev}
+                                    </div>
+                                )}
                             </div>
                             <div className="flex items-center gap-4">
                                 <div className="font-bold text-gray-900 dark:text-white">{currency.format(c.castka)}</div>
@@ -326,6 +343,19 @@ export default function NakladyPage() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Částka (Kč)</label>
                                     <input className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2 dark:bg-slate-800 dark:text-white" type="number" placeholder="0" value={formCastka} onChange={e => setFormCastka(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Divize (Volitelné)</label>
+                                    <select
+                                        className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2 dark:bg-slate-800 dark:text-white"
+                                        value={formDivisionId || ''}
+                                        onChange={e => setFormDivisionId(Number(e.target.value) || null)}
+                                    >
+                                        <option value="">-- Všechny divize (Režie firmy) --</option>
+                                        {divisions.map(d => (
+                                            <option key={d.id} value={d.id}>{d.nazev}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
                         )}

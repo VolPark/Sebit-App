@@ -49,10 +49,11 @@ export default function AkcePage() {
   const [odhadHodin, setOdhadHodin] = useState('')
 
   const [showCompleted, setShowCompleted] = useState(false);
+  const [filterDivisionId, setFilterDivisionId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchAll()
-  }, [showCompleted])
+  }, [showCompleted, filterDivisionId])
 
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
 
@@ -96,7 +97,13 @@ export default function AkcePage() {
     setLoading(true)
     const [kResp, aResp, dResp] = await Promise.all([
       supabase.from('klienti').select('*').order('nazev'),
-      supabase.from('akce').select('*, klienti(nazev), divisions(nazev)').eq('is_completed', showCompleted).order('datum', { ascending: false }),
+      (() => {
+        let query = supabase.from('akce').select('*, klienti(nazev), divisions(nazev)').eq('is_completed', showCompleted).order('datum', { ascending: false });
+        if (filterDivisionId) {
+          query = query.eq('division_id', filterDivisionId);
+        }
+        return query;
+      })(),
       supabase.from('divisions').select('id, nazev').order('id')
     ])
     if (kResp.data) setKlienti(kResp.data)
@@ -367,7 +374,17 @@ export default function AkcePage() {
 
       {/* Tables */}
       <div className="overflow-x-auto">
-        <div className="flex justify-end mb-4">
+        <div className="flex flex-col sm:flex-row justify-end mb-4 gap-4 items-center">
+          <select
+            value={filterDivisionId || ''}
+            onChange={e => setFilterDivisionId(Number(e.target.value) || null)}
+            className="rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 py-1.5 px-3 text-sm focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613] dark:text-white"
+          >
+            <option value="">Všechny divize</option>
+            {divisions.map((d: any) => (
+              <option key={d.id} value={d.id}>{d.nazev}</option>
+            ))}
+          </select>
           <label className="inline-flex items-center cursor-pointer">
             <span className="mr-3 text-sm font-medium text-gray-600 dark:text-gray-400">Zobrazit ukončené</span>
             <span className="relative">

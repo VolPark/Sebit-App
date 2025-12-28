@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { Nabidka } from '@/lib/types/nabidky-types';
 
-export const getNabidky = async (): Promise<Nabidka[]> => {
-    const { data, error } = await supabase
+export const getNabidky = async (divisionId?: number | null): Promise<Nabidka[]> => {
+    let query = supabase
         .from('nabidky')
         .select(`
       *,
@@ -27,6 +27,12 @@ export const getNabidky = async (): Promise<Nabidka[]> => {
         )
       `)
         .order('created_at', { ascending: false });
+
+    if (divisionId) {
+        query = query.eq('division_id', divisionId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('Error fetching nabidky:', error);

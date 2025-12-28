@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/formatDate'
 export default function FinancePage() {
   const [transakce, setTransakce] = useState<any[]>([])
   const [divisions, setDivisions] = useState<any[]>([])
+  const [filterDivisionId, setFilterDivisionId] = useState<number | null>(null)
 
   // Stavy pro souhrny
   const [celkemPrijmy, setCelkemPrijmy] = useState(0)
@@ -29,12 +30,18 @@ export default function FinancePage() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [filterDivisionId])
 
   async function fetchData() {
     setLoading(true)
+    let query = supabase.from('finance').select('*, divisions(nazev)').order('datum', { ascending: false });
+
+    if (filterDivisionId) {
+      query = query.eq('division_id', filterDivisionId);
+    }
+
     const [fResp, dResp] = await Promise.all([
-      supabase.from('finance').select('*, divisions(nazev)').order('datum', { ascending: false }),
+      query,
       supabase.from('divisions').select('id, nazev').order('id')
     ])
 
@@ -138,6 +145,33 @@ export default function FinancePage() {
           <p className={`text-2xl font-bold ${(celkemPrijmyMemo - celkemVydajeMemo) >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
             {currency.format(celkemPrijmyMemo - celkemVydajeMemo)}
           </p>
+        </div>
+      </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        {/* Filter */}
+        <div className="w-full sm:w-auto">
+          <select
+            value={filterDivisionId || ''}
+            onChange={e => setFilterDivisionId(Number(e.target.value) || null)}
+            className="rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 py-1.5 px-3 text-sm focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613] dark:text-white w-full sm:w-auto"
+          >
+            <option value="">Všechny divize</option>
+            {divisions.map((d: any) => (
+              <option key={d.id} value={d.id}>{d.nazev}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-wrap gap-4 text-sm font-semibold">
+          <div className="text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full">
+            Příjmy: {currency.format(celkemPrijmyMemo)}
+          </div>
+          <div className="text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full">
+            Výdaje: {currency.format(celkemVydajeMemo)}
+          </div>
+          <div className={`${(celkemPrijmyMemo - celkemVydajeMemo) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} border px-3 py-1 rounded-full dark:border-slate-700`}>
+            Bilance: {currency.format(celkemPrijmyMemo - celkemVydajeMemo)}
+          </div>
         </div>
       </div>
 

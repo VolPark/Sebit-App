@@ -28,9 +28,13 @@ const KPICard = ({ title, value, helpText, percentage, percentageColor }: { titl
   );
 };
 
-const DashboardControls = ({ filters, setFilters, workers, clients, showFilters }: any) => {
+const DashboardControls = ({ filters, setFilters, workers, clients, divisions, showFilters, period, setPeriod }: any) => {
   const selectedClient = filters.klientId
     ? (clients.find((c: any) => c.id === filters.klientId) || null)
+    : null;
+
+  const selectedDivision = filters.divisionId
+    ? (divisions.find((d: any) => d.id === filters.divisionId) || null)
     : null;
 
   const handleClientSelect = (item: { id: number | string, name: string } | null) => {
@@ -41,22 +45,69 @@ const DashboardControls = ({ filters, setFilters, workers, clients, showFilters 
     }
   };
 
+  const handleDivisionSelect = (item: { id: number | string, name: string } | null) => {
+    if (!item || item.id === '') {
+      setFilters({ ...filters, divisionId: null });
+    } else {
+      setFilters({ ...filters, divisionId: Number(item.id) });
+    }
+  };
+
   const clientOptions = [{ id: '', name: 'Všichni klienti' }, ...clients];
+  const divisionOptions = [{ id: '', name: 'Všechny divize' }, ...divisions];
+
+  const periodOptions = [
+    { id: 'last12months', name: 'Posledních 12 měsíců' },
+    { id: 'thisYear', name: `Tento rok (${new Date().getFullYear()})` },
+    { id: 'lastYear', name: `Minulý rok (${new Date().getFullYear() - 1})` }
+  ];
 
   return (
-    <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-      <div className="p-1 flex items-center w-fit">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Přehled (Posledních 12 měsíců)</h1>
+    <div className="mb-6 space-y-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+          Přehled
+          <span className="ml-2 text-lg font-normal text-gray-500">
+            {period === 'last12months' && '(Posledních 12 měsíců)'}
+            {period === 'thisYear' && `(Rok ${new Date().getFullYear()})`}
+            {period === 'lastYear' && `(Rok ${new Date().getFullYear() - 1})`}
+          </span>
+        </h1>
+
+        {/* Period Selector */}
+        <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
+          {periodOptions.map((opt) => (
+            <button
+              key={opt.id}
+              onClick={() => setPeriod(opt.id)}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${period === opt.id
+                ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+            >
+              {opt.name.split(' (')[0]} {/* Short name for buttons */}
+            </button>
+          ))}
+        </div>
       </div>
 
       {showFilters && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div></div>
-          <div className="col-start-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-gray-500 uppercase">Klient</label>
             <ComboBox
               items={clientOptions}
               selected={selectedClient}
               setSelected={handleClientSelect}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-gray-500 uppercase">Divize</label>
+            <ComboBox
+              items={divisionOptions}
+              selected={selectedDivision}
+              setSelected={handleDivisionSelect}
             />
           </div>
         </div>
@@ -527,9 +578,11 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true);
 
   // Filter State
-  const [filters, setFilters] = useState<{ pracovnikId?: number | null, klientId?: number | null }>({});
+  const [period, setPeriod] = useState<string>('last12months');
+  const [filters, setFilters] = useState<{ pracovnikId?: number | null, klientId?: number | null, divisionId?: number | null }>({});
   const [workers, setWorkers] = useState<FilterOption[]>([]);
   const [clients, setClients] = useState<FilterOption[]>([]);
+  const [divisions, setDivisions] = useState<FilterOption[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<MonthlyData | null>(null);
 
 
@@ -537,8 +590,11 @@ function DashboardContent() {
     async function loadFilters() {
       const { data: workerData } = await supabase.from('pracovnici').select('id, jmeno').order('jmeno');
       const { data: clientData } = await supabase.from('klienti').select('id, nazev').order('nazev');
+      const { data: divisionData } = await supabase.from('divisions').select('id, nazev').order('nazev');
+
       setWorkers(workerData?.map(w => ({ id: w.id, name: w.jmeno })) || []);
       setClients(clientData?.map(c => ({ id: c.id, name: c.nazev })) || []);
+      setDivisions(divisionData?.map(d => ({ id: d.id, name: d.nazev })) || []);
     }
     loadFilters();
   }, []);
@@ -546,13 +602,20 @@ function DashboardContent() {
   useEffect(() => {
     async function loadDashboard() {
       setLoading(true);
-      // Hardcoded to last12months
-      const periodParam = 'last12months';
+
+      let periodParam: 'last12months' | { year: number; month?: number };
+      if (period === 'thisYear') {
+        periodParam = { year: new Date().getFullYear() };
+      } else if (period === 'lastYear') {
+        periodParam = { year: new Date().getFullYear() - 1 };
+      } else {
+        periodParam = 'last12months';
+      }
 
       const [dashboardData, stats, expStats] = await Promise.all([
         getDashboardData(periodParam, filters),
-        getDetailedStats(periodParam),
-        getExperimentalStats()
+        getDetailedStats(periodParam, filters),
+        getExperimentalStats(filters)
       ]);
 
       setData(dashboardData);
@@ -563,7 +626,7 @@ function DashboardContent() {
       setLoading(false);
     }
     loadDashboard();
-  }, [filters]);
+  }, [filters, period]);
 
   const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), []);
 
@@ -592,8 +655,9 @@ function DashboardContent() {
         <div className="hidden md:block">
           <DashboardControls
             filters={filters} setFilters={setFilters}
-            workers={workers} clients={clients}
+            workers={workers} clients={clients} divisions={divisions}
             showFilters={view === 'firma'}
+            period={period} setPeriod={setPeriod}
           />
         </div>
       )}
