@@ -1,7 +1,8 @@
 import { google } from '@ai-sdk/google';
-import { streamText } from 'ai';
+import { streamText, tool } from 'ai';
 import { createClient } from '@supabase/supabase-js';
-import { getDashboardData } from '@/lib/dashboard';
+import { getDashboardData, getDetailedStats } from '@/lib/dashboard';
+import { z } from 'zod';
 
 // Allow streaming responses up to 60 seconds for larger context processing
 export const maxDuration = 60;
@@ -21,6 +22,8 @@ export async function POST(req: Request) {
     const { data: prace } = await supabase.from('prace').select('*');
     const { data: mzdy } = await supabase.from('mzdy').select('*');
     const { data: fixed_costs } = await supabase.from('fixed_costs').select('*');
+    const { data: divisions } = await supabase.from('divisions').select('*');
+    const { data: worker_divisions } = await supabase.from('worker_divisions').select('*');
 
     // 2. Fetch Calculated Stats (Dashboard View)
     // We use the same function as the dashboard to ensure consistency
@@ -37,6 +40,13 @@ export async function POST(req: Request) {
     organizations ||--o{ pracovnici : owns
     organizations ||--o{ akce : pro
     organizations ||--o{ fixed_costs : tracks
+    organizations ||--o{ divisions : has
+    
+    divisions ||--o{ akce : "categorizes"
+    divisions ||--o{ prace : "categorizes"
+    divisions ||--o{ fixed_costs : "allocated to"
+    divisions ||--o{ worker_divisions : "staffed by"
+    divisions ||--o{ nabidky : "categorizes"
 
     klienti ||--o{ akce : "requested by"
     klienti ||--o{ prace : "billed for"
@@ -89,7 +99,19 @@ export async function POST(req: Request) {
         text nazev
         numeric castka
         int4 mesic
-        int4 rok    
+        int4 rok
+        bigint division_id FK
+    }
+
+    divisions {
+        bigint id PK
+        text nazev
+    }
+    
+    worker_divisions {
+        bigint id PK
+        bigint worker_id FK
+        bigint division_id FK
     }`;
 
     const systemPrompt = `
@@ -133,6 +155,12 @@ export async function POST(req: Request) {
 
     --- REŽIE (fixed_costs) ---
     ${JSON.stringify(fixed_costs)}
+
+    --- DIVIZE (divisions) ---
+    ${JSON.stringify(divisions)}
+
+    --- PRACOVNÍCI V DIVIZÍCH (worker_divisions) ---
+    ${JSON.stringify(worker_divisions)}
 
 
     PRAVIDLA:
@@ -200,8 +228,51 @@ export async function POST(req: Request) {
                     model: google(userModelName),
                     messages,
                     system: systemPrompt,
+                    // @ts-ignore
+                    maxSteps: 5,
                     maxRetries: 0,
-                    abortSignal: controller.signal
+                    abortSignal: controller.signal,
+                    // @ts-ignore
+                    tools: {
+                        get_dashboard_stats: tool({
+                            description: 'Získá souhrnné statistiky (tržby, náklady, zisk) za určité období.',
+                            parameters: z.object({
+                                period: z.enum(['last12months', 'thisYear', 'lastYear']).describe('Období pro statistiky. Default: last12months'),
+                                divisionId: z.number().optional().describe('ID divize pro filtrování. Nevyplňuj pro celou firmu.'),
+                                klientId: z.number().optional().describe('ID klienta pro filtrování.'),
+                                pracovnikId: z.number().optional().describe('ID pracovníka pro filtrování.')
+                            }),
+                            execute: async ({ period, divisionId, klientId, pracovnikId }: { period?: 'last12months' | 'thisYear' | 'lastYear', divisionId?: number, klientId?: number, pracovnikId?: number }) => {
+                                console.log('[AI Tool] get_dashboard_stats calling...', { period, divisionId, klientId, pracovnikId });
+                                const currentYear = new Date().getFullYear();
+                                let periodArg: 'last12months' | { year: number } = 'last12months';
+                                if (period === 'thisYear') periodArg = { year: currentYear };
+                                if (period === 'lastYear') periodArg = { year: currentYear - 1 };
+                                if (period === 'last12months') periodArg = 'last12months';
+
+                                return await getDashboardData(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null });
+                            }
+                        }),
+                        get_detailed_stats: tool({
+                            description: 'Získá detailní měsíční rozpad a grafy pro tržby, náklady a zisk.',
+                            parameters: z.object({
+                                period: z.enum(['last12months', 'thisYear', 'lastYear']).describe('Období pro statistiky. Default: last12months'),
+                                divisionId: z.number().optional().describe('ID divize pro filtrování.'),
+                                klientId: z.number().optional().describe('ID klienta pro filtrování.'),
+                                pracovnikId: z.number().optional().describe('ID pracovníka pro filtrování.')
+                            }),
+                            execute: async ({ period, divisionId, klientId, pracovnikId }: { period?: 'last12months' | 'thisYear' | 'lastYear', divisionId?: number, klientId?: number, pracovnikId?: number }) => {
+                                console.log('[AI Tool] get_detailed_stats calling...', { period, divisionId, klientId, pracovnikId });
+                                const currentYear = new Date().getFullYear();
+                                let periodArg: 'last12months' | { year: number } = 'last12months';
+                                if (period === 'thisYear') periodArg = { year: currentYear };
+                                if (period === 'lastYear') periodArg = { year: currentYear - 1 };
+                                if (period === 'last12months') periodArg = 'last12months';
+
+                                return await getDetailedStats(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null });
+                            }
+                        })
+                    }
                 });
             } catch (err: any) {
                 // Determine if it was our timeout or a real API error
