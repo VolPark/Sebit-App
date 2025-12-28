@@ -599,7 +599,9 @@ export interface WorkerStats {
   totalHours: number;
   totalWages: number;
   avgHourlyRate: number;
+  realHourlyRate: number; // NEW: Calculated as Total Wages / Total Global Hours (no fallbacks)
 }
+
 
 export interface ClientStats {
   id: number;
@@ -870,12 +872,32 @@ export async function getDetailedStats(
 
   const finalWorkerStats: WorkerStats[] = Array.from(workerAggregates.values()).map(w => {
     const workerInfo = workers.find(wk => wk.id === w.id);
+
+    // Calculate Real Hourly Rate (Pure: Total Wages Paid / Total Global Hours Worked)
+    // We need to fetch global totals for this worker from the initial queries, regardless of current filters
+    // Fortunately, we have 'mzdy' (all wages in range) and 'globalHoursQuery' (all hours in range)
+
+    // 1. Total Wages for this worker in the period
+    const workerWages = mzdy
+      .filter(m => m.pracovnik_id === w.id)
+      .reduce((sum, m) => sum + (Number(m.celkova_castka) || 0), 0);
+
+    // 2. Total Global Hours for this worker in the period
+    // We need to aggregate from globalHoursRes (which we fetched for overhead calc, but it contains all hours)
+    const workerGlobalHours = (globalHoursRes.data || [])
+      .filter((gh: any) => gh.pracovnik_id === w.id)
+      .reduce((sum: number, gh: any) => sum + (Number(gh.pocet_hodin) || 0), 0);
+
+    // 3. Real Rate
+    const realHourlyRate = workerGlobalHours > 0 ? (workerWages / workerGlobalHours) : 0;
+
     return {
       id: w.id,
       name: workerInfo?.jmeno || 'Neznámý',
       totalHours: w.hours,
-      totalWages: w.cost,
-      avgHourlyRate: w.hours > 0 ? w.cost / w.hours : 0
+      totalWages: w.cost, // This is "Allocated Cost" used for strict project accounting
+      avgHourlyRate: w.hours > 0 ? w.cost / w.hours : 0, // This is "Allocated Rate"
+      realHourlyRate: realHourlyRate // This is "Real Payment Rate"
     };
   }).sort((a, b) => b.totalHours - a.totalHours);
 

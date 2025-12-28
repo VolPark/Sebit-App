@@ -232,7 +232,8 @@ const WorkersTable = ({ data }: { data: WorkerStats[] }) => (
             <th className="p-4 whitespace-nowrap">Jméno</th>
             <th className="p-4 text-right whitespace-nowrap">Odpracováno</th>
             <th className="p-4 text-right whitespace-nowrap">Vyplaceno (Mzdy)</th>
-            <th className="p-4 text-right whitespace-nowrap">Prům. sazba</th>
+            <th className="p-4 text-right whitespace-nowrap" title="Na základě alokace nákladů na projekty">Prům. sazba (Alok.)</th>
+            <th className="p-4 text-right whitespace-nowrap font-bold text-gray-800 dark:text-gray-200" title="Vyplaceno / Odpracováno celkem">Reálná sazba</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -241,10 +242,11 @@ const WorkersTable = ({ data }: { data: WorkerStats[] }) => (
               <td className="p-4 font-medium text-gray-900 dark:text-white">{w.name}</td>
               <td className="p-4 text-right dark:text-gray-300">{w.totalHours.toLocaleString('cs-CZ')} h</td>
               <td className="p-4 text-right dark:text-gray-300">{w.totalWages.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</td>
-              <td className="p-4 text-right dark:text-gray-300">{w.avgHourlyRate.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h</td>
+              <td className="p-4 text-right text-gray-500 dark:text-gray-400">{w.avgHourlyRate.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h</td>
+              <td className="p-4 text-right font-bold text-gray-900 dark:text-white">{(w.realHourlyRate || 0).toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h</td>
             </tr>
           ))}
-          {data.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
+          {data.length === 0 && <tr><td colSpan={5} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
         </tbody>
       </table>
     </div>
@@ -264,9 +266,12 @@ const WorkersTable = ({ data }: { data: WorkerStats[] }) => (
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Vyplaceno</p>
               <p className="font-bold text-slate-900 dark:text-white">{w.totalWages.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</p>
             </div>
-            <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Průměrná sazba</p>
-              <p className="font-bold text-slate-900 dark:text-white">{w.avgHourlyRate.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h</p>
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
+              <p className="text-xs text-blue-600 dark:text-blue-400 mb-1 font-semibold">Reálná sazba</p>
+              <p className="font-bold text-blue-700 dark:text-blue-300">{(w.realHourlyRate || 0).toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h</p>
+            </div>
+            <div className="col-span-2 text-center text-xs text-gray-400">
+              Sazba (Alokovaná): {w.avgHourlyRate.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h
             </div>
           </div>
         </div>

@@ -20,7 +20,7 @@ const CodeBlock = ({ node, inline, className, children, isLoading, ...props }: a
 
     const isMermaid = match && match[1] === 'mermaid';
 
-    if (isMermaid) {
+    if (isMermaid && !inline) {
         return <MermaidDiagram code={content} isLoading={isLoading} />;
     }
 
@@ -45,7 +45,7 @@ const CodeBlock = ({ node, inline, className, children, isLoading, ...props }: a
         );
     }
 
-    if (isTree) {
+    if (isTree && !inline) {
         const lines = content.split('\n').filter(l => l.trim().length > 0 && l.trim() !== '│');
         return (
             <div className="my-6 p-4 rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">
@@ -127,7 +127,7 @@ const CodeBlock = ({ node, inline, className, children, isLoading, ...props }: a
         );
     }
 
-    if (isMath) {
+    if (isMath && !inline) {
         return (
             <div className="my-4 p-5 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800/50 flex flex-col items-center justify-center text-center shadow-sm">
                 <div className="text-xs font-bold text-orange-400 uppercase tracking-widest mb-2 flex items-center gap-1">
@@ -151,7 +151,7 @@ const CodeBlock = ({ node, inline, className, children, isLoading, ...props }: a
     const hasExplicitPercentage = progressMatch && !!progressMatch[3];
     const hasBlocks = progressMatch && /[█■░□=\-#]/.test(progressMatch[2]);
 
-    if (progressMatch && (hasExplicitPercentage || hasBlocks)) {
+    if (progressMatch && (hasExplicitPercentage || hasBlocks) && !inline) {
         // Group 1 is Label (optional), Group 2 is Bar, Group 3 is Percentage
         const label = progressMatch[1] ? progressMatch[1].replace(/[:*`\[\]]/g, '').trim() : "Vytížení";
         let percentage = 0;
