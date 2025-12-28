@@ -1,13 +1,16 @@
 'use client'
 import { useState, useEffect, useMemo, Fragment, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { getDashboardData, getDetailedStats, getExperimentalStats, DashboardData, MonthlyData, WorkerStats, ClientStats, ExperimentalStats, ProjectHealthStats } from '@/lib/dashboard';
+import { getDashboardData, getDetailedStats, getExperimentalStats, DashboardData, MonthlyData, WorkerStats, ClientStats, ActionStats, ExperimentalStats, ProjectHealthStats } from '@/lib/dashboard';
 import { supabase } from '@/lib/supabase';
 import { APP_START_YEAR } from '@/lib/config';
 import BarChart from '@/components/BarChart';
 import DashboardSkeleton from '@/components/DashboardSkeleton';
 import ComboBox from '@/components/ComboBox';
 import ActiveProjectsTable from '@/components/ActiveProjectsTable';
+import CompanyActionsTable from '@/components/CompanyActionsTable';
+import ActionDetailModal from '@/components/ActionDetailModal';
+import WorkerDetailModal from '@/components/WorkerDetailModal';
 import AiChat, { Message } from '@/components/AiChat';
 
 type FilterOption = { id: number; name: string };
@@ -222,7 +225,7 @@ const DashboardKpiGrid = ({ data, selectedMonth }: { data: DashboardData, select
   );
 };
 
-const WorkersTable = ({ data }: { data: WorkerStats[] }) => (
+const WorkersTable = ({ data, onWorkerClick }: { data: WorkerStats[], onWorkerClick: (worker: WorkerStats) => void }) => (
   <>
     {/* Desktop Table View */}
     <div className="hidden md:block bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 overflow-hidden overflow-x-auto">
@@ -238,7 +241,7 @@ const WorkersTable = ({ data }: { data: WorkerStats[] }) => (
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {data.map(w => (
-            <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+            <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors" onClick={() => onWorkerClick(w)}>
               <td className="p-4 font-medium text-gray-900 dark:text-white">{w.name}</td>
               <td className="p-4 text-right dark:text-gray-300">{w.totalHours.toLocaleString('cs-CZ')} h</td>
               <td className="p-4 text-right dark:text-gray-300">{w.totalWages.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</td>
@@ -254,7 +257,7 @@ const WorkersTable = ({ data }: { data: WorkerStats[] }) => (
     {/* Mobile Card View */}
     <div className="md:hidden space-y-4">
       {data.map(w => (
-        <div key={w.id} className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
+        <div key={w.id} className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 cursor-pointer active:scale-[0.98] transition-all" onClick={() => onWorkerClick(w)}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-lg text-gray-900 dark:text-white">{w.name}</h3>
             <div className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-semibold text-slate-600 dark:text-slate-300">
@@ -285,7 +288,7 @@ const WorkersTable = ({ data }: { data: WorkerStats[] }) => (
   </>
 );
 
-const ClientsTable = ({ data }: { data: ClientStats[] }) => {
+const ClientsTable = ({ data, onActionClick }: { data: ClientStats[], onActionClick: (action: ActionStats) => void }) => {
   const [expandedClients, setExpandedClients] = useState<Set<number>>(new Set());
   const [sortConfig, setSortConfig] = useState<{ key: keyof ClientStats; direction: 'asc' | 'desc' } | null>(null);
 
@@ -417,7 +420,7 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
                           </thead>
                           <tbody className="divide-y divide-gray-100">
                             {c.actions.map(action => (
-                              <tr key={action.id} className="hover:bg-gray-100/50 dark:hover:bg-slate-700/50">
+                              <tr key={action.id} className="hover:bg-gray-100/50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors" onClick={() => onActionClick(action)}>
                                 <td className="py-2 pl-10 text-gray-700 dark:text-gray-300">
                                   <span className={action.isCompleted ? 'line-through text-gray-400' : ''}>{action.name}</span>
                                 </td>
@@ -513,7 +516,7 @@ const ClientsTable = ({ data }: { data: ClientStats[] }) => {
                   <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 border-b border-gray-200 dark:border-slate-700 pb-2">Akce ({c.actions.length})</h4>
                   <div className="space-y-3">
                     {c.actions.map(action => (
-                      <div key={action.id} className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm">
+                      <div key={action.id} className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm cursor-pointer active:scale-[0.99] transition-all" onClick={() => onActionClick(action)}>
                         <div className="flex justify-between items-start mb-2">
                           <span className={`font-semibold text-sm ${action.isCompleted ? 'line-through text-gray-400' : 'text-gray-900 dark:text-gray-200'}`}>{action.name}</span>
                           <span className={`${action.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} font-bold text-sm`}>{currency(action.profit)}</span>
@@ -589,7 +592,11 @@ function DashboardContent() {
   const [clients, setClients] = useState<FilterOption[]>([]);
   const [divisions, setDivisions] = useState<FilterOption[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<MonthlyData | null>(null);
+  const [selectedAction, setSelectedAction] = useState<ActionStats | null>(null);
+  const [selectedWorker, setSelectedWorker] = useState<WorkerStats | null>(null);
 
+  // Load selected period from URL or default to current year
+  const [selectedPeriod, setSelectedPeriod] = useState<{ year: number; month?: number } | 'last12months'>('last12months');
 
   useEffect(() => {
     async function loadFilters() {
@@ -745,18 +752,44 @@ function DashboardContent() {
                   </ul>
                 </div>
               </div>
+
+              {/* Company Actions Table (Flattened View) */}
+              <div className="mt-8">
+                <CompanyActionsTable
+                  data={
+                    (detailedStats?.clients.flatMap(c => c.actions) || []).filter(a => {
+                      if (!selectedMonth) return true;
+                      // Filter by selected month if active
+                      const d = new Date(a.date);
+                      return d.getMonth() === selectedMonth.monthIndex && d.getFullYear() === selectedMonth.year;
+                    })
+                  }
+                  onActionClick={setSelectedAction}
+                />
+              </div>
             </div>
           )}
+
+          <ActionDetailModal
+            action={selectedAction}
+            onClose={() => setSelectedAction(null)}
+          />
+
 
           {view === 'workers' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <WorkersTable data={detailedStats.workers} />
+              <WorkersTable data={detailedStats.workers} onWorkerClick={setSelectedWorker} />
             </div>
           )}
 
+          <WorkerDetailModal
+            worker={selectedWorker}
+            onClose={() => setSelectedWorker(null)}
+          />
+
           {view === 'clients' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <ClientsTable data={detailedStats.clients} />
+              <ClientsTable data={detailedStats.clients} onActionClick={setSelectedAction} />
             </div>
           )}
 

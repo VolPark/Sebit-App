@@ -3,6 +3,7 @@ import { APP_START_YEAR } from '@/lib/config';
 
 export interface MonthlyData {
   month: string;
+  monthIndex: number; // 0-11
   year: number;
   totalRevenue: number;
   totalCosts: number;
@@ -62,6 +63,7 @@ const getISODateRange = (startDate: Date, endDate: Date) => {
 // Helper to create an empty MonthlyData object
 const createEmptyMonthlyData = (date: Date): MonthlyData => ({
   month: monthNames[date.getMonth()],
+  monthIndex: date.getMonth(),
   year: date.getFullYear(),
   totalRevenue: 0, totalCosts: 0, grossProfit: 0, totalHours: 0,
   materialProfit: 0, totalMaterialKlient: 0, totalLaborCost: 0, totalOverheadCost: 0, totalMaterialCost: 0, totalEstimatedHours: 0,
@@ -600,6 +602,7 @@ export interface WorkerStats {
   totalWages: number;
   avgHourlyRate: number;
   realHourlyRate: number; // NEW: Calculated as Total Wages / Total Global Hours (no fallbacks)
+  projects: { id: number; name: string; clientName: string; hours: number; cost: number; date: string }[];
 }
 
 
@@ -629,6 +632,12 @@ export interface ActionStats {
   margin: number;
   totalHours: number;
   isCompleted: boolean;
+  date: string;
+  clientName: string;
+  // Detail fields
+  materialRevenue: number;
+  materialProfit: number;
+  workers: { name: string; hours: number; cost: number; }[];
 }
 
 export async function getDetailedStats(
@@ -824,6 +833,8 @@ export async function getDetailedStats(
   const actionLaborCosts = new Map<number, number>();
   const actionOverheadCosts = new Map<number, number>();
   const actionHours = new Map<number, number>();
+  const actionWorkerMap = new Map<number, Map<number, { hours: number, cost: number }>>();
+  const workerProjectsMap = new Map<number, Map<number, { hours: number, cost: number }>>(); // WorkerID -> ActionID -> Stats
 
   const workerAggregates = new Map<number, { id: number, name: string, hours: number, cost: number }>();
 
@@ -851,6 +862,28 @@ export async function getDetailedStats(
     const overheadRate = Number(monthlyOverheadRate.get(overheadKey)) || 0;
     const safeHours = Number(hours) || 0;
     const overheadCost = safeHours * overheadRate;
+
+    // Track worker cost per action for Detail View
+    if (p.akce_id && p.pracovnik_id) {
+      if (!actionWorkerMap.has(p.akce_id)) {
+        actionWorkerMap.set(p.akce_id, new Map());
+      }
+      const awMap = actionWorkerMap.get(p.akce_id)!;
+      const currAW = awMap.get(p.pracovnik_id) || { hours: 0, cost: 0 };
+      currAW.hours += hours;
+      currAW.cost += laborCost; // Allocated cost
+      awMap.set(p.pracovnik_id, currAW);
+
+      // Track projects per worker for Detail View
+      if (!workerProjectsMap.has(p.pracovnik_id)) {
+        workerProjectsMap.set(p.pracovnik_id, new Map());
+      }
+      const wpMap = workerProjectsMap.get(p.pracovnik_id)!;
+      const currWP = wpMap.get(p.akce_id) || { hours: 0, cost: 0 };
+      currWP.hours += hours;
+      currWP.cost += laborCost;
+      wpMap.set(p.akce_id, currWP);
+    }
 
     clientLaborCosts.set(clientId, (clientLaborCosts.get(clientId) || 0) + laborCost);
     clientOverheadCosts.set(clientId, (clientOverheadCosts.get(clientId) || 0) + overheadCost);
@@ -891,13 +924,41 @@ export async function getDetailedStats(
     // 3. Real Rate
     const realHourlyRate = workerGlobalHours > 0 ? (workerWages / workerGlobalHours) : 0;
 
+    // 4. Projects History
+    const workerProjects: { id: number; name: string; clientName: string; hours: number; cost: number; date: string }[] = [];
+    const wpMap = workerProjectsMap.get(w.id);
+    if (wpMap) {
+      wpMap.forEach((stats, actionId) => {
+        const action = akce.find(a => a.id === actionId);
+        if (action) {
+          // Find client name
+          let clientName = 'Neznámý';
+          if (action.klient_id) {
+            const client = clients.find(c => c.id === action.klient_id);
+            if (client) clientName = client.nazev;
+          }
+
+          workerProjects.push({
+            id: actionId,
+            name: action.nazev,
+            clientName: clientName,
+            hours: stats.hours,
+            cost: stats.cost,
+            date: action.datum
+          });
+        }
+      });
+    }
+    workerProjects.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     return {
       id: w.id,
       name: workerInfo?.jmeno || 'Neznámý',
       totalHours: w.hours,
-      totalWages: w.cost, // This is "Allocated Cost" used for strict project accounting
-      avgHourlyRate: w.hours > 0 ? w.cost / w.hours : 0, // This is "Allocated Rate"
-      realHourlyRate: realHourlyRate // This is "Real Payment Rate"
+      totalWages: workerWages, // CHANGED: Use actual global wages (or wages in period) instead of allocated cost
+      avgHourlyRate: w.hours > 0 ? w.cost / w.hours : 0, // This is "Allocated Rate" (Allocated Cost / Hours)
+      realHourlyRate: realHourlyRate, // This is "Real Payment Rate"
+      projects: workerProjects
     };
   }).sort((a, b) => b.totalHours - a.totalHours);
 
@@ -914,24 +975,45 @@ export async function getDetailedStats(
     const actions: ActionStats[] = cAkce.map(a => {
       const aRevenue = Number(a.cena_klient) || 0;
       const aMaterialCost = Number(a.material_my) || 0;
+      const aMaterialRevenue = Number(a.material_klient) || 0;
       const aLaborCost = actionLaborCosts.get(a.id) || 0;
       const aOverheadCost = actionOverheadCosts.get(a.id) || 0;
       const aTotalCost = aMaterialCost + aLaborCost + aOverheadCost;
       const aProfit = aRevenue - aTotalCost;
       const aMargin = aRevenue > 0 ? ((aRevenue - aTotalCost) / aRevenue) * 100 : 0;
 
+      // Get workers for this action
+      const actionWorkers = [];
+      const awMap = actionWorkerMap.get(a.id);
+      if (awMap) {
+        for (const [wId, stats] of awMap.entries()) {
+          const wInfo = workers.find(w => w.id === wId);
+          actionWorkers.push({
+            name: wInfo?.jmeno || 'Neznámý',
+            hours: stats.hours,
+            cost: stats.cost
+          });
+        }
+      }
+      actionWorkers.sort((wa, wb) => wb.hours - wa.hours);
+
       return {
         id: a.id,
         name: a.nazev,
         revenue: aRevenue,
         materialCost: aMaterialCost,
+        materialRevenue: aMaterialRevenue,
+        materialProfit: aMaterialRevenue - aMaterialCost,
         laborCost: aLaborCost,
         totalCost: aTotalCost,
         overheadCost: aOverheadCost,
         profit: aProfit,
         margin: aMargin,
         totalHours: actionHours.get(a.id) || 0,
-        isCompleted: a.is_completed
+        isCompleted: a.is_completed,
+        date: a.datum,
+        clientName: c.nazev,
+        workers: actionWorkers
       };
     }).sort((a, b) => b.revenue - a.revenue);
 
