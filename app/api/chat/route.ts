@@ -280,9 +280,9 @@ export async function POST(req: Request) {
     7. Můžeš dohledávat data na internetu, či čerpat ze své znalosti aby jsi mohl jasně vysvětlit vše podstatné.
     8. při vykreslování progress barů používej vždy barvy podle aplikace.
     9. Při vykreslování progress barů vždy využívej syntaxi "progress: 50 %", a podobně v tomto stylu.
-    10. [CRITICAL] Pokud uvádíš HLAVNÍ zdroj dat pro novou sekci odpovědi (např. začínáš analýzu klientů), vlož vizuální referenci na tabulku.
+    10. Pokud uživatel explicitně požádá o vysvětlení datových zdrojů nebo vysvětluješ složitou logiku databáze, vlož vizuální referenci na tabulku.
         - Reference musí být ve formátu JSON code blocku s jazykem 'table'.
-        - Nemusíš to dělat pro každou zmínku, jen když chceš vizuálně uvést kontext (např. nad tabulkou s daty).
+        - NEPOUŽÍVEJ to pro běžné odpovědi. Jen když je to nutné pro technické vysvětlení.
         - Příklad:
           \`\`\`table
           {
@@ -291,9 +291,9 @@ export async function POST(req: Request) {
           }
           \`\`\`
 
-    11. Pokud je to důležité pro pochopení kontextu, můžeš zvýraznit konkrétní atribut (sloupec).
+    11. Pokud uživatel nerozumí konkrétnímu sloupci nebo se ptá na význam dat, vlož referenci na atribut.
         - Reference musí být ve formátu JSON code blocku s jazykem 'attribute'.
-        - Používej to střídmě, jen když vysvětluješ specifický význam sloupce.
+        - NEPOUŽÍVEJ to automaticky. Jen jako vysvětlivku pro složitá data.
         - Příklad:
           \`\`\`attribute
           {
