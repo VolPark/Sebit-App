@@ -57,6 +57,14 @@ export default function MzdyPage() {
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth() + 1;
 
+    // 0. Fetch current user role
+    const { data: { user } } = await supabase.auth.getUser();
+    let currentUserRole = null;
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      currentUserRole = profile?.role;
+    }
+
     // 1. Fetch all workers
     const { data: allPracovnici, error: pracError } = await supabase
       .from('pracovnici')
@@ -77,6 +85,19 @@ export default function MzdyPage() {
       return;
     }
 
+    // 2.5 Fetch roles for workers (to filter visibility)
+    const userIds = allPracovnici.map(p => p.user_id).filter((id: any) => id !== null); // user_id comes from select(*)
+    const workerRolesMap = new Map<string, string>();
+    if (userIds.length > 0) {
+      // Use RPC to bypass RLS restrictions (Office cannot read Owner profiles directly)
+      const { data: profiles } = await supabase
+        .rpc('get_profiles_roles', { user_ids: userIds });
+
+      if (profiles) {
+        profiles.forEach((p: any) => workerRolesMap.set(p.id, p.role));
+      }
+    }
+
     // 3. Combine the data
     const mzdyMap = new Map(monthlyMzdy.map(m => [m.pracovnik_id, m]));
     const combinedData = allPracovnici.map(p => ({
@@ -84,8 +105,20 @@ export default function MzdyPage() {
       mzda: mzdyMap.get(p.id) || null,
     }));
 
-    // 4. Filter for display according to the new rule: show if active OR if they have a salary this month
-    const filteredPracovnici = combinedData.filter(p => p.is_active || p.mzda !== null);
+    // 4. Filter for display
+    const filteredPracovnici = combinedData.filter(p => {
+      // Rule 1: Show if active OR if they have a salary this month
+      const isActiveOrHasMoney = p.is_active || p.mzda !== null;
+      if (!isActiveOrHasMoney) return false;
+
+      // Rule 2: Office role cannot see Owners
+      if (currentUserRole === 'office') {
+        const workerRole = p.user_id ? workerRolesMap.get(p.user_id) : null;
+        if (workerRole === 'owner') return false;
+      }
+
+      return true;
+    });
 
     setPracovnici(filteredPracovnici);
     setLoading(false);
