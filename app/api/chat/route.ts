@@ -280,9 +280,9 @@ export async function POST(req: Request) {
     7. Můžeš dohledávat data na internetu, či čerpat ze své znalosti aby jsi mohl jasně vysvětlit vše podstatné.
     8. při vykreslování progress barů používej vždy barvy podle aplikace.
     9. Při vykreslování progress barů vždy využívej syntaxi "progress: 50 %", a podobně v tomto stylu.
-    10. [CRITICAL] Pokud ve své odpovědi pracuješ s daty z konkrétní databázové tabulky (např. klienti, pracovníci, finance, atd.), VŽDY na začátek sekce nebo k danému kontextu vlož speciální vizuální referenci na tuto tabulku.
+    10. [CRITICAL] Pokud uvádíš HLAVNÍ zdroj dat pro novou sekci odpovědi (např. začínáš analýzu klientů), vlož vizuální referenci na tabulku.
         - Reference musí být ve formátu JSON code blocku s jazykem 'table'.
-        - JSON musí obsahovat klíče "name" (název tabulky) a "description" (krátké české vysvětlení, co tabulka obsahuje).
+        - Nemusíš to dělat pro každou zmínku, jen když chceš vizuálně uvést kontext (např. nad tabulkou s daty).
         - Příklad:
           \`\`\`table
           {
@@ -290,11 +290,10 @@ export async function POST(req: Request) {
             "description": "Evidence všech zákazníků a jejich sazeb pro fakturaci."
           }
           \`\`\`
-        - Tuto referenci použij pro KAŽDOU tabulku, ze které čerpáš data pro odpověď.
 
-    11. [CRITICAL] Pokud vysvětluješ nebo zmiňuješ konkrétní sloupec (atribut) tabulky, vlož před něj nebo k němu vizuální referenci.
+    11. Pokud je to důležité pro pochopení kontextu, můžeš zvýraznit konkrétní atribut (sloupec).
         - Reference musí být ve formátu JSON code blocku s jazykem 'attribute'.
-        - JSON musí obsahovat klíče "table" (název tabulky), "name" (název sloupce) a "description" (krátké české vysvětlení).
+        - Používej to střídmě, jen když vysvětluješ specifický význam sloupce.
         - Příklad:
           \`\`\`attribute
           {
