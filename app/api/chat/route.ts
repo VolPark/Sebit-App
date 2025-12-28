@@ -263,13 +263,25 @@ export async function POST(req: Request) {
                             }),
                             execute: async ({ period, divisionId, klientId, pracovnikId }: { period?: 'last12months' | 'thisYear' | 'lastYear', divisionId?: number, klientId?: number, pracovnikId?: number }) => {
                                 console.log('[AI Tool] get_detailed_stats calling...', { period, divisionId, klientId, pracovnikId });
-                                const currentYear = new Date().getFullYear();
-                                let periodArg: 'last12months' | { year: number } = 'last12months';
-                                if (period === 'thisYear') periodArg = { year: currentYear };
-                                if (period === 'lastYear') periodArg = { year: currentYear - 1 };
-                                if (period === 'last12months') periodArg = 'last12months';
+                                try {
+                                    const currentYear = new Date().getFullYear();
+                                    let periodArg: 'last12months' | { year: number } = 'last12months';
+                                    if (period === 'thisYear') periodArg = { year: currentYear };
+                                    if (period === 'lastYear') periodArg = { year: currentYear - 1 };
+                                    if (period === 'last12months') periodArg = 'last12months';
 
-                                return await getDetailedStats(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null });
+                                    const stats = await getDetailedStats(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null });
+
+                                    // Optimization: JSON stringify might fail on circular structures or huge objects
+                                    // But safe here. We could truncate if needed.
+                                    return stats;
+                                } catch (error) {
+                                    console.error('[(AI Tool] get_detailed_stats FAILED:', error);
+                                    return {
+                                        error: "Failed to fetch detailed stats.",
+                                        details: error instanceof Error ? error.message : String(error)
+                                    };
+                                }
                             }
                         })
                     }

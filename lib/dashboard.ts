@@ -663,74 +663,80 @@ export async function getDetailedStats(
   let akceQuery = supabase.from('akce').select('*').gte('datum', start).lte('datum', end);
   let fixedCostsQuery = supabase.from('fixed_costs').select('*').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
 
-  // Apply Filters
+  // New: Global Context Query for Overhead Rates (Minimal columns)
+  // We need this to calculate "Total Company Hours" for the period, which is the denominator for Global Overhead Rate.
+  // We cannot rely on 'praceQuery' because it might be filtered by worker/client.
+  // ADDED: pracovnik_id is needed for accurate Worker Rate calculations below.
+  const globalHoursQuery = supabase.from('prace').select('id, datum, pocet_hodin, pracovnik_id').gte('datum', start).lte('datum', end);
+
+
+  // Apply Filters to Primary Queries
   if (filters.klientId) {
-    // For Detailed Stats involving Clients list, if we filter by Client, we essentially just get that one client.
     akceQuery = akceQuery.eq('klient_id', filters.klientId);
-    // Prace query for client: tricky again. Detailed stats usually rely on iterating 'akce' for client stats.
-    // But for 'Worker Stats', we need prace.
-    // If client filter is ON, we only want work done for this client.
-    // We will filter Prace in memory for Client to handle indirect links, similar to getDashboardData.
   }
   if (filters.pracovnikId) {
     praceQuery = praceQuery.eq('pracovnik_id', filters.pracovnikId);
   }
   if (filters.divisionId) {
-    // praceQuery: Do NOT filter by division_id in SQL to capture legacy rows via Akce.
-    // akceQuery: Keep division filter to get relevant actions.
-    akceQuery = akceQuery.eq('division_id', filters.divisionId);
     fixedCostsQuery = fixedCostsQuery.or(`division_id.is.null,division_id.eq.${filters.divisionId}`);
+    akceQuery = akceQuery.eq('division_id', filters.divisionId);
   }
 
-  const [workersRes, clientsRes, praceRes, mzdyRes, akceRes, fixedCostsRes] = await Promise.all([
+  const [workersRes, clientsRes, praceRes, mzdyRes, akceRes, fixedCostsRes, globalHoursRes] = await Promise.all([
     supabase.from('pracovnici').select('*'),
     supabase.from('klienti').select('*'),
     praceQuery,
     supabase.from('mzdy').select('*').gte('rok', startDate.getFullYear() - 1).lte('rok', endDate.getFullYear() + 1),
     akceQuery,
-    fixedCostsQuery
+    fixedCostsQuery,
+    globalHoursQuery
   ]);
 
   const workers = workersRes.data || [];
   const clients = clientsRes.data || [];
   const prace = praceRes.data || [];
-  const mzdy = mzdyRes.data || []; // Global Mzdy for rates
+  const mzdy = mzdyRes.data || [];
   const akce = akceRes.data || [];
   const fixedCosts = fixedCostsRes?.data || [];
+  const globalPrace = globalHoursRes.data || [];
 
   // 1. Build Map: Worker ID -> Base Hourly Rate
   const workerBaseRateMap = new Map<number, number>();
   workers.forEach(w => {
-    // Ensure we parse to float/int in case it comes as string
-    const rate = Number(w.hodinova_mzda) || 0;
-    workerBaseRateMap.set(w.id, rate);
+    workerBaseRateMap.set(w.id, Number(w.hodinova_mzda) || 0);
   });
 
   // 2. Build Map: Action ID -> Client ID
   const actionClientMap = new Map<number, number>();
+  const validAkceIds = new Set<number>();
   akce.forEach(a => {
+    validAkceIds.add(a.id);
     if (a.klient_id) {
       actionClientMap.set(a.id, a.klient_id);
     }
   });
 
-  // In-Memory Filter for Client on Prace (if needed)
+  // In-Memory Filter for Client & Division on 'prace'
   let filteredPrace = prace;
+
   if (filters.klientId) {
-    filteredPrace = prace.filter(p => {
+    filteredPrace = filteredPrace.filter(p => {
       const direct = p.klient_id === filters.klientId;
       const viaAction = p.akce_id && actionClientMap.get(p.akce_id) === filters.klientId;
       return direct || viaAction;
     });
   }
 
-  // --- NEW: Calculate Overhead Rates (Month by Month) ---
-  const monthlyOverheadRate = new Map<string, number>(); // "YYYY-M" -> rate per hour
+  if (filters.divisionId) {
+    filteredPrace = filteredPrace.filter(p => {
+      return p.division_id === filters.divisionId || (p.akce_id && validAkceIds.has(p.akce_id));
+    });
+  }
 
-  // Check filters to determine logic
-  // If Division Filter: Rate = Global Rate + Specific Rate
+  // --- Overhead Rates Calculation (Robust) ---
+  const monthlyOverheadRate = new Map<string, number>();
 
-  // 1. Prepare Costs
+  // A. Prepare Costs
   const monthlyGlobalCosts = new Map<string, number>();
   const monthlySpecificCosts = new Map<string, number>();
 
@@ -744,147 +750,56 @@ export async function getDetailedStats(
     }
   });
 
-  // 2. Prepare Hours
-  // We need GLOBAL hours for Global Rate.
-  // We need DIVISION hours for Specific Rate.
-  // Current `prace` variable contains ALL work logs (filtered by date, maybe client/worker, but NOT by division in SQL anymore due to our fix above).
-  // Wait, if `filters.pracovnikId` is set, `prace` is filtered by worker. 
-  // This breaks Global Hours calculation if we rely on `prace`.
-  // `getDetailedStats` limitation: It relies on fetched `prace` being representative. 
-  // IF we are filtering by worker, we CANNOT calculate Global Overhead Rate accurately without a separate query for Total Company Hours.
-  // However, `getDashboardData` does fetch `allPraceRes`. `getDetailedStats` currently does NOT.
-  // For now, let's assume `prace` is "context" hours. 
-  // *Correction*: detailed stats are usually narrower. If I view "Worker Detail", I validly want to know overhead allocated to *their* hours.
-  // But the RATE depends on company totals.
-  // If I don't fetch all company hours, I can't calculate the rate dynamically.
-  // Let's rely on `workerBaseRateMap`? No, that's wages.
-  // For now, I will assume `prace` *is* the dataset we have. 
-  // If `filters.divisionId` is set, `prace` (SQL) is NOT filtered by division anymore (per step 1).
-  // So `prace` contains company-wide logs (unless filtered by worker/client).
-  // If filtered by worker/client, our overhead rate calc will be WRONG (too high).
-  // This is a known limitation unless we add `allPraceQuery`.
-  // Given user request is about Dashboard (which I fixed), I will do best effort here.
-  // Realistically, for Detailed Stats, showing overhead might be secondary or estimated.
-  // BUT, reusing the logic:
-
-  // Filter Prace by Division In-Memory for calculations involving Division
-  const validAkceIds = new Set(akce.map(a => a.id));
-  const divisionPrace = !filters.divisionId ? prace : prace.filter(p => {
-    return p.division_id === filters.divisionId || (p.akce_id && validAkceIds.has(p.akce_id));
-  });
-
-  // Let's proceed with `prace` as "Company Hours" (flawed if worker filter active, but consistent with previous logic).
-  // Ideally we should do a separate count query, but avoiding heavy refactor now.
-
+  // B. Prepare Hours (Denominator)
+  // Global Hours: use `globalPrace` (Contains ALL hours for the period)
   const monthlyGlobalHours = new Map<string, number>();
-  const monthlyDivisionHours = new Map<string, number>();
-
-  prace.forEach(p => {
+  globalPrace.forEach(p => {
     const d = new Date(p.datum);
     const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
     monthlyGlobalHours.set(key, (monthlyGlobalHours.get(key) || 0) + (Number(p.pocet_hodin) || 0));
   });
 
-  if (filters.divisionId) {
-    divisionPrace.forEach(p => {
+  const monthlyDivisionHours = new Map<string, number>();
+  if (filters.divisionId && !filters.pracovnikId) {
+    // We trust filteredPrace contains all division hours
+    filteredPrace.forEach(p => {
       const d = new Date(p.datum);
       const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
       monthlyDivisionHours.set(key, (monthlyDivisionHours.get(key) || 0) + (Number(p.pocet_hodin) || 0));
     });
   }
 
-  // Calculate Rate
-  const allKeys = new Set([...monthlyGlobalCosts.keys(), ...monthlySpecificCosts.keys(), ...monthlyGlobalHours.keys()]);
-  allKeys.forEach(key => {
+  // C. Compute Rates
+  const allRateKeys = new Set([...monthlyGlobalCosts.keys(), ...monthlySpecificCosts.keys(), ...monthlyGlobalHours.keys()]);
+  allRateKeys.forEach(key => {
     let rate = 0;
-    // Global
+
+    // 1. Global Rate
     const gCost = monthlyGlobalCosts.get(key) || 0;
     const gHours = monthlyGlobalHours.get(key) || 0;
     if (gHours > 0) rate += (gCost / gHours);
 
-    // Specific
+    // 2. Specific Rate
     if (filters.divisionId) {
       const sCost = monthlySpecificCosts.get(key) || 0;
       const dHours = monthlyDivisionHours.get(key) || 0;
       if (dHours > 0) rate += (sCost / dHours);
     }
+
     monthlyOverheadRate.set(key, rate);
   });
 
-  // Important: Replace `filteredPrace` logic to use the robust division filter
-  filteredPrace = divisionPrace;
-  // Note: Previous logic filtered by Client. We must Merge filters.
-  if (filters.klientId) {
-    filteredPrace = filteredPrace.filter(p => {
-      const direct = p.klient_id === filters.klientId;
-      const viaAction = p.akce_id && actionClientMap.get(p.akce_id) === filters.klientId;
-      return direct || viaAction;
-    });
-  }
-
-
-  // Process Workers Stats
-  const workerStats: WorkerStats[] = workers.map(w => {
-    const wPrace = filteredPrace.filter(p => p.pracovnik_id === w.id);
-    const wMzdy = mzdy.filter(m => {
-      if (m.pracovnik_id !== w.id) return false;
-      const mDate = new Date(m.rok, m.mesic - 1, 1);
-      return mDate >= startDate && mDate <= endDate;
-    });
-
-    const totalHours = wPrace.reduce((sum, p) => sum + (Number(p.pocet_hodin) || 0), 0);
-    // Wage Calculation:
-    // If Filtered Mode (Client/Division), we shouldn't show total global wages vs filtered hours.
-    // We should show "Wages Allocated to this Filter".
-    // So: Hours * Rate.
-    // But `wMzdy` is just raw global salary.
-    // Let's use Real Rate * Hours for consistency in Detailed View as well.
-    // Or, if no filter, use wMzdy sum.
-
-    let totalWages = 0;
-    if (filters.klientId || filters.divisionId) {
-      // Filter Mode: Use Calculated Costs
-      // We need rate.
-      // Let's reuse logic below or calculate rate here.
-      // Simplified: use base rate or estimate. 
-      // Better: Do Rate Calculation first globally.
-    } else {
-      totalWages = wMzdy.reduce((sum, m) => sum + (Number(m.celkova_castka) || 0), 0);
-    }
-
-    return {
-      id: w.id,
-      name: w.jmeno,
-      totalHours,
-      totalWages, // Placeholder, updated logic needed for consistent display
-      avgHourlyRate: 0 // Placeholder
-    };
-  })
-    // Re-do robustly below after Rates Calculation
-    .filter(w => false); // skip this early map, we will rebuild `workerStats` properly
-
-
-  // 3. Calculate Real Monthly Rates from GLOBAL Mzdy and GLOBAL Hours (We need a global fetch of hours if filtered)
-  // This is expensive if we already filtered Prace.
-  // BUT `mzdy` is global. `workerBaseRateMap` is global.
-  // For precise stats, we can rely on Base Rate fallback if global hours are missing, 
-  // or just use `filteredPrace` hours which is wrong for rate calc.
-  // Assumption: `getDetailedStats` is less performance critical. 
-  // Let's accept that if we filter by Division, we might not have all hours for a worker who works across divisions 
-  // to calculate their exact effective rate.
-  // Fallback: Use Base Rate if we don't have global context. 
-
+  // 3. Rate Maps & Worker Calculations from GLOBAL Context (globalPrace)
   const workerRealMonthlyRates = new Map<string, number>();
   const workerMonthHours = new Map<string, number>();
 
-  // If we want accurate rates, we need global hours. 
-  // Let's Assume Base Rate is good enough for Detailed View Filtered context, 
-  // OR rely on what we have.
-
-  filteredPrace.forEach(p => {
-    const d = new Date(p.datum);
-    const key = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
-    workerMonthHours.set(key, (workerMonthHours.get(key) || 0) + (Number(p.pocet_hodin) || 0));
+  // Use globalPrace to get 'Worker Total Hours' for correct wage rate allocation
+  globalPrace.forEach(p => {
+    if (p.pracovnik_id) {
+      const d = new Date(p.datum);
+      const key = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
+      workerMonthHours.set(key, (workerMonthHours.get(key) || 0) + (Number(p.pocet_hodin) || 0));
+    }
   });
 
   mzdy.forEach(m => {
@@ -892,26 +807,22 @@ export async function getDetailedStats(
     const hours = workerMonthHours.get(key) || 0;
     if (hours > 0) {
       let calculatedRate = (Number(m.celkova_castka) || 0) / hours;
-
-      // Automatic Fallback Logic
       const baseRate = workerBaseRateMap.get(m.pracovnik_id) || 0;
       if (baseRate > 0 && calculatedRate > (baseRate * 1.5)) {
         calculatedRate = baseRate;
       }
-
       workerRealMonthlyRates.set(key, calculatedRate);
     }
   });
 
-  // 4. Aggregate Costs per Client
+  // 4. Aggregate Costs per Client / Action
   const clientLaborCosts = new Map<number, number>();
-  const clientOverheadCosts = new Map<number, number>(); // NEW
+  const clientOverheadCosts = new Map<number, number>();
   const clientHours = new Map<number, number>();
   const actionLaborCosts = new Map<number, number>();
-  const actionOverheadCosts = new Map<number, number>(); // NEW
+  const actionOverheadCosts = new Map<number, number>();
   const actionHours = new Map<number, number>();
 
-  // Use a map to aggregate worker stats correctly with calculated costs
   const workerAggregates = new Map<number, { id: number, name: string, hours: number, cost: number }>();
 
   filteredPrace.forEach(p => {
@@ -919,8 +830,7 @@ export async function getDetailedStats(
     if (!clientId && p.akce_id) {
       clientId = actionClientMap.get(p.akce_id);
     }
-    // If filtered by Client, we already filtered prune. But verify.
-    if (!clientId) return; // Should we skip work without client? Yes for Client Stats.
+    if (!clientId) return;
 
     const d = new Date(p.datum);
     const hours = Number(p.pocet_hodin) || 0;
@@ -950,12 +860,10 @@ export async function getDetailedStats(
       actionHours.set(p.akce_id, (actionHours.get(p.akce_id) || 0) + hours);
     }
 
-    // Worker Aggregate
     if (p.pracovnik_id) {
       const curr = workerAggregates.get(p.pracovnik_id) || { id: p.pracovnik_id, name: 'Unknown', hours: 0, cost: 0 };
       curr.hours += hours;
       curr.cost += laborCost;
-      // Need name... logic below to fill it
       workerAggregates.set(p.pracovnik_id, curr);
     }
   });
@@ -972,7 +880,6 @@ export async function getDetailedStats(
   }).sort((a, b) => b.totalHours - a.totalHours);
 
   const clientStats: ClientStats[] = clients.map(c => {
-    // Check if client is relevant (has data)
     const cAkce = akce.filter(a => a.klient_id === c.id);
     const revenue = cAkce.reduce((sum, a) => sum + (Number(a.cena_klient) || 0), 0);
     const materialCost = cAkce.reduce((sum, a) => sum + (Number(a.material_my) || 0), 0);
@@ -980,7 +887,6 @@ export async function getDetailedStats(
     const overheadCost = clientOverheadCosts.get(c.id) || 0;
     const totalCost = materialCost + laborCost + overheadCost;
 
-    // If no activity, verify if should be included?
     if (revenue === 0 && totalCost === 0) return null;
 
     const actions: ActionStats[] = cAkce.map(a => {
