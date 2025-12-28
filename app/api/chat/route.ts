@@ -24,6 +24,15 @@ export async function POST(req: Request) {
     const { data: fixed_costs } = await supabase.from('fixed_costs').select('*');
     const { data: divisions } = await supabase.from('divisions').select('*');
     const { data: worker_divisions } = await supabase.from('worker_divisions').select('*');
+    const { data: nabidky } = await supabase.from('nabidky').select('*');
+    const { data: nabidky_stavy } = await supabase.from('nabidky_stavy').select('*');
+    const { data: polozky_nabidky } = await supabase.from('polozky_nabidky').select('*');
+    const { data: polozky_typy } = await supabase.from('polozky_typy').select('*');
+    const { data: finance } = await supabase.from('finance').select('*');
+    const { data: profiles } = await supabase.from('profiles').select('*');
+    const { data: organizations } = await supabase.from('organizations').select('*');
+    const { data: organization_members } = await supabase.from('organization_members').select('*');
+    const { data: app_admins } = await supabase.from('app_admins').select('*');
 
     // 2. Fetch Calculated Stats (Dashboard View)
     // We use the same function as the dashboard to ensure consistency
@@ -36,26 +45,38 @@ export async function POST(req: Request) {
 
     const erDiagram = `
     erDiagram
-    organizations ||--o{ klienti : owns
-    organizations ||--o{ pracovnici : owns
-    organizations ||--o{ akce : pro
-    organizations ||--o{ fixed_costs : tracks
-    organizations ||--o{ divisions : has
-    
+    organizations ||--o{ klienti : "owns"
+    organizations ||--o{ pracovnici : "employs"
+    organizations ||--o{ akce : "manages"
+    organizations ||--o{ fixed_costs : "tracks"
+    organizations ||--o{ divisions : "has"
+    organizations ||--o{ nabidky : "issues"
+    organizations ||--o{ finance : "records"
+    organizations ||--o{ organization_members : "has members"
+
     divisions ||--o{ akce : "categorizes"
     divisions ||--o{ prace : "categorizes"
     divisions ||--o{ fixed_costs : "allocated to"
     divisions ||--o{ worker_divisions : "staffed by"
     divisions ||--o{ nabidky : "categorizes"
+    divisions ||--o{ finance : "categorizes"
 
     klienti ||--o{ akce : "requested by"
     klienti ||--o{ prace : "billed for"
-    
+    klienti ||--o{ nabidky : "receives"
+
     pracovnici ||--o{ prace : "logs"
     pracovnici ||--o{ mzdy : "earns"
-
-    akce ||--o{ prace : "composed of"
+    pracovnici ||--o{ worker_divisions : "belongs to"
     
+    akce ||--o{ prace : "composed of"
+    akce ||--o{ nabidky : "related to"
+
+    nabidky ||--o{ polozky_nabidky : "contains"
+    nabidky }|--|| nabidky_stavy : "has status"
+    
+    profiles ||--o{ organization_members : "is member of"
+
     klienti {
         bigint id PK
         text nazev
@@ -112,6 +133,52 @@ export async function POST(req: Request) {
         bigint id PK
         bigint worker_id FK
         bigint division_id FK
+    }
+
+    nabidky {
+        bigint id PK
+        text nazev
+        numeric celkova_cena
+        bigint stav_id FK
+        bigint klient_id FK
+        bigint division_id FK
+    }
+
+    nabidky_stavy {
+        bigint id PK
+        text nazev
+        text color
+    }
+
+    polozky_nabidky {
+        bigint id PK
+        bigint nabidka_id FK
+        text nazev
+        numeric mnozstvi
+        numeric cena_ks
+        numeric celkem
+    }
+
+    finance {
+        bigint id PK
+        date datum
+        text typ "Příjem/Výdej"
+        numeric castka
+        text popis
+        bigint division_id FK
+    }
+
+    profiles {
+        uuid id PK
+        text full_name
+        text role
+    }
+    
+    organization_members {
+        uuid id PK
+        uuid user_id FK
+        uuid organization_id FK
+        text role
     }`;
 
     const systemPrompt = `
@@ -161,6 +228,33 @@ export async function POST(req: Request) {
 
     --- PRACOVNÍCI V DIVIZÍCH (worker_divisions) ---
     ${JSON.stringify(worker_divisions)}
+
+    --- NABÍDKY (nabidky) ---
+    ${JSON.stringify(nabidky)}
+
+    --- STAVY NABÍDEK (nabidky_stavy) ---
+    ${JSON.stringify(nabidky_stavy)}
+
+    --- POLOŽKY NABÍDEK (polozky_nabidky) ---
+    ${JSON.stringify(polozky_nabidky)}
+
+    --- TYPY POLOŽEK (polozky_typy) ---
+    ${JSON.stringify(polozky_typy)}
+
+    --- FINANCE / POKLADNA (finance) ---
+    ${JSON.stringify(finance)}
+
+    --- UŽIVATELSKÉ PROFILY (profiles) ---
+    ${JSON.stringify(profiles)}
+
+    --- ORGANIZACE (organizations) ---
+    ${JSON.stringify(organizations)}
+
+    --- ČLENOVÉ ORGANIZACÍ (organization_members) ---
+    ${JSON.stringify(organization_members)}
+
+    --- APP ADMINI (app_admins) ---
+    ${JSON.stringify(app_admins)}
 
 
     PRAVIDLA:
