@@ -575,7 +575,7 @@ const CustomTextRenderer = ({ node, children, ...props }: any) => {
     }
 
     // Default rendering for non-special text
-    const Tag = node.tagName === 'li' ? 'li' : 'p';
+    const Tag = node.tagName === 'li' ? 'li' : 'div';
     const classes = node.tagName === 'li' ? 'pl-1' : 'mb-3 last:mb-0';
 
     return <Tag className={classes} {...props}>{children}</Tag>;
