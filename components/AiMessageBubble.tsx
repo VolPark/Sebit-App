@@ -19,6 +19,35 @@ const CodeBlock = ({ node, inline, className, children, isLoading, ...props }: a
     const content = String(children).trim();
 
     const isMermaid = match && match[1] === 'mermaid';
+    const isTableRef = match && match[1] === 'table';
+
+    if (isTableRef && !inline) {
+        try {
+            const data = JSON.parse(content);
+            return (
+                <div className="my-4 p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 shadow-sm flex items-start gap-3">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+                        </svg>
+                    </div>
+                    <div className="flex-1">
+                        <div className="text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mb-0.5">
+                            Zdrojová tabulka
+                        </div>
+                        <div className="font-bold text-gray-900 dark:text-white text-base">
+                            {data.name}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-300 mt-1 leading-snug">
+                            {data.description}
+                        </div>
+                    </div>
+                </div>
+            );
+        } catch (e) {
+            // Fallback if JSON is invalid
+        }
+    }
 
     if (isMermaid && !inline) {
         return <MermaidDiagram code={content} isLoading={isLoading} />;
