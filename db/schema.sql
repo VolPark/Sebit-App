@@ -1,9 +1,5 @@
--- WARNING: This schema is for context only and is not meant to be run directly.
--- It represents the state of the database as retrieved from the system.
-
--- ==========================================
--- 1. TABLES
--- ==========================================
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
 
 CREATE TABLE public.akce (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -17,17 +13,25 @@ CREATE TABLE public.akce (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   is_completed boolean DEFAULT false,
   organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  division_id bigint,
   CONSTRAINT akce_pkey PRIMARY KEY (id),
   CONSTRAINT akce_klient_fk FOREIGN KEY (klient_id) REFERENCES public.klienti(id),
-  CONSTRAINT akce_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+  CONSTRAINT akce_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
+  CONSTRAINT akce_division_id_fkey FOREIGN KEY (division_id) REFERENCES public.divisions(id)
 );
-
 CREATE TABLE public.app_admins (
   user_id uuid NOT NULL,
   CONSTRAINT app_admins_pkey PRIMARY KEY (user_id),
   CONSTRAINT app_admins_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-
+CREATE TABLE public.divisions (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  nazev text NOT NULL,
+  organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT divisions_pkey PRIMARY KEY (id),
+  CONSTRAINT divisions_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+);
 CREATE TABLE public.finance (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   datum date DEFAULT CURRENT_DATE,
@@ -36,10 +40,11 @@ CREATE TABLE public.finance (
   poznamka text,
   popis text,
   organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  division_id bigint,
   CONSTRAINT finance_pkey PRIMARY KEY (id),
-  CONSTRAINT finance_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+  CONSTRAINT finance_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
+  CONSTRAINT finance_division_id_fkey FOREIGN KEY (division_id) REFERENCES public.divisions(id)
 );
-
 CREATE TABLE public.fixed_costs (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   nazev text NOT NULL,
@@ -48,10 +53,11 @@ CREATE TABLE public.fixed_costs (
   mesic integer NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  division_id bigint,
   CONSTRAINT fixed_costs_pkey PRIMARY KEY (id),
-  CONSTRAINT fixed_costs_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+  CONSTRAINT fixed_costs_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
+  CONSTRAINT fixed_costs_division_id_fkey FOREIGN KEY (division_id) REFERENCES public.divisions(id)
 );
-
 CREATE TABLE public.klienti (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   nazev text NOT NULL,
@@ -62,7 +68,6 @@ CREATE TABLE public.klienti (
   CONSTRAINT klienti_pkey PRIMARY KEY (id),
   CONSTRAINT klienti_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
 );
-
 CREATE TABLE public.mzdy (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   pracovnik_id bigint,
@@ -73,12 +78,11 @@ CREATE TABLE public.mzdy (
   priplatek numeric,
   created_at timestamp with time zone DEFAULT now(),
   organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-  celkova_castka numeric GENERATED ALWAYS AS ((COALESCE(hruba_mzda, (0)::numeric) + COALESCE(faktura, (0)::numeric)) + COALESCE(priplatek, (0)::numeric)) STORED,
+  celkova_castka numeric DEFAULT ((COALESCE(hruba_mzda, (0)::numeric) + COALESCE(faktura, (0)::numeric)) + COALESCE(priplatek, (0)::numeric)),
   CONSTRAINT mzdy_pkey PRIMARY KEY (id),
   CONSTRAINT mzdy_pracovnik_id_fkey FOREIGN KEY (pracovnik_id) REFERENCES public.pracovnici(id),
   CONSTRAINT mzdy_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
 );
-
 CREATE TABLE public.nabidky (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
@@ -91,12 +95,13 @@ CREATE TABLE public.nabidky (
   stav_id bigint,
   cislo text,
   platnost_do date,
+  division_id bigint,
   CONSTRAINT nabidky_pkey PRIMARY KEY (id),
   CONSTRAINT nabidky_klient_id_fkey FOREIGN KEY (klient_id) REFERENCES public.klienti(id),
   CONSTRAINT nabidky_akce_id_fkey FOREIGN KEY (akce_id) REFERENCES public.akce(id),
-  CONSTRAINT nabidky_stav_id_fkey FOREIGN KEY (stav_id) REFERENCES public.nabidky_stavy(id)
+  CONSTRAINT nabidky_stav_id_fkey FOREIGN KEY (stav_id) REFERENCES public.nabidky_stavy(id),
+  CONSTRAINT nabidky_division_id_fkey FOREIGN KEY (division_id) REFERENCES public.divisions(id)
 );
-
 CREATE TABLE public.nabidky_stavy (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   nazev text NOT NULL,
@@ -104,7 +109,6 @@ CREATE TABLE public.nabidky_stavy (
   poradi integer DEFAULT 0,
   CONSTRAINT nabidky_stavy_pkey PRIMARY KEY (id)
 );
-
 CREATE TABLE public.organization_members (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL,
@@ -115,7 +119,6 @@ CREATE TABLE public.organization_members (
   CONSTRAINT organization_members_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
   CONSTRAINT organization_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-
 CREATE TABLE public.organizations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -123,7 +126,6 @@ CREATE TABLE public.organizations (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT organizations_pkey PRIMARY KEY (id)
 );
-
 CREATE TABLE public.polozky_nabidky (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   nabidka_id bigint,
@@ -131,21 +133,19 @@ CREATE TABLE public.polozky_nabidky (
   typ text DEFAULT 'produkt'::text,
   mnozstvi numeric DEFAULT 1,
   cena_ks numeric DEFAULT 0,
-  celkem numeric GENERATED ALWAYS AS (COALESCE(mnozstvi, (0)::numeric) * COALESCE(cena_ks, (0)::numeric)) STORED,
+  celkem numeric DEFAULT (COALESCE(mnozstvi, (0)::numeric) * COALESCE(cena_ks, (0)::numeric)),
   popis text,
   obrazek_url text,
   sazba_dph numeric DEFAULT 21,
   CONSTRAINT polozky_nabidky_pkey PRIMARY KEY (id),
   CONSTRAINT polozky_nabidky_nabidka_id_fkey FOREIGN KEY (nabidka_id) REFERENCES public.nabidky(id)
 );
-
 CREATE TABLE public.polozky_typy (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   nazev text NOT NULL UNIQUE,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT polozky_typy_pkey PRIMARY KEY (id)
 );
-
 CREATE TABLE public.prace (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   datum date DEFAULT CURRENT_DATE,
@@ -155,13 +155,14 @@ CREATE TABLE public.prace (
   pracovnik_id bigint,
   akce_id bigint,
   organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  division_id bigint,
   CONSTRAINT prace_pkey PRIMARY KEY (id),
   CONSTRAINT prace_klient_id_fkey FOREIGN KEY (klient_id) REFERENCES public.klienti(id),
   CONSTRAINT prace_pracovnik_id_fkey FOREIGN KEY (pracovnik_id) REFERENCES public.pracovnici(id),
   CONSTRAINT prace_akce_fk FOREIGN KEY (akce_id) REFERENCES public.akce(id),
-  CONSTRAINT prace_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+  CONSTRAINT prace_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
+  CONSTRAINT prace_division_id_fkey FOREIGN KEY (division_id) REFERENCES public.divisions(id)
 );
-
 CREATE TABLE public.pracovnici (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   jmeno text NOT NULL,
@@ -169,8 +170,29 @@ CREATE TABLE public.pracovnici (
   telefon text,
   is_active boolean DEFAULT true,
   organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  user_id uuid,
   CONSTRAINT pracovnici_pkey PRIMARY KEY (id),
-  CONSTRAINT pracovnici_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+  CONSTRAINT pracovnici_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
+  CONSTRAINT pracovnici_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  role USER-DEFINED NOT NULL DEFAULT 'reporter'::app_role,
+  full_name text CHECK (char_length(full_name) >= 3),
+  updated_at timestamp with time zone,
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.worker_divisions (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  worker_id bigint,
+  division_id bigint,
+  organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT worker_divisions_pkey PRIMARY KEY (id),
+  CONSTRAINT worker_divisions_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.pracovnici(id),
+  CONSTRAINT worker_divisions_division_id_fkey FOREIGN KEY (division_id) REFERENCES public.divisions(id),
+  CONSTRAINT worker_divisions_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
 );
 
 -- ==========================================
@@ -641,3 +663,4 @@ $function$;
 -- TO public
 -- USING (bucket_id = 'offer-images')
 -- WITH CHECK (bucket_id = 'offer-images');
+

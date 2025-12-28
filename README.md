@@ -41,6 +41,7 @@ Built with performance, modern aesthetics, and ease of use in mind.
 ### 💰 Financial Management (Náklady)
 - **Expense Tracking**: Categorize and log all business expenses.
 - **Fixed Costs Automation**: Automatically generates recurring monthly costs for better financial forecasting.
+- **Division Tracking**: Track revenues and costs by division (e.g., Joinery vs. Interiors), including specific overhead allocation.
 
 ---
 
@@ -138,6 +139,16 @@ erDiagram
         text nazev
         numeric castka
     }
+
+    divisions {
+        bigint id PK
+        text nazev
+    }
+
+    divisions ||--o{ akce : "categorizes"
+    divisions ||--o{ prace : "categorizes"
+    divisions ||--o{ fixed_costs : "allocated to"
+    divisions ||--o{ worker_divisions : "staffed by"
 ```
 
 ### Core Tables
