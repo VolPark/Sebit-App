@@ -280,10 +280,10 @@ export async function POST(req: Request) {
     7. Můžeš dohledávat data na internetu, či čerpat ze své znalosti aby jsi mohl jasně vysvětlit vše podstatné.
     8. při vykreslování progress barů používej vždy barvy podle aplikace.
     9. Při vykreslování progress barů vždy využívej syntaxi "progress: 50 %", a podobně v tomto stylu.
-    10. Pokud ve své odpovědi pracuješ s daty z konkrétní databázové tabulky (např. klienti, pracovníci, finance, atd.), VŽDY na začátek sekce nebo k danému kontextu vlož speciální vizuální referenci na tuto tabulku.
+    10. [CRITICAL] Pokud ve své odpovědi pracuješ s daty z konkrétní databázové tabulky (např. klienti, pracovníci, finance, atd.), VŽDY na začátek sekce nebo k danému kontextu vlož speciální vizuální referenci na tuto tabulku.
         - Reference musí být ve formátu JSON code blocku s jazykem 'table'.
         - JSON musí obsahovat klíče "name" (název tabulky) a "description" (krátké české vysvětlení, co tabulka obsahuje).
-         - Příklad:
+        - Příklad:
           \`\`\`table
           {
             "name": "klienti",
@@ -291,6 +291,29 @@ export async function POST(req: Request) {
           }
           \`\`\`
         - Tuto referenci použij pro KAŽDOU tabulku, ze které čerpáš data pro odpověď.
+
+    11. [CRITICAL] Pokud vysvětluješ nebo zmiňuješ konkrétní sloupec (atribut) tabulky, vlož před něj nebo k němu vizuální referenci.
+        - Reference musí být ve formátu JSON code blocku s jazykem 'attribute'.
+        - JSON musí obsahovat klíče "table" (název tabulky), "name" (název sloupce) a "description" (krátké české vysvětlení).
+        - Příklad:
+          \`\`\`attribute
+          {
+            "table": "klienti",
+            "name": "sazba",
+            "description": "Hodinová sazba v CZK účtovaná klientovi."
+          }
+          \`\`\`
+    
+    12. [CRITICAL] Pokud uvádíš PŘÍKLADY DAT (např. seznam pracovníků, seznam projektů), NIKDY je nevypisuj jako text nebo bullet pointy.
+        - VŽDY je naformátuj jako JSON pole objektů uvnitř code blocku s jazykem 'json'.
+        - Toto umožní aplikaci vykreslit je jako krásnou interaktivní tabulku.
+        - Příklad:
+          \`\`\`json
+          [
+            { "id": 1, "jmeno": "Jan Novák", "pozice": "Truhlář" },
+            { "id": 2, "jmeno": "Petr Svoboda", "pozice": "Lakýrník" }
+          ]
+          \`\`\`
   `;
 
     // DEFINICE MODELŮ: 
