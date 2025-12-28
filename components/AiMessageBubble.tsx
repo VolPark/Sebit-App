@@ -18,7 +18,8 @@ const CodeBlock = ({ node, inline, className, children, isLoading, ...props }: a
     const match = /language-(\w+)/.exec(className || '');
     const content = String(children).trim();
 
-    const isMermaid = match && match[1] === 'mermaid';
+    // Check for explicit mermaid tag OR auto-detect generic diagrams like erDiagram
+    const isMermaid = (match && match[1] === 'mermaid') || (!match && content.trim().startsWith('erDiagram'));
     const isTableRef = match && match[1] === 'table';
     const isAttributeRef = match && match[1] === 'attribute';
 
