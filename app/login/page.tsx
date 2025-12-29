@@ -14,7 +14,7 @@ function LoginForm() {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+    const [mode, setMode] = useState<'signin' | 'signup' | 'magiclink'>('signin');
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
     // Check for errors in URL
@@ -119,6 +119,39 @@ function LoginForm() {
         }
     };
 
+    // Magic Link Handler
+    const handleMagicLink = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setError(null);
+        setSuccessMsg(null);
+
+        try {
+            const { error } = await supabase.auth.signInWithOtp({
+                email,
+                options: {
+                    shouldCreateUser: false,
+                    emailRedirectTo: `${window.location.origin}/auth/callback`,
+                },
+            });
+
+            if (error) throw error;
+
+            setSuccessMsg("Pokud máte účet, poslali jsme vám odkaz na přihlášení na email.");
+        } catch (err: any) {
+            console.error('Magic link error:', err);
+            // Security: Don't reveal if user exists or not definitely, but here we can just show generic
+            // However, Supabase with shouldCreateUser: false might throw specific error if we want to catch.
+            if (err.message && err.message.includes('Signups not allowed for otp')) {
+                setError('Ups, tento email v databázi nemáme. Noví uživatelé se musí napřed registrovat.');
+            } else {
+                setError(err.message || 'Chyba při odesílání odkazu');
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
 
     return (
         <div className="min-h-screen bg-[#111827] flex items-center justify-center p-4">
@@ -127,10 +160,10 @@ function LoginForm() {
                     <img src="/logo_full_dark.png" alt="Logo" className="h-10 mx-auto mb-4" />
                     {/* Assuming dark mode default for login page to look 'premium' */}
                     <h1 className="text-2xl font-bold text-white mb-2">
-                        {mode === 'signin' ? 'Vítejte zpět' : 'Vytvořit účet'}
+                        {mode === 'signin' ? 'Vítejte zpět' : (mode === 'signup' ? 'Vytvořit účet' : 'Přihlášení bez hesla')}
                     </h1>
                     <p className="text-gray-400 text-sm">
-                        {mode === 'signin' ? 'Přihlaste se pro přístup do aplikace' : 'Zaregistrujte se pro přístup'}
+                        {mode === 'signin' ? 'Přihlaste se pro přístup do aplikace' : (mode === 'signup' ? 'Zaregistrujte se pro přístup' : 'Zašleme vám přihlašovací odkaz na email')}
                     </p>
                 </div>
 
@@ -146,7 +179,12 @@ function LoginForm() {
                     </div>
                 )}
 
-                <form onSubmit={mode === 'signin' ? handleSignIn : (e) => { e.preventDefault(); handleSignUp(); }} className="space-y-4">
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    if (mode === 'signin') handleSignIn(e);
+                    else if (mode === 'signup') handleSignUp();
+                    else if (mode === 'magiclink') handleMagicLink(e);
+                }} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">Email</label>
                         <input
@@ -159,17 +197,19 @@ function LoginForm() {
                         />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">Heslo</label>
-                        <input
-                            type="password"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full px-4 py-3 bg-[#111827] border border-[#2C2E36] rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613] transition-all"
-                            placeholder="••••••••"
-                        />
-                    </div>
+                    {mode !== 'magiclink' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1.5 ml-1">Heslo</label>
+                            <input
+                                type="password"
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full px-4 py-3 bg-[#111827] border border-[#2C2E36] rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613] transition-all"
+                                placeholder="••••••••"
+                            />
+                        </div>
+                    )}
 
                     <button
                         type="submit"
@@ -185,9 +225,20 @@ function LoginForm() {
                                 Zpracovávám...
                             </span>
                         ) : (
-                            mode === 'signin' ? 'Přihlásit se' : 'Registrovat s emailem'
+                            mode === 'signin' ? 'Přihlásit se' : (mode === 'signup' ? 'Registrovat s emailem' : 'Odeslat magický odkaz')
                         )}
                     </button>
+
+
+                    {mode === 'magiclink' && (
+                        <button
+                            type="button"
+                            onClick={() => { setMode('signin'); setError(null); setSuccessMsg(null); }}
+                            className="w-full text-center text-sm text-gray-500 hover:text-white transition-colors mt-2"
+                        >
+                            Zpět na přihlášení heslem
+                        </button>
+                    )}
                 </form>
 
                 <div className="my-6 flex items-center gap-4">
@@ -197,6 +248,18 @@ function LoginForm() {
                 </div>
 
                 <div className="space-y-3">
+                    <button
+                        onClick={() => { setMode('magiclink'); setError(null); setSuccessMsg(null); }}
+                        disabled={isLoading}
+                        className="w-full py-3 bg-[#111827] border border-[#2C2E36] hover:bg-[#2C2E36] text-white font-medium rounded-xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+                            <rect width="20" height="16" x="2" y="4" rx="2" />
+                            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                        </svg>
+                        Přihlásit se bez hesla
+                    </button>
+
                     <button
                         onClick={() => handleOAuthSignIn('google')}
                         disabled={isLoading}
@@ -230,7 +293,7 @@ function LoginForm() {
                     >
                         <svg className="w-5 h-5" viewBox="0 0 24 24">
                             <path fill="#F25022" d="M1 1h10v10H1z" />
-                            <path fill="#7FBA00" d="M13 1h10v10H13z" />
+                            <path fill="#7FBA00" d="M13 1h10v10H1z" />
                             <path fill="#00A4EF" d="M1 13h10v10H1z" />
                             <path fill="#FFB900" d="M13 13h10v10H13z" />
                         </svg>
@@ -240,7 +303,7 @@ function LoginForm() {
 
                 <div className="mt-8 pt-6 border-t border-[#2C2E36] text-center">
                     <p className="text-gray-500 text-sm">
-                        {mode === 'signin' ? 'Nemáte ještě účet?' : 'Máte již účet?'}
+                        {mode === 'signin' ? 'Nemáte ještě účet?' : (mode === 'signup' ? 'Máte již účet?' : 'Máte již účet?')}
                         <button
                             onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
                             className="ml-2 text-white hover:text-[#E30613] font-medium transition-colors"
