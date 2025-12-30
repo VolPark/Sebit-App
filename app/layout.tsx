@@ -37,7 +37,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="cs" suppressHydrationWarning>
-      <body className={`${inter.className} min-h-screen bg-white dark:bg-[#111827]`}>
+      <body
+        className={`${inter.className} min-h-screen bg-white dark:bg-[#111827]`}
+        style={
+          {
+            '--brand-primary': process.env.NEXT_PUBLIC_BRAND_PRIMARY,
+            '--brand-primary-foreground': process.env.NEXT_PUBLIC_BRAND_PRIMARY_FOREGROUND || '#ffffff',
+            '--brand-accent': process.env.NEXT_PUBLIC_BRAND_ACCENT,
+          } as React.CSSProperties
+        }
+      >
         <AuthProvider>
           <ServiceWorkerRegister />
           <SignOutOverlay />
