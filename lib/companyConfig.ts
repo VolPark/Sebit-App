@@ -20,5 +20,30 @@ export const CompanyConfig = {
         logoUrl: process.env.NEXT_PUBLIC_LOGO_URL || "/logo_full_dark.png",
         logoLightUrl: process.env.NEXT_PUBLIC_LOGO_LIGHT_URL || "/logo_full.png",
         favicon: process.env.NEXT_PUBLIC_FAVICON || "/icon.png",
+    },
+    features: {
+        // Main Sections
+        enableDashboard: process.env.NEXT_PUBLIC_ENABLE_DASHBOARD !== 'false',
+        enableOffers: process.env.NEXT_PUBLIC_ENABLE_OFFERS !== 'false',
+        enableAdmin: process.env.NEXT_PUBLIC_ENABLE_ADMIN !== 'false',
+        enableFinance: process.env.NEXT_PUBLIC_ENABLE_FINANCE !== 'false',
+
+        // Granular Features (Dashboard)
+        enableDashboardFirma: process.env.NEXT_PUBLIC_ENABLE_DASHBOARD_FIRMA !== 'false',
+        enableDashboardWorkers: process.env.NEXT_PUBLIC_ENABLE_DASHBOARD_WORKERS !== 'false',
+        enableDashboardClients: process.env.NEXT_PUBLIC_ENABLE_DASHBOARD_CLIENTS !== 'false',
+        enableDashboardExperimental: process.env.NEXT_PUBLIC_ENABLE_DASHBOARD_EXPERIMENTAL !== 'false',
+        enableAI: process.env.NEXT_PUBLIC_ENABLE_AI !== 'false',
+
+        // Granular Features (Admin)
+        enableAdminUsers: process.env.NEXT_PUBLIC_ENABLE_ADMIN_USERS !== 'false',
+        enableAdminActions: process.env.NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS !== 'false',
+        enableAdminClients: process.env.NEXT_PUBLIC_ENABLE_ADMIN_CLIENTS !== 'false',
+        enableAdminWorkers: process.env.NEXT_PUBLIC_ENABLE_ADMIN_WORKERS !== 'false',
+
+        // Granular Features (Finance)
+        enableFinanceReports: process.env.NEXT_PUBLIC_ENABLE_FINANCE_REPORTS !== 'false',
+        enableFinancePayroll: process.env.NEXT_PUBLIC_ENABLE_FINANCE_PAYROLL !== 'false',
+        enableFinanceCosts: process.env.NEXT_PUBLIC_ENABLE_FINANCE_COSTS !== 'false',
     }
 };

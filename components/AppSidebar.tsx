@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { CompanyConfig } from '@/lib/companyConfig';
 
 // Icons (HeroIcons style SVGs)
 const Icons = {
@@ -104,6 +105,35 @@ export default function AppSidebar() {
         // Only owner and admin can see 'Uživatelé'
         if (role !== 'owner' && role !== 'admin') {
             items = items.filter(item => item.name !== 'Uživatelé');
+        }
+
+        if (items.length === 0) return null;
+
+        if (group.title === 'Přehled' && !CompanyConfig.features.enableDashboard) return null;
+        if (group.title === 'Obchod' && !CompanyConfig.features.enableOffers) return null;
+        if (group.title === 'Administrace' && !CompanyConfig.features.enableAdmin) return null;
+        if (group.title === 'Finance' && !CompanyConfig.features.enableFinance) return null;
+
+        // Granular Item Filtering
+        if (group.title === 'Přehled') {
+            if (!CompanyConfig.features.enableDashboardFirma) items = items.filter(i => i.name !== 'Firma');
+            if (!CompanyConfig.features.enableDashboardWorkers) items = items.filter(i => i.name !== 'Zaměstnanci');
+            if (!CompanyConfig.features.enableDashboardClients) items = items.filter(i => i.name !== 'Klienti');
+            if (!CompanyConfig.features.enableDashboardExperimental) items = items.filter(i => i.name !== 'Experimentální');
+            if (!CompanyConfig.features.enableAI) items = items.filter(i => i.name !== 'AI Asistent');
+        }
+
+        if (group.title === 'Administrace') {
+            if (!CompanyConfig.features.enableAdminUsers) items = items.filter(i => i.name !== 'Uživatelé');
+            if (!CompanyConfig.features.enableAdminActions) items = items.filter(i => i.name !== 'Akce');
+            if (!CompanyConfig.features.enableAdminClients) items = items.filter(i => i.name !== 'Klienti');
+            if (!CompanyConfig.features.enableAdminWorkers) items = items.filter(i => i.name !== 'Pracovníci');
+        }
+
+        if (group.title === 'Finance') {
+            if (!CompanyConfig.features.enableFinanceReports) items = items.filter(i => i.name !== 'Výkazy');
+            if (!CompanyConfig.features.enableFinancePayroll) items = items.filter(i => i.name !== 'Mzdy');
+            if (!CompanyConfig.features.enableFinanceCosts) items = items.filter(i => i.name !== 'Náklady');
         }
 
         if (items.length === 0) return null;
