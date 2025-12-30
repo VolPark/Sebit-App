@@ -10,6 +10,8 @@ interface OfferPdfDownloadButtonProps {
 }
 
 
+import { CompanyConfig } from '@/lib/companyConfig';
+
 const sanitizeFilename = (name: string) => {
     return name.replace(/[<>:"/\\|?*]/g, '').trim();
 };
@@ -18,8 +20,8 @@ export default function OfferPdfDownloadButton({ offer, items }: OfferPdfDownloa
     return (
         <PDFDownloadLink
             document={<OfferPdf offer={offer} items={items} />}
-            fileName={`Horyna - ${sanitizeFilename(offer.nazev)} (${sanitizeFilename(offer.cislo || offer.id.toString())}).pdf`}
-            className="inline-flex items-center gap-2 bg-[#E30613] hover:bg-[#C00000] text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+            fileName={`${CompanyConfig.shortName} - ${sanitizeFilename(offer.nazev)} (${sanitizeFilename(offer.cislo || offer.id.toString())}).pdf`}
+            className="inline-flex items-center gap-2 bg-brand-primary hover:brightness-110 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
         >
             {({ loading }) =>
                 loading ? 'Generuji...' : (

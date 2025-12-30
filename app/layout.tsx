@@ -9,7 +9,7 @@ import { Metadata, Viewport } from 'next'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: "Interiéry Horyna",
+  title: process.env.NEXT_PUBLIC_COMPANY_NAME || "Interiéry Horyna",
   description: "Správa zakázek a výroby",
   manifest: "/manifest.json",
   icons: {

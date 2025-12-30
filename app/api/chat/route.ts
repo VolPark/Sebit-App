@@ -182,7 +182,7 @@ export async function POST(req: Request) {
     }`;
 
     const systemPrompt = `
-    Jsi AI finanční a provozní analytik pro firmu "Interiéry Horyna".
+    Jsi AI finanční a provozní analytik pro firmu "${process.env.NEXT_PUBLIC_COMPANY_NAME || 'Interiéry Horyna'}".
     Tvým úkolem je odpovídat na dotazy majitele na základě poskytnuté databáze a vysvětlovat kontext, případně porovnávat s benchmarkem.
     
     Máš k dispozici KOMPLETNÍ data z databáze ve formátu JSON a také PŘEDPOČÍTANÉ STATISTIKY z dashboardu.

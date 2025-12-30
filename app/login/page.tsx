@@ -4,6 +4,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 function LoginForm() {
     const router = useRouter();
@@ -157,7 +158,7 @@ function LoginForm() {
         <div className="min-h-screen bg-[#111827] flex items-center justify-center p-4">
             <div className="bg-[#1A1C23] border border-[#2C2E36] w-full max-w-md rounded-2xl p-8 shadow-2xl">
                 <div className="text-center mb-8">
-                    <img src="/logo_full_dark.png" alt="Logo" className="h-10 mx-auto mb-4" />
+                    <img src={process.env.NEXT_PUBLIC_LOGO_URL || "/logo_full_dark.png"} alt="Logo" className="h-10 mx-auto mb-4" />
                     {/* Assuming dark mode default for login page to look 'premium' */}
                     <h1 className="text-2xl font-bold text-white mb-2">
                         {mode === 'signin' ? 'Vítejte zpět' : (mode === 'signup' ? 'Vytvořit účet' : 'Přihlášení bez hesla')}
@@ -192,7 +193,7 @@ function LoginForm() {
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full px-4 py-3 bg-[#111827] border border-[#2C2E36] rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613] transition-all"
+                            className="w-full px-4 py-3 bg-[#111827] border border-[#2C2E36] rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all"
                             placeholder="vladimir@horyna.cz"
                         />
                     </div>
@@ -205,7 +206,7 @@ function LoginForm() {
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-[#111827] border border-[#2C2E36] rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613] transition-all"
+                                className="w-full px-4 py-3 bg-[#111827] border border-[#2C2E36] rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all"
                                 placeholder="••••••••"
                             />
                         </div>
@@ -214,7 +215,7 @@ function LoginForm() {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full py-3.5 bg-[#E30613] hover:bg-[#c40510] text-white font-semibold rounded-xl transition-all shadow-lg shadow-red-600/20 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                        className="w-full py-3.5 bg-brand-primary hover:brightness-110 text-white font-semibold rounded-xl transition-all shadow-lg shadow-brand-primary/20 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                     >
                         {isLoading ? (
                             <span className="flex items-center justify-center gap-2">
@@ -306,7 +307,7 @@ function LoginForm() {
                         {mode === 'signin' ? 'Nemáte ještě účet?' : (mode === 'signup' ? 'Máte již účet?' : 'Máte již účet?')}
                         <button
                             onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-                            className="ml-2 text-white hover:text-[#E30613] font-medium transition-colors"
+                            className="ml-2 text-white hover:text-brand-primary font-medium transition-colors"
                         >
                             {mode === 'signin' ? 'Vytvořit účet' : 'Přihlásit se'}
                         </button>

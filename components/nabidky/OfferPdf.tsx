@@ -4,6 +4,7 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Font, Image } from '@react-pdf/renderer';
 import { Nabidka, NabidkaPolozka } from '@/lib/types/nabidky-types';
+import { CompanyConfig } from '@/lib/companyConfig';
 
 // Register Roboto font for Czech characters
 Font.register({
@@ -14,6 +15,8 @@ Font.register({
         { src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-bold-webfont.ttf', fontWeight: 700 }
     ]
 });
+
+const THEME_COLOR = process.env.NEXT_PUBLIC_PDF_THEME_COLOR || '#E30613'; // Default Horyna Red
 
 const styles = StyleSheet.create({
     page: {
@@ -44,7 +47,7 @@ const styles = StyleSheet.create({
     },
     separator: {
         borderBottomWidth: 3,
-        borderBottomColor: '#E30613', // Light red similar to image
+        borderBottomColor: THEME_COLOR,
         marginBottom: 20
     },
     // Title & Customer
@@ -58,13 +61,13 @@ const styles = StyleSheet.create({
     },
     mainTitle: {
         fontSize: 24,
-        color: '#E30613',
+        color: THEME_COLOR,
         fontWeight: 'bold',
         marginBottom: 10
     },
     subTitle: {
         fontSize: 18,
-        color: '#E30613',
+        color: THEME_COLOR,
         fontWeight: 'normal',
         marginTop: 5
     },
@@ -93,7 +96,7 @@ const styles = StyleSheet.create({
         marginBottom: 30
     },
     boxRed: {
-        backgroundColor: '#E30613',
+        backgroundColor: THEME_COLOR,
         borderRadius: 8,
         paddingVertical: 8,
         paddingHorizontal: 15,
@@ -128,7 +131,7 @@ const styles = StyleSheet.create({
     // Table
     tableHeader: {
         flexDirection: 'row',
-        backgroundColor: '#E30613',
+        backgroundColor: THEME_COLOR,
         paddingVertical: 8,
         paddingHorizontal: 10,
         borderTopLeftRadius: 4,
@@ -259,14 +262,14 @@ export default function OfferPdf({ offer, items }: OfferPdfProps) {
 
                 {/* Header */}
                 <View style={styles.header}>
-                    <Image style={styles.logo} src="/logo_full.png" />
+                    <Image style={styles.logo} src={CompanyConfig.branding.logoLightUrl} />
                     <View style={styles.headerContacts}>
-                        <Text style={{ fontWeight: 'bold', fontSize: 10, marginBottom: 2 }}>Interiéry Horyna s.r.o.</Text>
-                        <Text>Nůšařská 4374</Text>
-                        <Text>276 01 Mělník</Text>
-                        <Text>Česká republika</Text>
-                        <Text style={{ marginTop: 5 }}>+420 777 945 161</Text>
-                        <Text>www.interiery-horyna.cz</Text>
+                        <Text style={{ fontWeight: 'bold', fontSize: 10, marginBottom: 2 }}>{CompanyConfig.billing.companyName}</Text>
+                        <Text>{CompanyConfig.address.line1}</Text>
+                        <Text>{CompanyConfig.address.city}</Text>
+                        <Text>{CompanyConfig.address.country}</Text>
+                        <Text style={{ marginTop: 5 }}>{CompanyConfig.contact.phone}</Text>
+                        <Text>{CompanyConfig.contact.web}</Text>
                     </View>
                 </View>
                 <View style={styles.separator} />
@@ -369,13 +372,13 @@ export default function OfferPdf({ offer, items }: OfferPdfProps) {
                     </View>
                     <View style={[styles.finalRow, { borderTopWidth: 1, borderTopColor: '#000', paddingTop: 5, marginTop: 5 }]}>
                         <Text style={[styles.finalLabel, { fontSize: 14 }]}>CELKEM S DPH:</Text>
-                        <Text style={[styles.finalValue, { fontSize: 14, color: '#E30613' }]}>{currency.format(totalWithVat)}</Text>
+                        <Text style={[styles.finalValue, { fontSize: 14, color: THEME_COLOR }]}>{currency.format(totalWithVat)}</Text>
                     </View>
                 </View>
 
                 {/* Footer */}
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>Interiéry Horyna s.r.o. | IČO: 27649881, DIČ: CZ27649881 | www.interiery-horyna.cz</Text>
+                    <Text style={styles.footerText}>{CompanyConfig.billing.companyName} | IČO: {CompanyConfig.billing.ico}, DIČ: {CompanyConfig.billing.dic} | {CompanyConfig.contact.web}</Text>
                 </View>
             </Page>
         </Document>

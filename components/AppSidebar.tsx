@@ -120,8 +120,8 @@ export default function AppSidebar() {
             <div className="p-6">
                 <Link href="/" onClick={handleLinkClick}>
                     <img
-                        src="/logo_full_dark.png"
-                        alt="Interiéry Horyna"
+                        src={process.env.NEXT_PUBLIC_LOGO_URL || "/logo_full_dark.png"}
+                        alt={process.env.NEXT_PUBLIC_COMPANY_NAME || "Interiéry Horyna"}
                         className="h-10 w-auto object-contain"
                     />
                 </Link>
@@ -170,7 +170,7 @@ export default function AppSidebar() {
                                                 className={`
                                                 group flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200
                                                 ${isActive
-                                                        ? 'bg-[#E30613] text-white shadow-lg shadow-red-900/20'
+                                                        ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20'
                                                         : 'text-gray-400 hover:bg-white/5 hover:text-white'
                                                     }
                                             `}
@@ -196,7 +196,7 @@ export default function AppSidebar() {
             {/* Footer / User Profile */}
             <div className="p-4 mt-auto border-t border-gray-800">
                 <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl hover:bg-white/10 transition-colors group relative">
-                    <div className="h-10 w-10 rounded-full bg-gray-700 ring-2 ring-transparent group-hover:ring-[#E30613] transition-all overflow-hidden flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-full bg-gray-700 ring-2 ring-transparent group-hover:ring-brand-primary transition-all overflow-hidden flex items-center justify-center">
                         <Icons.Users className="h-5 w-5 text-gray-400" />
                     </div>
                     <div className="overflow-hidden flex-1">
@@ -239,8 +239,8 @@ export default function AppSidebar() {
             <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[#111827] border-b border-gray-800 p-4 flex items-center justify-between">
                 <Link href="/">
                     <img
-                        src="/logo_full_dark.png"
-                        alt="Interiéry Horyna"
+                        src={process.env.NEXT_PUBLIC_LOGO_URL || "/logo_full_dark.png"}
+                        alt={process.env.NEXT_PUBLIC_COMPANY_NAME || "Interiéry Horyna"}
                         className="h-8 w-auto block"
                     />
                 </Link>

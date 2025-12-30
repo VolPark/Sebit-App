@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { CompanyConfig } from '@/lib/companyConfig';
 
 interface FaceAuthModalProps {
     onCapture: (imageSrc: string) => void;
@@ -130,13 +131,13 @@ export default function FaceAuthModal({ onCapture, onNameSelect }: FaceAuthModal
                 <div className="flex border-b border-slate-200 dark:border-slate-800">
                     <button
                         onClick={() => setMode('face')}
-                        className={`flex-1 py-4 text-sm font-medium transition-colors ${mode === 'face' ? 'text-[#E30613] border-b-2 border-[#E30613]' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                        className={`flex-1 py-4 text-sm font-medium transition-colors ${mode === 'face' ? 'text-brand-primary border-b-2 border-brand-primary' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
                     >
                         Ověření kamerou
                     </button>
                     <button
                         onClick={() => setMode('name')}
-                        className={`flex-1 py-4 text-sm font-medium transition-colors ${mode === 'name' ? 'text-[#E30613] border-b-2 border-[#E30613]' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                        className={`flex-1 py-4 text-sm font-medium transition-colors ${mode === 'name' ? 'text-brand-primary border-b-2 border-brand-primary' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
                     >
                         Ověření jménem
                     </button>
@@ -145,9 +146,9 @@ export default function FaceAuthModal({ onCapture, onNameSelect }: FaceAuthModal
                 <div className="p-6 text-center">
                     <div className="mb-6 flex flex-col items-center">
                         {/* Light Mode Logo */}
-                        <img src="/logo_full.png" alt="Interiéry Horyna" className="h-16 w-auto object-contain mb-4 dark:hidden" />
+                        <img src={CompanyConfig.branding.logoLightUrl} alt={CompanyConfig.name} className="h-16 w-auto object-contain mb-4 dark:hidden" />
                         {/* Dark Mode Logo */}
-                        <img src="/logo_full_dark.png" alt="Interiéry Horyna" className="h-16 w-auto object-contain mb-4 hidden dark:block" />
+                        <img src={CompanyConfig.branding.logoUrl} alt={CompanyConfig.name} className="h-16 w-auto object-contain mb-4 hidden dark:block" />
                         <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
                             {mode === 'face' ? 'Ověření totožnosti' : 'Kdo zrovna pracuje?'}
                         </h2>
@@ -160,10 +161,10 @@ export default function FaceAuthModal({ onCapture, onNameSelect }: FaceAuthModal
 
                     {mode === 'face' ? (
                         <>
-                            <div className="relative mx-auto w-64 h-64 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border-4 border-[#E30613] shadow-inner mb-8">
+                            <div className="relative mx-auto w-64 h-64 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border-4 border-brand-primary shadow-inner mb-8">
                                 {loading && (
                                     <div className="absolute inset-0 flex items-center justify-center text-slate-400">
-                                        <svg className="animate-spin h-8 w-8 text-[#E30613]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <svg className="animate-spin h-8 w-8 text-brand-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
@@ -192,7 +193,7 @@ export default function FaceAuthModal({ onCapture, onNameSelect }: FaceAuthModal
                                 <button
                                     onClick={handleCapture}
                                     disabled={loading || !!error}
-                                    className="w-full bg-[#E30613] hover:bg-[#C00000] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
+                                    className="w-full bg-brand-primary hover:brightness-110 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                                         <path d="M12 9a3.75 3.75 0 100 7.5A3.75 3.75 0 0012 9z" />
@@ -204,7 +205,7 @@ export default function FaceAuthModal({ onCapture, onNameSelect }: FaceAuthModal
                                 {error && (
                                     <button
                                         onClick={() => setMode('name')}
-                                        className="text-sm text-slate-500 underline hover:text-[#E30613]"
+                                        className="text-sm text-slate-500 underline hover:text-brand-primary"
                                     >
                                         Přepnout na výběr jména
                                     </button>
@@ -217,7 +218,7 @@ export default function FaceAuthModal({ onCapture, onNameSelect }: FaceAuthModal
                                 <select
                                     value={selectedUser}
                                     onChange={(e) => setSelectedUser(e.target.value)}
-                                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-base rounded-lg focus:ring-[#E30613] focus:border-[#E30613] block w-full p-4"
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-base rounded-lg focus:ring-brand-primary focus:border-brand-primary block w-full p-4"
                                 >
                                     <option value="">-- Vyberte své jméno --</option>
                                     {users.map(user => (
@@ -231,7 +232,7 @@ export default function FaceAuthModal({ onCapture, onNameSelect }: FaceAuthModal
                             <button
                                 onClick={handleNameSubmit}
                                 disabled={!selectedUser}
-                                className="w-full bg-[#E30613] hover:bg-[#C00000] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
+                                className="w-full bg-brand-primary hover:brightness-110 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                                     <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
