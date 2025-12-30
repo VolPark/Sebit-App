@@ -19,5 +19,6 @@ export const CompanyConfig = {
     branding: {
         logoUrl: process.env.NEXT_PUBLIC_LOGO_URL || "/logo_full_dark.png",
         logoLightUrl: process.env.NEXT_PUBLIC_LOGO_LIGHT_URL || "/logo_full.png",
+        favicon: process.env.NEXT_PUBLIC_FAVICON || "/icon.png",
     }
 };

@@ -122,7 +122,7 @@ export default function AppSidebar() {
                     <img
                         src={process.env.NEXT_PUBLIC_LOGO_URL || "/logo_full_dark.png"}
                         alt={process.env.NEXT_PUBLIC_COMPANY_NAME || "Interiéry Horyna"}
-                        className="h-10 w-auto object-contain"
+                        className="h-16 w-auto object-contain"
                     />
                 </Link>
             </div>
@@ -170,7 +170,7 @@ export default function AppSidebar() {
                                                 className={`
                                                 group flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200
                                                 ${isActive
-                                                        ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20'
+                                                        ? 'bg-brand-primary text-brand-primary-foreground shadow-lg shadow-brand-primary/20'
                                                         : 'text-gray-400 hover:bg-white/5 hover:text-white'
                                                     }
                                             `}

@@ -13,8 +13,8 @@ export const metadata: Metadata = {
   description: "Správa zakázek a výroby",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icon.png",
-    apple: "/icon.png",
+    icon: process.env.NEXT_PUBLIC_FAVICON || "/icon.png",
+    apple: process.env.NEXT_PUBLIC_FAVICON || "/icon.png",
   },
   appleWebApp: {
     capable: true,

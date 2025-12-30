@@ -193,7 +193,7 @@ export default function FaceAuthModal({ onCapture, onNameSelect }: FaceAuthModal
                                 <button
                                     onClick={handleCapture}
                                     disabled={loading || !!error}
-                                    className="w-full bg-brand-primary hover:brightness-110 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
+                                    className="w-full bg-brand-primary hover:brightness-110 disabled:bg-slate-300 disabled:cursor-not-allowed text-brand-primary-foreground font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                                         <path d="M12 9a3.75 3.75 0 100 7.5A3.75 3.75 0 0012 9z" />
