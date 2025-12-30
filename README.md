@@ -1,14 +1,94 @@
-# 🏗️ Interiéry Horyna - Management System
+# 🏗️ White-Label Management System (Horyna / SEBIT)
 
 ![Project Status](https://img.shields.io/badge/Status-Active_Development-brightgreen)
-![Next.js](https://img.shields.io/badge/Next.js-16.0-black)
+![Next.js](https://img.shields.io/badge/Next.js-15.0-black)
 ![React](https://img.shields.io/badge/React-19.0-blue)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38B2AC)
 ![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E)
 
-Comprehensive internal management system designed for **Interiéry Horyna**. This application streamlines business operations including client management, employee shifts, automated salary calculations, project tracking, financial analytics, and offer management.
+**Comprehensive internal management system designed for multi-client deployment.** 
+One codebase powers customized applications for **Interiéry Horyna** and **SEBIT Solutions**, featuring client management, offer generation, financial tracking, and granular feature modularity.
 
-Built with performance, modern aesthetics, and ease of use in mind.
+---
+
+## 🎨 White-Labeling Architecture
+This project uses a **"Single Codebase, Multiple Deployments"** strategy.
+- **Source Code**: Shared across all clients in a single GitHub repository.
+- **Deployments (Vercel)**: Separate deployments for each client, configured via **Environment Variables**.
+- **Databases (Supabase)**: Separate isolated databases per client.
+
+### ⚙️ Configuration & Features (Feature Flags)
+The application behavior and branding are fully controlled by environment variables. You can:
+- Change **Company Identity** (Name, Logo, Address).
+- Customize **Brand Colors** (Primary, Accent, Text).
+- Toggle **Modules & Features** (Dashboard, Finance, Admin) down to specific sub-menus.
+
+---
+
+## 🔧 Environment Variables Reference
+
+When setting up a new Vercel project (e.g., for SEBIT), configure these variables.
+
+### 1. Identity & Contact
+| Variable | Description | Example (SEBIT) |
+|---|---|---|
+| `NEXT_PUBLIC_COMPANY_NAME` | Main App Title | "SEBIT Solutions" |
+| `NEXT_PUBLIC_COMPANY_SHORT_NAME` | Prefix for files | "SEBIT" |
+| `NEXT_PUBLIC_LOGO_URL` | Sidebar/Dark Logo | `/brands/sebit/sebit_solutions_dark.png` |
+| `NEXT_PUBLIC_LOGO_LIGHT_URL` | PDF/Light Logo | `/brands/sebit/sebit_solutions_light.png` |
+| `NEXT_PUBLIC_FAVICON` | Browser Icon | `/brands/sebit/favion_arrow.png` |
+| `NEXT_PUBLIC_COMPANY_WEB` | Website | "www.sebit.cz" |
+| `...ADDRESS/EMAIL/ICO/DIC` | [Full list in `lib/companyConfig.ts`] | |
+
+### 2. Branding Colors
+Default is Horyna Red (`#E30613`). Override for clients:
+```env
+NEXT_PUBLIC_BRAND_PRIMARY="#C6FF00"         # Main Action (e.g. Lime)
+NEXT_PUBLIC_BRAND_PRIMARY_FOREGROUND="#002B5C" # Text on Primary (e.g. Navy)
+NEXT_PUBLIC_BRAND_ACCENT="#002B5C"          # Secondary/Highlights
+NEXT_PUBLIC_PDF_THEME_COLOR="#002B5C"       # PDF Header/Footer Color
+```
+
+### 3. Feature Flags (Modularization)
+Control which sections of the app are visible. Defaults to `true` if omitted.
+
+**Group Level:**
+```env
+NEXT_PUBLIC_ENABLE_DASHBOARD="true"
+NEXT_PUBLIC_ENABLE_OFFERS="true"
+NEXT_PUBLIC_ENABLE_ADMIN="true"
+NEXT_PUBLIC_ENABLE_FINANCE="true"
+NEXT_PUBLIC_ENABLE_AI="true"
+```
+
+**Granular Level (Sub-menus):**
+```env
+# Dashboard
+NEXT_PUBLIC_ENABLE_DASHBOARD_FIRMA="true"
+NEXT_PUBLIC_ENABLE_DASHBOARD_WORKERS="true"
+...
+# Finance
+NEXT_PUBLIC_ENABLE_FINANCE_REPORTS="true" # Výkazy
+NEXT_PUBLIC_ENABLE_FINANCE_PAYROLL="true" # Mzdy
+NEXT_PUBLIC_ENABLE_FINANCE_COSTS="true"   # Náklady
+```
+
+---
+
+## 🚀 Deployment Guide (Vercel)
+
+### Deploying for SEBIT Solutions:
+1.  **Create Project**: Import this repo into Vercel.
+2.  **Branch Configuration**:
+    *   Go to **Settings > Domains**.
+    *   Edit your domain (e.g., `sebit.vercel.app`).
+    *   Set **Git Branch** to `sebit`.
+3.  **Environment Variables**: Copy/Paste the variables from `walkthrough.md` or this README section above.
+4.  **Database**: Connect to the SEBIT specific Supabase project.
+
+### Deploying for Interiéry Horyna:
+1.  **Branch**: Use `main`.
+2.  **Environment Variables**: Not required (defaults apply), but recommended for explicit configuration.
 
 ---
 
