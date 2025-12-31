@@ -20,6 +20,7 @@ export const CompanyConfig = {
         logoUrl: process.env.NEXT_PUBLIC_LOGO_URL || "/logo_full_dark.png",
         logoLightUrl: process.env.NEXT_PUBLIC_LOGO_LIGHT_URL || "/logo_full.png",
         favicon: process.env.NEXT_PUBLIC_FAVICON || "/icon.png",
+        signatureUrl: process.env.NEXT_PUBLIC_SIGNATURE_URL || null,
     },
     features: {
         // Main Sections
@@ -45,5 +46,6 @@ export const CompanyConfig = {
         enableFinanceReports: process.env.NEXT_PUBLIC_ENABLE_FINANCE_REPORTS !== 'false',
         enableFinancePayroll: process.env.NEXT_PUBLIC_ENABLE_FINANCE_PAYROLL !== 'false',
         enableFinanceCosts: process.env.NEXT_PUBLIC_ENABLE_FINANCE_COSTS !== 'false',
+        enableFinanceTimesheets: process.env.NEXT_PUBLIC_ENABLE_FINANCE_TIMESHEETS !== 'false',
     }
 };

@@ -13,13 +13,15 @@ export default function PracovniciPage() {
   // Form state for adding new workers
   const [jmeno, setJmeno] = useState('')
   const [hodinovaMzda, setHodinovaMzda] = useState('')
-  const [selectedUserId, setSelectedUserId] = useState<string>('') // Add selectedUserId state for form
+  const [role, setRole] = useState('') // Add role state
+  const [selectedUserId, setSelectedUserId] = useState<string>('')
 
   // State for inline editing
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editJmeno, setEditJmeno] = useState('')
   const [editHodinovaMzda, setEditHodinovaMzda] = useState('')
-  const [editUserId, setEditUserId] = useState<string>('') // Add editUserId state for editing
+  const [editRole, setEditRole] = useState('') // Add editRole state
+  const [editUserId, setEditUserId] = useState<string>('')
 
   // Divisions State
   const [divisions, setDivisions] = useState<any[]>([])
@@ -116,7 +118,8 @@ export default function PracovniciPage() {
       .insert({
         jmeno: jmeno,
         hodinova_mzda: sazba,
-        user_id: selectedUserId || null // Add user_id
+        role: role || null, // Insert role
+        user_id: selectedUserId || null
       })
       .select()
       .single()
@@ -137,8 +140,9 @@ export default function PracovniciPage() {
 
       setJmeno('')
       setHodinovaMzda('')
-      setSelectedUserId('') // Reset user selection
-      setSelectedDivisions([]) // Reset divisions
+      setRole('') // Reset role
+      setSelectedUserId('')
+      setSelectedDivisions([])
       setStatusMessage('Pracovník úspěšně přidán')
       fetchData()
     } else {
@@ -151,7 +155,8 @@ export default function PracovniciPage() {
     setEditingId(p.id)
     setEditJmeno(p.jmeno)
     setEditHodinovaMzda(String(p.hodinova_mzda || ''))
-    setEditUserId(p.user_id || '') // Set editUserId
+    setEditRole(p.role || '') // Set editRole
+    setEditUserId(p.user_id || '')
     setEditSelectedDivisions(p.divisions || [])
   }
 
@@ -165,7 +170,8 @@ export default function PracovniciPage() {
     const { error } = await supabase.from('pracovnici').update({
       jmeno: editJmeno,
       hodinova_mzda: parseFloat(editHodinovaMzda.replace(',', '.')) || 0,
-      user_id: editUserId || null // Update user_id
+      role: editRole || null, // Update role
+      user_id: editUserId || null
     }).eq('id', editingId)
 
     if (!error) {
@@ -289,6 +295,15 @@ export default function PracovniciPage() {
             />
           </div>
           <div className="md:col-span-1">
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Role / Funkce</label>
+            <input
+              placeholder="Stavbyvedoucí"
+              className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
+              value={role}
+              onChange={e => setRole(e.target.value)}
+            />
+          </div>
+          <div className="md:col-span-1">
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Napárovat uživatele</label>
             <select
               className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
@@ -382,6 +397,7 @@ export default function PracovniciPage() {
           <thead className="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-b dark:border-slate-700">
             <tr>
               <th className="p-3">Jméno</th>
+              <th className="p-3">Role</th>
               <th className="p-3">Hodinová sazba</th>
               <th className="p-3">Napárovaný uživatel</th>
               <th className="p-3">Divize</th>
@@ -401,6 +417,9 @@ export default function PracovniciPage() {
                   <tr className="bg-red-50 dark:bg-red-900/10">
                     <td className="p-2">
                       <input className="border dark:border-slate-700 p-2 rounded w-full bg-white dark:bg-slate-950 dark:text-white" value={editJmeno} onChange={e => setEditJmeno(e.target.value)} />
+                    </td>
+                    <td className="p-2">
+                      <input className="border dark:border-slate-700 p-2 rounded w-full bg-white dark:bg-slate-950 dark:text-white" value={editRole} onChange={e => setEditRole(e.target.value)} />
                     </td>
                     <td className="p-2">
                       <input type="number" className="border dark:border-slate-700 p-2 rounded w-24 bg-white dark:bg-slate-950 dark:text-white" value={editHodinovaMzda} onChange={e => setEditHodinovaMzda(e.target.value)} />
@@ -445,6 +464,7 @@ export default function PracovniciPage() {
                 ) : (
                   <tr className={`hover:bg-gray-50 dark:hover:bg-slate-800 text-black dark:text-gray-100 ${!p.is_active ? 'bg-gray-50 dark:bg-slate-800/50 text-gray-400 dark:text-gray-500' : ''}`}>
                     <td className={`p-3 font-medium ${!p.is_active ? 'line-through' : ''}`}>{p.jmeno}</td>
+                    <td className="p-3">{p.role || '-'}</td>
                     <td className="p-3">{p.hodinova_mzda} Kč/h</td>
                     <td className="p-3 text-sm text-gray-500">
                       {profiles.find(prof => prof.id === p.user_id)?.full_name || '-'}
