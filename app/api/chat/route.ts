@@ -10,35 +10,36 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
     const { messages } = await req.json();
 
-    const supabase = createClient(
+    // Use SERVICE_ROLE key to bypass RLS for AI context
+    const supabaseInfo = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
     // 1. Fetch COMPELTE Data (No limits, proper relation IDs)
-    const { data: klienti } = await supabase.from('klienti').select('*');
-    const { data: pracovnici } = await supabase.from('pracovnici').select('*');
-    const { data: akce } = await supabase.from('akce').select('*');
-    const { data: prace } = await supabase.from('prace').select('*');
-    const { data: mzdy } = await supabase.from('mzdy').select('*');
-    const { data: fixed_costs } = await supabase.from('fixed_costs').select('*');
-    const { data: divisions } = await supabase.from('divisions').select('*');
-    const { data: worker_divisions } = await supabase.from('worker_divisions').select('*');
-    const { data: nabidky } = await supabase.from('nabidky').select('*');
-    const { data: nabidky_stavy } = await supabase.from('nabidky_stavy').select('*');
-    const { data: polozky_nabidky } = await supabase.from('polozky_nabidky').select('*');
-    const { data: polozky_typy } = await supabase.from('polozky_typy').select('*');
-    const { data: finance } = await supabase.from('finance').select('*');
-    const { data: profiles } = await supabase.from('profiles').select('*');
-    const { data: organizations } = await supabase.from('organizations').select('*');
-    const { data: organization_members } = await supabase.from('organization_members').select('*');
-    const { data: app_admins } = await supabase.from('app_admins').select('*');
+    const { data: klienti } = await supabaseInfo.from('klienti').select('*');
+    const { data: pracovnici } = await supabaseInfo.from('pracovnici').select('*');
+    const { data: akce } = await supabaseInfo.from('akce').select('*');
+    const { data: prace } = await supabaseInfo.from('prace').select('*');
+    const { data: mzdy } = await supabaseInfo.from('mzdy').select('*');
+    const { data: fixed_costs } = await supabaseInfo.from('fixed_costs').select('*');
+    const { data: divisions } = await supabaseInfo.from('divisions').select('*');
+    const { data: worker_divisions } = await supabaseInfo.from('worker_divisions').select('*');
+    const { data: nabidky } = await supabaseInfo.from('nabidky').select('*');
+    const { data: nabidky_stavy } = await supabaseInfo.from('nabidky_stavy').select('*');
+    const { data: polozky_nabidky } = await supabaseInfo.from('polozky_nabidky').select('*');
+    const { data: polozky_typy } = await supabaseInfo.from('polozky_typy').select('*');
+    const { data: finance } = await supabaseInfo.from('finance').select('*');
+    const { data: profiles } = await supabaseInfo.from('profiles').select('*');
+    const { data: organizations } = await supabaseInfo.from('organizations').select('*');
+    const { data: organization_members } = await supabaseInfo.from('organization_members').select('*');
+    const { data: app_admins } = await supabaseInfo.from('app_admins').select('*');
 
     // 2. Fetch Calculated Stats (Dashboard View)
     // We use the same function as the dashboard to ensure consistency
     let dashboardStats = null;
     try {
-        dashboardStats = await getDashboardData('last12months', {});
+        dashboardStats = await getDashboardData('last12months', {}, supabaseInfo);
     } catch (e) {
         console.error("Failed to fetch dashboard stats for AI context", e);
     }
@@ -377,7 +378,7 @@ export async function POST(req: Request) {
                                 if (period === 'lastYear') periodArg = { year: currentYear - 1 };
                                 if (period === 'last12months') periodArg = 'last12months';
 
-                                return await getDashboardData(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null });
+                                return await getDashboardData(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null }, supabaseInfo);
                             }
                         }),
                         get_detailed_stats: tool({
@@ -397,10 +398,8 @@ export async function POST(req: Request) {
                                     if (period === 'lastYear') periodArg = { year: currentYear - 1 };
                                     if (period === 'last12months') periodArg = 'last12months';
 
-                                    const stats = await getDetailedStats(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null });
+                                    const stats = await getDetailedStats(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null }, supabaseInfo);
 
-                                    // Optimization: JSON stringify might fail on circular structures or huge objects
-                                    // But safe here. We could truncate if needed.
                                     return stats;
                                 } catch (error) {
                                     console.error('[(AI Tool] get_detailed_stats FAILED:', error);

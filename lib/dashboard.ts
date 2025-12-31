@@ -76,8 +76,11 @@ const createEmptyMonthlyData = (date: Date): MonthlyData => ({
 // Main data fetching function - OPTIMIZED
 export async function getDashboardData(
   period: 'month' | 'last12months' | { year: number; month?: number },
-  filters: { pracovnikId?: number | null, klientId?: number | null, divisionId?: number | null }
+  filters: { pracovnikId?: number | null, klientId?: number | null, divisionId?: number | null },
+  customClient?: any
 ): Promise<DashboardData> {
+  const client = customClient || supabase;
+
 
   // 1. Determine Date Range
   const now = new Date();
@@ -108,13 +111,13 @@ export async function getDashboardData(
   const { start, end } = getISODateRange(startDate, endDate);
 
   // 2. Prepare Queries (Bulk Fetch)
-  let akceQuery = supabase.from('akce').select('id, datum, cena_klient, material_my, material_klient, odhad_hodin, klient_id, division_id, klienti(nazev)').gte('datum', start).lte('datum', end);
-  let praceQuery = supabase.from('prace').select('id, datum, pocet_hodin, pracovnik_id, klient_id, akce_id, division_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
+  let akceQuery = client.from('akce').select('id, datum, cena_klient, material_my, material_klient, odhad_hodin, klient_id, division_id, klienti(nazev)').gte('datum', start).lte('datum', end);
+  let praceQuery = client.from('prace').select('id, datum, pocet_hodin, pracovnik_id, klient_id, akce_id, division_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
 
   // Mzdy needs a slightly wider range to be safe or just matching years. Always GLOBAL for rate calc.
-  let mzdyQuery = supabase.from('mzdy').select('rok, mesic, celkova_castka, pracovnik_id').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
+  let mzdyQuery = client.from('mzdy').select('rok, mesic, celkova_castka, pracovnik_id').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
 
-  let fixedCostsQuery = supabase.from('fixed_costs').select('rok, mesic, castka, division_id').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
+  let fixedCostsQuery = client.from('fixed_costs').select('rok, mesic, castka, division_id').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
 
   // Apply Filters
   if (filters.klientId) {
@@ -145,10 +148,10 @@ export async function getDashboardData(
     praceQuery,
     mzdyQuery,
     fixedCostsQuery,
-    supabase.from('pracovnici').select('id, hodinova_mzda'),
+    client.from('pracovnici').select('id, hodinova_mzda'),
     // If filtering by division/client, we need GLOBAL hours to calculate correct overhead/worker rates
     (filters.divisionId || filters.klientId)
-      ? supabase.from('prace').select('id, datum, pocet_hodin, pracovnik_id').gte('datum', start).lte('datum', end)
+      ? client.from('prace').select('id, datum, pocet_hodin, pracovnik_id').gte('datum', start).lte('datum', end)
       : Promise.resolve({ data: null })
   ]);
 
@@ -642,8 +645,11 @@ export interface ActionStats {
 
 export async function getDetailedStats(
   period: 'last12months' | { year: number; month?: number },
-  filters: { pracovnikId?: number | null, klientId?: number | null, divisionId?: number | null } = {}
+  filters: { pracovnikId?: number | null, klientId?: number | null, divisionId?: number | null } = {},
+  customClient?: any
 ) {
+  const client = customClient || supabase;
+
   const now = new Date();
   let startDate: Date;
   let endDate: Date;
@@ -670,15 +676,15 @@ export async function getDetailedStats(
   const end = endDate.toISOString();
 
   // Prepare queries
-  let praceQuery = supabase.from('prace').select('*').gte('datum', start).lte('datum', end);
-  let akceQuery = supabase.from('akce').select('*').gte('datum', start).lte('datum', end);
-  let fixedCostsQuery = supabase.from('fixed_costs').select('*').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
+  let praceQuery = client.from('prace').select('*').gte('datum', start).lte('datum', end);
+  let akceQuery = client.from('akce').select('*').gte('datum', start).lte('datum', end);
+  let fixedCostsQuery = client.from('fixed_costs').select('*').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
 
   // New: Global Context Query for Overhead Rates (Minimal columns)
   // We need this to calculate "Total Company Hours" for the period, which is the denominator for Global Overhead Rate.
   // We cannot rely on 'praceQuery' because it might be filtered by worker/client.
   // ADDED: pracovnik_id is needed for accurate Worker Rate calculations below.
-  const globalHoursQuery = supabase.from('prace').select('id, datum, pocet_hodin, pracovnik_id').gte('datum', start).lte('datum', end);
+  const globalHoursQuery = client.from('prace').select('id, datum, pocet_hodin, pracovnik_id').gte('datum', start).lte('datum', end);
 
 
   // Apply Filters to Primary Queries
@@ -694,10 +700,10 @@ export async function getDetailedStats(
   }
 
   const [workersRes, clientsRes, praceRes, mzdyRes, akceRes, fixedCostsRes, globalHoursRes] = await Promise.all([
-    supabase.from('pracovnici').select('*'),
-    supabase.from('klienti').select('*'),
+    client.from('pracovnici').select('*'),
+    client.from('klienti').select('*'),
     praceQuery,
-    supabase.from('mzdy').select('*').gte('rok', startDate.getFullYear() - 1).lte('rok', endDate.getFullYear() + 1),
+    client.from('mzdy').select('*').gte('rok', startDate.getFullYear() - 1).lte('rok', endDate.getFullYear() + 1),
     akceQuery,
     fixedCostsQuery,
     globalHoursQuery
