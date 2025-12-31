@@ -27,51 +27,78 @@ The application behavior and branding are fully controlled by environment variab
 
 ## 🔧 Environment Variables Reference
 
-When setting up a new Vercel project (e.g., for SEBIT), configure these variables.
+When setting up a new Vercel project, configure these variables to customize the application.
 
 ### 1. Identity & Contact
-| Variable | Description | Example (SEBIT) |
-|---|---|---|
-| `NEXT_PUBLIC_COMPANY_NAME` | Main App Title | "SEBIT Solutions" |
-| `NEXT_PUBLIC_COMPANY_SHORT_NAME` | Prefix for files | "SEBIT" |
-| `NEXT_PUBLIC_LOGO_URL` | Sidebar/Dark Logo | `/brands/sebit/sebit_solutions_dark.png` |
-| `NEXT_PUBLIC_LOGO_LIGHT_URL` | PDF/Light Logo | `/brands/sebit/sebit_solutions_light.png` |
-| `NEXT_PUBLIC_FAVICON` | Browser Icon | `/brands/sebit/favion_arrow.png` |
-| `NEXT_PUBLIC_COMPANY_WEB` | Website | "www.sebit.cz" |
-| `...ADDRESS/EMAIL/ICO/DIC` | [Full list in `lib/companyConfig.ts`] | |
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_COMPANY_NAME` | Main App Title |
+| `NEXT_PUBLIC_COMPANY_SHORT_NAME` | Short name used in file prefixes |
+| `NEXT_PUBLIC_COMPANY_BILLING_NAME` | Full legal name for invoices |
+| `NEXT_PUBLIC_FAVICON` | Path to favicon image |
+| `NEXT_PUBLIC_LOGO_URL` | Path to dark/main logo (Sidebar) |
+| `NEXT_PUBLIC_LOGO_LIGHT_URL` | Path to light/print logo (PDFs) |
+| `NEXT_PUBLIC_SIGNATURE_URL` | Path to signature image for PDFs |
+| `NEXT_PUBLIC_COMPANY_ADDRESS_LINE1` | Street Address |
+| `NEXT_PUBLIC_COMPANY_CITY` | City and ZIP |
+| `NEXT_PUBLIC_COMPANY_COUNTRY` | Country (default: Česká republika) |
+| `NEXT_PUBLIC_COMPANY_PHONE` | Phone number |
+| `NEXT_PUBLIC_COMPANY_WEB` | Website URL |
+| `NEXT_PUBLIC_COMPANY_EMAIL` | Contact email |
+| `NEXT_PUBLIC_COMPANY_ICO` | Company ID (IČO) |
+| `NEXT_PUBLIC_COMPANY_DIC` | Tax ID (DIČ) |
 
 ### 2. Branding Colors
-Default is Horyna Red (`#E30613`). Override for clients:
-```env
-NEXT_PUBLIC_BRAND_PRIMARY="#C6FF00"         # Main Action (e.g. Lime)
-NEXT_PUBLIC_BRAND_PRIMARY_FOREGROUND="#002B5C" # Text on Primary (e.g. Navy)
-NEXT_PUBLIC_BRAND_ACCENT="#002B5C"          # Secondary/Highlights
-NEXT_PUBLIC_PDF_THEME_COLOR="#002B5C"       # PDF Header/Footer Color
-```
+| Variable | Description | Default |
+|---|---|---|
+| `NEXT_PUBLIC_BRAND_PRIMARY` | Main brand color (Buttons, Active states) | `#E30613` (Red) |
+| `NEXT_PUBLIC_BRAND_PRIMARY_FOREGROUND` | Text color on primary background | `#ffffff` |
+| `NEXT_PUBLIC_BRAND_ACCENT` | Secondary color for highlights | `#002B5C` |
+| `NEXT_PUBLIC_PDF_THEME_COLOR` | Color used in generated PDFs headers | `#E30613` |
 
-### 3. Feature Flags (Modularization)
-Control which sections of the app are visible. Defaults to `true` if omitted.
+### 3. Feature Flags (Modules)
+Control the visibility of application sections. Set to `false` to hide.
 
-**Group Level:**
-```env
-NEXT_PUBLIC_ENABLE_DASHBOARD="true"
-NEXT_PUBLIC_ENABLE_OFFERS="true"
-NEXT_PUBLIC_ENABLE_ADMIN="true"
-NEXT_PUBLIC_ENABLE_FINANCE="true"
-NEXT_PUBLIC_ENABLE_AI="true"
-```
+**Main Modules:**
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_ENABLE_DASHBOARD` | Enable Dashboard module |
+| `NEXT_PUBLIC_ENABLE_OFFERS` | Enable Offers (Nabídky) module |
+| `NEXT_PUBLIC_ENABLE_ADMIN` | Enable Administration module |
+| `NEXT_PUBLIC_ENABLE_FINANCE` | Enable Finance module |
+| `NEXT_PUBLIC_ENABLE_AI` | Enable AI Assistant |
 
-**Granular Level (Sub-menus):**
-```env
-# Dashboard
-NEXT_PUBLIC_ENABLE_DASHBOARD_FIRMA="true"
-NEXT_PUBLIC_ENABLE_DASHBOARD_WORKERS="true"
-...
-# Finance
-NEXT_PUBLIC_ENABLE_FINANCE_REPORTS="true" # Výkazy
-NEXT_PUBLIC_ENABLE_FINANCE_PAYROLL="true" # Mzdy
-NEXT_PUBLIC_ENABLE_FINANCE_COSTS="true"   # Náklady
-```
+**Dashboard Sub-features:**
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_ENABLE_DASHBOARD_FIRMA` | Company Overview tab |
+| `NEXT_PUBLIC_ENABLE_DASHBOARD_WORKERS` | Employee Stats tab |
+| `NEXT_PUBLIC_ENABLE_DASHBOARD_CLIENTS` | Client Overview tab |
+| `NEXT_PUBLIC_ENABLE_DASHBOARD_EXPERIMENTAL` | Experimental features tab |
+
+**Admin Sub-features:**
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_ENABLE_ADMIN_USERS` | User Management |
+| `NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS` | Project/Action Management |
+| `NEXT_PUBLIC_ENABLE_ADMIN_CLIENTS` | Client Management |
+| `NEXT_PUBLIC_ENABLE_ADMIN_WORKERS` | Worker Management |
+
+**Finance Sub-features:**
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_ENABLE_FINANCE_REPORTS` | Work Reports (Výkazy) |
+| `NEXT_PUBLIC_ENABLE_FINANCE_PAYROLL` | Payroll (Mzdy) |
+| `NEXT_PUBLIC_ENABLE_FINANCE_COSTS` | Expenses (Náklady) |
+| `NEXT_PUBLIC_ENABLE_FINANCE_TIMESHEETS` | Timesheet PDF Generation |
+
+### 4. Application Configuration
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_APP_URL` | Full URL of the deployed application (for redirects) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anonymous Key |
+
 
 ---
 
@@ -117,6 +144,11 @@ NEXT_PUBLIC_ENABLE_FINANCE_COSTS="true"   # Náklady
 ### 📝 Reporting & Time Tracking (Výkazy)
 - **Daily Reports**: Employees satisfy reporting requirements for tracked hours on specific dates.
 - **Project Association**: Link hours worked to specific "Akce" (Projects) for accurate cost allocation.
+
+### 📄 Timesheets
+- **Client & Worker Reports**: Generate detailed PDF reports for clients or workers.
+- **Role-Based Grouping**: Client reports are automatically grouped by Worker Name and Role.
+- **Monthly Overview**: View and download summaries of hours worked per month.
 
 ### 💰 Financial Management (Náklady)
 - **Expense Tracking**: Categorize and log all business expenses.
