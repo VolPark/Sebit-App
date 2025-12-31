@@ -29,7 +29,7 @@ The application behavior and branding are fully controlled by environment variab
 
 When setting up a new Vercel project, configure these variables to customize the application.
 
-### 1. Identity & Contact
+### 1. Identity & Contact 
 | Variable | Description |
 |---|---|
 | `NEXT_PUBLIC_COMPANY_NAME` | Main App Title |
@@ -48,7 +48,7 @@ When setting up a new Vercel project, configure these variables to customize the
 | `NEXT_PUBLIC_COMPANY_ICO` | Company ID (IČO) |
 | `NEXT_PUBLIC_COMPANY_DIC` | Tax ID (DIČ) |
 
-### 2. Branding Colors
+### 2. Branding Colors (Required)
 | Variable | Description | Default |
 |---|---|---|
 | `NEXT_PUBLIC_BRAND_PRIMARY` | Main brand color (Buttons, Active states) | `#E30613` (Red) |
