@@ -43,6 +43,45 @@ export default function TimesheetsPage() {
     const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
     const [loading, setLoading] = useState(false);
 
+    // Reporter Logic State
+    const [isReporter, setIsReporter] = useState(false);
+    const [reporterWorkerId, setReporterWorkerId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const initReporter = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+            if (profile?.role === 'reporter') {
+                setIsReporter(true);
+
+                const { data: worker } = await supabase.from('pracovnici').select('id, jmeno').eq('user_id', user.id).single();
+                if (worker) {
+                    setReporterWorkerId(worker.id);
+                    setSelectedEntityId(worker.id.toString());
+                    setReportType('worker');
+
+                    // Find last active month
+                    const { data: lastLog } = await supabase
+                        .from('prace')
+                        .select('datum')
+                        .eq('pracovnik_id', worker.id)
+                        .order('datum', { ascending: false })
+                        .limit(1)
+                        .single();
+
+                    if (lastLog) {
+                        const lastDate = new Date(lastLog.datum);
+                        const lastMonthStr = `${lastDate.getFullYear()}-${String(lastDate.getMonth() + 1).padStart(2, '0')}`;
+                        setSelectedMonth(lastMonthStr);
+                    }
+                }
+            }
+        };
+        initReporter();
+    }, []);
+
     // Feature Flag Check
     useEffect(() => {
         if (!CompanyConfig.features.enableFinanceTimesheets) {
@@ -61,6 +100,17 @@ export default function TimesheetsPage() {
 
             let data: any[] | null = null;
 
+            // If Reporter, just show themselves
+            if (isReporter && reporterWorkerId) {
+                // We need the name - could get it from state if we stored it, or fetch.
+                // Let's fetch to be safe or optimize later.
+                const { data: worker } = await supabase.from('pracovnici').select('id, jmeno').eq('id', reporterWorkerId).single();
+                if (worker) {
+                    setEntities([{ id: worker.id, name: worker.jmeno }]);
+                }
+                return;
+            }
+
             if (reportType === 'worker') {
                 // Fetch workers who have work logs in this period
                 const response = await supabase
@@ -71,7 +121,7 @@ export default function TimesheetsPage() {
                 data = response.data;
             } else {
                 // Fetch clients who have work logs in this period
-                // We use the direct relation prace -> klienti if available and reliable, 
+                // We use the direct relation prace -> klienti if available and reliable,
                 // or via akce -> klienti if better. Schema context says prace has klient_id directly.
                 const response = await supabase
                     .from('prace')
@@ -106,17 +156,17 @@ export default function TimesheetsPage() {
 
         fetchEntities();
         // Reset selection when type or month changes, unless the ID still exists in the new list (handled by UI state naturally, but safer to clear if meaningful)
-        // Actually, if we switch month, we might want to keep the same entity if they worked in that month too. 
+        // Actually, if we switch month, we might want to keep the same entity if they worked in that month too.
         // But for now, let's keep it simple or the user might get confused if ID persists but is not in list.
         // The controlled select will show empty if ID is not in options usually.
         // But let's clear it to be safe if switching types.
-        if (reportType === 'client') {
+        if (reportType === 'client' && !isReporter) {
             // If we just switched to client, the previous employee ID is definitely invalid.
             // However, this effect runs on selectedMonth change too.
             // We'll let the user re-select for clarity, or we could check if current ID is in new list.
             // For simplicity in this step:
         }
-    }, [reportType, selectedMonth, supabase]);
+    }, [reportType, selectedMonth, supabase, isReporter, reporterWorkerId]); // added deps
 
     // Reset selection effect
     useEffect(() => {
@@ -234,16 +284,22 @@ export default function TimesheetsPage() {
                     <label className="text-sm font-medium text-gray-500">Typ reportu</label>
                     <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-lg">
                         <button
+                            disabled={isReporter}
                             onClick={() => setReportType('worker')}
-                            className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${reportType === 'worker' ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700'
-                                }`}
+                            className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${reportType === 'worker'
+                                ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white'
+                                : 'text-gray-500 hover:text-gray-700'
+                                } ${isReporter ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             Pracovník
                         </button>
                         <button
+                            disabled={isReporter}
                             onClick={() => setReportType('client')}
-                            className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${reportType === 'client' ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700'
-                                }`}
+                            className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${reportType === 'client'
+                                ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white'
+                                : 'text-gray-500 hover:text-gray-700'
+                                } ${isReporter ? 'opacity-50 cursor-not-allowed hidden' : ''}`}
                         >
                             Klient
                         </button>
@@ -267,9 +323,11 @@ export default function TimesheetsPage() {
                         {reportType === 'worker' ? 'Vyberte pracovníka' : 'Vyberte klienta'}
                     </label>
                     <select
+                        disabled={isReporter}
                         value={selectedEntityId}
                         onChange={(e) => setSelectedEntityId(e.target.value)}
-                        className="block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent outline-none"
+                        className={`block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent outline-none ${isReporter ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-80' : ''
+                            }`}
                     >
                         <option value="">-- Vybrat --</option>
                         {entities.map(e => (

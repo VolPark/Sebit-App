@@ -32,6 +32,9 @@ export default function VykazyPage() {
 
   const [editingId, setEditingId] = useState<number | null>(null)
 
+  // Role based access
+  const [isReporterLocked, setIsReporterLocked] = useState(false)
+
   // Modal State
   const [modalOpen, setModalOpen] = useState(false)
   const [modalConfig, setModalConfig] = useState<{
@@ -73,11 +76,28 @@ export default function VykazyPage() {
     if (pData) {
       setPracovnici(pData)
       if (user) {
+        // Check role
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        const isReporter = profile?.role === 'reporter';
+
+        if (isReporter) {
+          setIsReporterLocked(true);
+        }
+
         // Find worker linked to current user
         const linkedWorker = pData.find((p: any) => p.user_id === user.id)
         if (linkedWorker) {
-          setSelectedPracovnik({ id: linkedWorker.id, name: linkedWorker.jmeno })
-          setSelectedPracovnikFilter({ id: linkedWorker.id, name: linkedWorker.jmeno }) // Also set filter
+          // If reporter, FORCE selection and lock
+          if (isReporter) {
+            setSelectedPracovnik({ id: linkedWorker.id, name: linkedWorker.jmeno })
+            setSelectedPracovnikFilter({ id: linkedWorker.id, name: linkedWorker.jmeno })
+          } else {
+            // Just auto-select for convenience but don't lock
+            // Only auto-select if nothing selected yet? 
+            // Actually original logic was auto-select always on load.
+            setSelectedPracovnik({ id: linkedWorker.id, name: linkedWorker.jmeno })
+            setSelectedPracovnikFilter({ id: linkedWorker.id, name: linkedWorker.jmeno })
+          }
 
           // IMPORTANT: Check available divisions manually here because resolveDivisions relies on state 
           // (which isn't updated yet for divisions/pracovnici/allAkce in this closure)
@@ -288,11 +308,21 @@ export default function VykazyPage() {
     setEditingId(null)
     const today = new Date().toISOString().split('T')[0];
     setDatum(today < APP_START_DATE ? APP_START_DATE : today)
-    setSelectedPracovnik(null)
+
+    if (!isReporterLocked) {
+      setSelectedPracovnik(null)
+    }
+
     setSelectedKlient(null)
     setSelectedAkce(null)
     setSelectedDivisionId(null)
-    setAvailableDivisions([])
+
+    if (isReporterLocked && selectedPracovnik) {
+      resolveDivisions(selectedPracovnik.id, undefined)
+    } else if (!isReporterLocked) {
+      setAvailableDivisions([])
+    }
+
     setPopis('')
     setHodiny('')
   }
@@ -464,7 +494,15 @@ export default function VykazyPage() {
 
           <div className="w-full">
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Pracovník</label>
-            <ComboBox items={formattedPracovnici} selected={selectedPracovnik} setSelected={onPracovnikChange} />
+            {isReporterLocked ? (
+              <input
+                disabled
+                value={selectedPracovnik?.name || 'Načítám...'}
+                className="block w-full min-w-0 rounded-lg bg-gray-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-3 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+              />
+            ) : (
+              <ComboBox items={formattedPracovnici} selected={selectedPracovnik} setSelected={onPracovnikChange} />
+            )}
           </div>
 
           <div className="w-full">
@@ -528,7 +566,15 @@ export default function VykazyPage() {
       <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Filtr: Pracovník</label>
-          <ComboBox items={formattedPracovnici} selected={selectedPracovnikFilter} setSelected={setSelectedPracovnikFilter} />
+          {isReporterLocked ? (
+            <input
+              disabled
+              value={selectedPracovnikFilter?.name || 'Načítám...'}
+              className="block w-full min-w-0 rounded-lg bg-gray-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-3 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+            />
+          ) : (
+            <ComboBox items={formattedPracovnici} selected={selectedPracovnikFilter} setSelected={setSelectedPracovnikFilter} />
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Filtr: Klient</label>

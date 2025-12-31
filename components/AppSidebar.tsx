@@ -100,7 +100,7 @@ export default function AppSidebar() {
 
         if (role === 'reporter') {
             // Reporter sees ONLY 'Výkazy'
-            items = items.filter(item => item.name === 'Výkazy');
+            items = items.filter(item => item.name === 'Výkazy' || item.name === 'Timesheety');
             if (items.length === 0) return null;
         }
 
