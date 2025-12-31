@@ -98,6 +98,7 @@ Control the visibility of application sections. Set to `false` to hide.
 | `NEXT_PUBLIC_APP_URL` | Full URL of the deployed application (for redirects) |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anonymous Key |
+| `NEXT_PUBLIC_MATERIAL_LABEL` | Custom label for "Materiál" dimension (defaults to "Materiál"). Set to `HIDDEN` to hide completely. |
 
 
 ---
