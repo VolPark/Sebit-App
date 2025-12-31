@@ -14,6 +14,7 @@ CREATE TABLE public.akce (
   is_completed boolean DEFAULT false,
   organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
   division_id bigint,
+  project_type text DEFAULT 'STANDARD',
   CONSTRAINT akce_pkey PRIMARY KEY (id),
   CONSTRAINT akce_klient_fk FOREIGN KEY (klient_id) REFERENCES public.klienti(id),
   CONSTRAINT akce_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
@@ -41,9 +42,11 @@ CREATE TABLE public.finance (
   popis text,
   organization_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
   division_id bigint,
+  akce_id bigint,
   CONSTRAINT finance_pkey PRIMARY KEY (id),
   CONSTRAINT finance_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
-  CONSTRAINT finance_division_id_fkey FOREIGN KEY (division_id) REFERENCES public.divisions(id)
+  CONSTRAINT finance_division_id_fkey FOREIGN KEY (division_id) REFERENCES public.divisions(id),
+  CONSTRAINT finance_akce_id_fkey FOREIGN KEY (akce_id) REFERENCES public.akce(id)
 );
 CREATE TABLE public.fixed_costs (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,

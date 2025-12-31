@@ -48,6 +48,7 @@ export default function AkcePage() {
   const [materialKlient, setMaterialKlient] = useState('')
   const [materialMy, setMaterialMy] = useState('')
   const [odhadHodin, setOdhadHodin] = useState('')
+  const [projectType, setProjectType] = useState('STANDARD') // STANDARD, SERVICE, TM
 
   const [showCompleted, setShowCompleted] = useState(false);
   const [filterDivisionId, setFilterDivisionId] = useState<number | null>(null);
@@ -122,6 +123,7 @@ export default function AkcePage() {
     setMaterialKlient('')
     setMaterialMy('')
     setOdhadHodin('')
+    setProjectType('STANDARD')
     setShowNewClientForm(false)
     setNewClientName('')
   }
@@ -140,6 +142,7 @@ export default function AkcePage() {
     setMaterialKlient(String(a.material_klient || ''))
     setMaterialMy(String(a.material_my || ''))
     setOdhadHodin(String(a.odhad_hodin || ''))
+    setProjectType(a.project_type || 'STANDARD')
     setShowNewClientForm(false)
     setNewClientName('')
   }
@@ -186,7 +189,8 @@ export default function AkcePage() {
       datum,
       klient_id: finalKlientId,
       division_id: selectedDivisionId,
-      cena_klient: parseFloat(cenaKlient || '0') || 0,
+      project_type: projectType,
+      cena_klient: projectType === 'STANDARD' ? (parseFloat(cenaKlient || '0') || 0) : 0,
       material_klient: parseFloat(materialKlient || '0') || 0,
       material_my: parseFloat(materialMy || '0') || 0,
       odhad_hodin: parseFloat(odhadHodin || '0') || 0,
@@ -319,6 +323,19 @@ export default function AkcePage() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Typ projektu</label>
+            <select
+              value={projectType}
+              onChange={e => setProjectType(e.target.value)}
+              className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
+            >
+              <option value="STANDARD">Seznam akcí (Pevná cena)</option>
+              <option value="SERVICE">Servisní Smlouvy</option>
+              <option value="TM">T&M (Hodinová sazba)</option>
+            </select>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Klient</label>
             <div className="flex items-center gap-2">
               <div className="w-full min-w-0">
@@ -341,7 +358,13 @@ export default function AkcePage() {
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Cena pro klienta</label>
-              <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={cenaKlient} onChange={e => setCenaKlient(e.target.value)} type="number" />
+              {projectType === 'STANDARD' ? (
+                <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={cenaKlient} onChange={e => setCenaKlient(e.target.value)} type="number" />
+              ) : (
+                <div className="w-full rounded-lg bg-gray-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-3 text-gray-500 text-sm italic">
+                  Počítáno z fakturace ({projectType === 'SERVICE' ? 'Servis' : 'T&M'})
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Odhad hodin</label>
@@ -414,7 +437,10 @@ export default function AkcePage() {
                 )}
               </div>
               <div className="mt-3 text-sm space-y-1 dark:text-gray-300">
-                <div><span className="font-medium">Cena:</span> {currency(Number(a.cena_klient || 0))}</div>
+                <div>
+                  <span className="font-medium">Cena:</span>{' '}
+                  {a.project_type === 'STANDARD' || !a.project_type ? currency(Number(a.cena_klient || 0)) : <span className="text-blue-600 italic">Dle fakturace ({a.project_type})</span>}
+                </div>
                 {getMaterialConfig().isVisible && (
                   <>
                     <div><span className="font-medium">{getMaterialConfig().label} (klient):</span> {currency(Number(a.material_klient || 0))}</div>
@@ -521,7 +547,13 @@ export default function AkcePage() {
                       </span>
                     )}
                   </td>
-                  <td className="p-3 text-right">{currency(Number(a.cena_klient || 0))}</td>
+                  <td className="p-3 text-right">
+                    {(!a.project_type || a.project_type === 'STANDARD') ? currency(Number(a.cena_klient || 0)) : (
+                      <span className={`text-xs px-2 py-1 rounded ${a.project_type === 'SERVICE' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200' : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200'}`}>
+                        {a.project_type === 'SERVICE' ? 'Servis' : 'T&M'}
+                      </span>
+                    )}
+                  </td>
                   {getMaterialConfig().isVisible && (
                     <>
                       <td className="p-3 text-right">{currency(Number(a.material_klient || 0))}</td>

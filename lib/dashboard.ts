@@ -111,8 +111,9 @@ export async function getDashboardData(
   const { start, end } = getISODateRange(startDate, endDate);
 
   // 2. Prepare Queries (Bulk Fetch)
-  let akceQuery = client.from('akce').select('id, datum, cena_klient, material_my, material_klient, odhad_hodin, klient_id, division_id, klienti(nazev)').gte('datum', start).lte('datum', end);
+  let akceQuery = client.from('akce').select('id, datum, cena_klient, material_my, material_klient, odhad_hodin, klient_id, division_id, project_type, klienti(nazev)').gte('datum', start).lte('datum', end);
   let praceQuery = client.from('prace').select('id, datum, pocet_hodin, pracovnik_id, klient_id, akce_id, division_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
+  let financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
 
   // Mzdy needs a slightly wider range to be safe or just matching years. Always GLOBAL for rate calc.
   let mzdyQuery = client.from('mzdy').select('rok, mesic, celkova_castka, pracovnik_id').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
@@ -143,7 +144,7 @@ export async function getDashboardData(
 
   // 3. Execute Parallel Queries
   // @ts-ignore
-  const [akceRes, praceRes, mzdyRes, fixedCostsRes, workersRes, allPraceRes] = await Promise.all([
+  const [akceRes, praceRes, mzdyRes, fixedCostsRes, workersRes, allPraceRes, financeRes] = await Promise.all([
     akceQuery,
     praceQuery,
     mzdyQuery,
@@ -152,7 +153,8 @@ export async function getDashboardData(
     // If filtering by division/client, we need GLOBAL hours to calculate correct overhead/worker rates
     (filters.divisionId || filters.klientId)
       ? client.from('prace').select('id, datum, pocet_hodin, pracovnik_id').gte('datum', start).lte('datum', end)
-      : Promise.resolve({ data: null })
+      : Promise.resolve({ data: null }),
+    financeQuery
   ]);
 
   const akceData = akceRes.data || [];
@@ -160,6 +162,7 @@ export async function getDashboardData(
   const mzdyData = mzdyRes.data || [];
   const fixedCostsData = fixedCostsRes.data || [];
   const workersData = workersRes.data || [];
+  const financeData = financeRes.data || [];
 
   // Use allPraceRes if available (global context), otherwise praceData (if no filters)
   // Check if allPraceRes.data is valid array, else use praceData
@@ -216,7 +219,9 @@ export async function getDashboardData(
 
     const bucket = monthlyBuckets.get(key);
     if (bucket) {
-      bucket.totalRevenue += (a.cena_klient || 0);
+      if ((a.project_type || 'STANDARD') === 'STANDARD') {
+        bucket.totalRevenue += (a.cena_klient || 0);
+      }
       bucket.totalMaterialKlient += (a.material_klient || 0);
       bucket.materialProfit += ((a.material_klient || 0) - (a.material_my || 0));
       bucket.totalCosts += (a.material_my || 0);
@@ -230,8 +235,46 @@ export async function getDashboardData(
       // @ts-ignore
       const cName = Array.isArray(a.klienti) ? a.klienti[0]?.nazev : a.klienti?.nazev;
       const currC = cMap.get(a.klient_id) || { name: cName || 'Neznámý', total: 0 };
-      currC.total += (a.cena_klient || 0);
+      if ((a.project_type || 'STANDARD') === 'STANDARD') {
+        currC.total += (a.cena_klient || 0);
+      }
       cMap.set(a.klient_id, currC);
+    }
+  }
+
+  // A2. Process Service/TM Revenue (from Finance)
+  for (const f of financeData) {
+    // Check validity and filtering
+    const fAction = f.akce; // joined data
+    if (!fAction) continue;
+
+    // Ensure we only count revenue for non-standard projects (Standard handled above)
+    // Actually, finance records for Standard projects might exist too (invoices), but our logic says Standard Revenue = Fixed Price.
+    // So we only ADD revenue from finance if project_type != STANDARD to avoid double counting or conflict.
+    // OR if it is STANDARD, we ignore finance for "Revenue" calculation here? Yes.
+    if ((fAction.project_type || 'STANDARD') === 'STANDARD') continue;
+
+    const d = new Date(f.datum);
+    const key = getMonthKey(d);
+
+    if (!monthlyBuckets.has(key) && !isLast12Months) {
+      monthlyBuckets.set(key, createEmptyMonthlyData(d));
+      monthlyClientStats.set(key, new Map());
+      monthlyWorkerStats.set(key, new Map());
+    }
+
+    const bucket = monthlyBuckets.get(key);
+    if (bucket) {
+      bucket.totalRevenue += (Number(f.castka) || 0);
+    }
+
+    if (fAction.klient_id) {
+      if (!monthlyClientStats.has(key)) monthlyClientStats.set(key, new Map());
+      const cMap = monthlyClientStats.get(key)!;
+      const cName = Array.isArray(fAction.klienti) ? fAction.klienti[0]?.nazev : fAction.klienti?.nazev;
+      const currC = cMap.get(fAction.klient_id) || { name: cName || 'Neznámý', total: 0 };
+      currC.total += (Number(f.castka) || 0);
+      cMap.set(fAction.klient_id, currC);
     }
   }
 
@@ -466,7 +509,7 @@ export async function getDashboardData(
   // 5. Finalize Monthly Data Array
   // Sort by date key?
   // Keys are YYYY-M. We can sort buckets.
-  const sortedKeys = Array.from(monthlyBuckets.keys()).sort((a, b) => {
+  const sortedKeys = Array.from(monthlyBuckets.keys()).sort((a: string, b: string) => {
     const [y1, m1] = a.split('-').map(Number);
     const [y2, m2] = b.split('-').map(Number);
     if (y1 !== y2) return y1 - y2;
@@ -500,7 +543,7 @@ export async function getDashboardData(
     const cMap = monthlyClientStats.get(k);
     if (cMap) {
       b.topClients = Array.from(cMap.entries())
-        .sort(([, a], [, b]) => b.total - a.total)
+        .sort(([, a]: any, [, b]: any) => b.total - a.total)
         .slice(0, 5)
         .map(([id, d]) => ({ klient_id: id, nazev: d.name, total: d.total }));
     }
@@ -508,7 +551,7 @@ export async function getDashboardData(
     const wMap = monthlyWorkerStats.get(k);
     if (wMap) {
       b.topWorkers = Array.from(wMap.entries())
-        .sort(([, a], [, b]) => b.total - a.total)
+        .sort(([, a]: any, [, b]: any) => b.total - a.total)
         .slice(0, 5)
         .map(([id, d]) => ({ pracovnik_id: id, jmeno: d.name, total: d.total }));
     }
@@ -540,8 +583,30 @@ export async function getDashboardData(
       // @ts-ignore
       const cName = Array.isArray(a.klienti) ? a.klienti[0]?.nazev : a.klienti?.nazev;
       const curr = clientMap.get(a.klient_id) || { name: cName || 'Neznámý', total: 0 };
-      curr.total += (a.cena_klient || 0);
+      if ((a.project_type || 'STANDARD') === 'STANDARD') {
+        curr.total += (a.cena_klient || 0);
+      }
       clientMap.set(a.klient_id, curr);
+    }
+  }
+
+  // Add Finance Revenue (Service/TM) to Top Clients
+  for (const f of financeData) {
+    const fAction = f.akce;
+    if (!fAction || (fAction.project_type || 'STANDARD') === 'STANDARD') continue;
+
+    if (fAction.klient_id) {
+      // Check filters? 'financeData' in getDashboardData already respects global date range.
+      // Filter logic for client/division was applied to query?
+      // Wait, 'financeQuery' above uses explicit filters? No, only date and typ.
+      // So we must check filters here.
+      if (filters.klientId && fAction.klient_id !== filters.klientId) continue;
+      if (filters.divisionId && f.division_id !== filters.divisionId) continue;
+
+      const cName = Array.isArray(fAction.klienti) ? fAction.klienti[0]?.nazev : fAction.klienti?.nazev;
+      const curr = clientMap.get(fAction.klient_id) || { name: cName || 'Neznámý', total: 0 };
+      curr.total += (Number(f.castka) || 0);
+      clientMap.set(fAction.klient_id, curr);
     }
   }
   const topClients = Array.from(clientMap.entries()).sort(([, a], [, b]) => b.total - a.total).slice(0, 5).map(([id, d]) => ({ klient_id: id, nazev: d.name, total: d.total }));
@@ -604,8 +669,8 @@ export interface WorkerStats {
   totalHours: number;
   totalWages: number;
   avgHourlyRate: number;
-  realHourlyRate: number; // NEW: Calculated as Total Wages / Total Global Hours (no fallbacks)
-  projects: { id: number; name: string; clientName: string; hours: number; cost: number; date: string }[];
+  realHourlyRate: number;
+  projects: { id: number; name: string; projectType: string; clientName: string; hours: number; cost: number; date: string }[];
 }
 
 
@@ -615,7 +680,7 @@ export interface ClientStats {
   revenue: number;
   materialCost: number;
   laborCost: number;
-  overheadCost: number; // NEW
+  overheadCost: number;
   totalCost: number;
   profit: number;
   margin: number;
@@ -626,10 +691,11 @@ export interface ClientStats {
 export interface ActionStats {
   id: number;
   name: string;
+  projectType: string;
   revenue: number;
   materialCost: number;
   laborCost: number;
-  overheadCost: number; // NEW
+  overheadCost: number;
   totalCost: number;
   profit: number;
   margin: number;
@@ -637,7 +703,6 @@ export interface ActionStats {
   isCompleted: boolean;
   date: string;
   clientName: string;
-  // Detail fields
   materialRevenue: number;
   materialProfit: number;
   workers: { name: string; hours: number; cost: number; }[];
@@ -672,13 +737,15 @@ export async function getDetailedStats(
     }
   }
 
+  endDate.setHours(23, 59, 59, 999);
   const start = startDate.toISOString();
   const end = endDate.toISOString();
 
   // Prepare queries
   let praceQuery = client.from('prace').select('*').gte('datum', start).lte('datum', end);
-  let akceQuery = client.from('akce').select('*').gte('datum', start).lte('datum', end);
+  let akceQuery = client.from('akce').select('*, klienti(nazev)').gte('datum', start).lte('datum', end);
   let fixedCostsQuery = client.from('fixed_costs').select('*').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
+  let financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
 
   // New: Global Context Query for Overhead Rates (Minimal columns)
   // We need this to calculate "Total Company Hours" for the period, which is the denominator for Global Overhead Rate.
@@ -699,14 +766,15 @@ export async function getDetailedStats(
     akceQuery = akceQuery.eq('division_id', filters.divisionId);
   }
 
-  const [workersRes, clientsRes, praceRes, mzdyRes, akceRes, fixedCostsRes, globalHoursRes] = await Promise.all([
+  const [workersRes, clientsRes, praceRes, mzdyRes, akceRes, fixedCostsRes, globalHoursRes, financeRes] = await Promise.all([
     client.from('pracovnici').select('*'),
     client.from('klienti').select('*'),
     praceQuery,
     client.from('mzdy').select('*').gte('rok', startDate.getFullYear() - 1).lte('rok', endDate.getFullYear() + 1),
     akceQuery,
     fixedCostsQuery,
-    globalHoursQuery
+    globalHoursQuery,
+    financeQuery
   ]);
 
   const workers = workersRes.data || [];
@@ -716,6 +784,8 @@ export async function getDetailedStats(
   const akce = akceRes.data || [];
   const fixedCosts = fixedCostsRes?.data || [];
   const globalPrace = globalHoursRes.data || [];
+  // @ts-ignore
+  const financeData = (financeRes?.data || []) as any[];
 
   // 1. Build Map: Worker ID -> Base Hourly Rate
   const workerBaseRateMap = new Map<number, number>();
@@ -737,7 +807,7 @@ export async function getDetailedStats(
   let filteredPrace = prace;
 
   if (filters.klientId) {
-    filteredPrace = filteredPrace.filter(p => {
+    filteredPrace = filteredPrace.filter((p: any) => {
       const direct = p.klient_id === filters.klientId;
       const viaAction = p.akce_id && actionClientMap.get(p.akce_id) === filters.klientId;
       return direct || viaAction;
@@ -745,7 +815,7 @@ export async function getDetailedStats(
   }
 
   if (filters.divisionId) {
-    filteredPrace = filteredPrace.filter(p => {
+    filteredPrace = filteredPrace.filter((p: any) => {
       return p.division_id === filters.divisionId || (p.akce_id && validAkceIds.has(p.akce_id));
     });
   }
@@ -757,7 +827,7 @@ export async function getDetailedStats(
   const monthlyGlobalCosts = new Map<string, number>();
   const monthlySpecificCosts = new Map<string, number>();
 
-  fixedCosts.forEach(fc => {
+  fixedCosts.forEach((fc: any) => {
     const key = `${fc.rok}-${fc.mesic}`;
     const amount = Number(fc.castka) || 0;
     if (fc.division_id) {
@@ -770,7 +840,7 @@ export async function getDetailedStats(
   // B. Prepare Hours (Denominator)
   // Global Hours: use `globalPrace` (Contains ALL hours for the period)
   const monthlyGlobalHours = new Map<string, number>();
-  globalPrace.forEach(p => {
+  globalPrace.forEach((p: any) => {
     const d = new Date(p.datum);
     const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
     monthlyGlobalHours.set(key, (monthlyGlobalHours.get(key) || 0) + (Number(p.pocet_hodin) || 0));
@@ -779,7 +849,7 @@ export async function getDetailedStats(
   const monthlyDivisionHours = new Map<string, number>();
   if (filters.divisionId && !filters.pracovnikId) {
     // We trust filteredPrace contains all division hours
-    filteredPrace.forEach(p => {
+    filteredPrace.forEach((p: any) => {
       const d = new Date(p.datum);
       const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
       monthlyDivisionHours.set(key, (monthlyDivisionHours.get(key) || 0) + (Number(p.pocet_hodin) || 0));
@@ -788,7 +858,7 @@ export async function getDetailedStats(
 
   // C. Compute Rates
   const allRateKeys = new Set([...monthlyGlobalCosts.keys(), ...monthlySpecificCosts.keys(), ...monthlyGlobalHours.keys()]);
-  allRateKeys.forEach(key => {
+  allRateKeys.forEach((key: string) => {
     let rate = 0;
 
     // 1. Global Rate
@@ -811,7 +881,7 @@ export async function getDetailedStats(
   const workerMonthHours = new Map<string, number>();
 
   // Use globalPrace to get 'Worker Total Hours' for correct wage rate allocation
-  globalPrace.forEach(p => {
+  globalPrace.forEach((p: any) => {
     if (p.pracovnik_id) {
       const d = new Date(p.datum);
       const key = `${p.pracovnik_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
@@ -819,7 +889,7 @@ export async function getDetailedStats(
     }
   });
 
-  mzdy.forEach(m => {
+  mzdy.forEach((m: any) => {
     const key = `${m.pracovnik_id}-${m.rok}-${m.mesic}`;
     const hours = workerMonthHours.get(key) || 0;
     if (hours > 0) {
@@ -844,7 +914,7 @@ export async function getDetailedStats(
 
   const workerAggregates = new Map<number, { id: number, name: string, hours: number, cost: number }>();
 
-  filteredPrace.forEach(p => {
+  filteredPrace.forEach((p: any) => {
     let clientId = p.klient_id;
     if (!clientId && p.akce_id) {
       clientId = actionClientMap.get(p.akce_id);
@@ -909,7 +979,7 @@ export async function getDetailedStats(
     }
   });
 
-  const finalWorkerStats: WorkerStats[] = Array.from(workerAggregates.values()).map(w => {
+  const finalWorkerStats: WorkerStats[] = Array.from(workerAggregates.values()).map((w: any) => {
     const workerInfo = workers.find(wk => wk.id === w.id);
 
     // Calculate Real Hourly Rate (Pure: Total Wages Paid / Total Global Hours Worked)
@@ -918,8 +988,8 @@ export async function getDetailedStats(
 
     // 1. Total Wages for this worker in the period
     const workerWages = mzdy
-      .filter(m => m.pracovnik_id === w.id)
-      .reduce((sum, m) => sum + (Number(m.celkova_castka) || 0), 0);
+      .filter((m: any) => m.pracovnik_id === w.id)
+      .reduce((sum: number, m: any) => sum + (Number(m.celkova_castka) || 0), 0);
 
     // 2. Total Global Hours for this worker in the period
     // We need to aggregate from globalHoursRes (which we fetched for overhead calc, but it contains all hours)
@@ -931,7 +1001,7 @@ export async function getDetailedStats(
     const realHourlyRate = workerGlobalHours > 0 ? (workerWages / workerGlobalHours) : 0;
 
     // 4. Projects History
-    const workerProjects: { id: number; name: string; clientName: string; hours: number; cost: number; date: string }[] = [];
+    const workerProjects: { id: number; name: string; projectType: string; clientName: string; hours: number; cost: number; date: string }[] = [];
     const wpMap = workerProjectsMap.get(w.id);
     if (wpMap) {
       wpMap.forEach((stats, actionId) => {
@@ -947,6 +1017,7 @@ export async function getDetailedStats(
           workerProjects.push({
             id: actionId,
             name: action.nazev,
+            projectType: action.project_type || 'STANDARD',
             clientName: clientName,
             hours: stats.hours,
             cost: stats.cost,
@@ -955,7 +1026,7 @@ export async function getDetailedStats(
         }
       });
     }
-    workerProjects.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    workerProjects.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return {
       id: w.id,
@@ -968,18 +1039,27 @@ export async function getDetailedStats(
     };
   }).sort((a, b) => b.totalHours - a.totalHours);
 
-  const clientStats: ClientStats[] = clients.map(c => {
-    const cAkce = akce.filter(a => a.klient_id === c.id);
-    const revenue = cAkce.reduce((sum, a) => sum + (Number(a.cena_klient) || 0), 0);
-    const materialCost = cAkce.reduce((sum, a) => sum + (Number(a.material_my) || 0), 0);
+  const clientStats: ClientStats[] = clients.map((c: any) => {
+    const cAkce = akce.filter((a: any) => a.klient_id === c.id);
+    const revenue = cAkce.reduce((sum: number, a: any) => sum + (Number(a.cena_klient) || 0), 0);
+    const materialCost = cAkce.reduce((sum: number, a: any) => sum + (Number(a.material_my) || 0), 0);
     const laborCost = clientLaborCosts.get(c.id) || 0;
     const overheadCost = clientOverheadCosts.get(c.id) || 0;
     const totalCost = materialCost + laborCost + overheadCost;
 
-    if (revenue === 0 && totalCost === 0) return null;
+    if (revenue === 0 && totalCost === 0 && cAkce.length === 0) return null;
 
-    const actions: ActionStats[] = cAkce.map(a => {
-      const aRevenue = Number(a.cena_klient) || 0;
+    const actions: ActionStats[] = cAkce.map((a: any) => {
+      let aRevenue = 0;
+      if ((a.project_type || 'STANDARD') === 'STANDARD') {
+        aRevenue = Number(a.cena_klient) || 0;
+      } else {
+        // For Service/TM, revenue is sum of linked finance records
+        // financeData is available in scope
+        const aFinance = financeData.filter((f: any) => f.akce_id === a.id);
+        aRevenue = aFinance.reduce((sum: number, f: any) => sum + (Number(f.castka) || 0), 0);
+      }
+
       const aMaterialCost = Number(a.material_my) || 0;
       const aMaterialRevenue = Number(a.material_klient) || 0;
       const aLaborCost = actionLaborCosts.get(a.id) || 0;
@@ -993,7 +1073,7 @@ export async function getDetailedStats(
       const awMap = actionWorkerMap.get(a.id);
       if (awMap) {
         for (const [wId, stats] of awMap.entries()) {
-          const wInfo = workers.find(w => w.id === wId);
+          const wInfo = workers.find((w: any) => w.id === wId);
           actionWorkers.push({
             name: wInfo?.jmeno || 'Neznámý',
             hours: stats.hours,
@@ -1001,11 +1081,12 @@ export async function getDetailedStats(
           });
         }
       }
-      actionWorkers.sort((wa, wb) => wb.hours - wa.hours);
+      actionWorkers.sort((wa: any, wb: any) => wb.hours - wa.hours);
 
       return {
         id: a.id,
         name: a.nazev,
+        projectType: a.project_type || 'STANDARD',
         revenue: aRevenue,
         materialCost: aMaterialCost,
         materialRevenue: aMaterialRevenue,
@@ -1021,7 +1102,7 @@ export async function getDetailedStats(
         clientName: c.nazev,
         workers: actionWorkers
       };
-    }).sort((a, b) => b.revenue - a.revenue);
+    }).sort((a: any, b: any) => b.revenue - a.revenue);
 
     return {
       id: c.id,
@@ -1038,7 +1119,7 @@ export async function getDetailedStats(
     };
   })
     .filter((c): c is ClientStats => c !== null)
-    .sort((a, b) => b.revenue - a.revenue);
+    .sort((a: any, b: any) => b.revenue - a.revenue);
 
   return { workers: finalWorkerStats, clients: clientStats };
 }
@@ -1056,6 +1137,7 @@ export interface ProjectHealthStats {
   revenuePotential: number; // If fixed price: price * % completion (or just price if we assume full payment). Let's use Proportional.
   status: 'ok' | 'warning' | 'critical';
   lastActivity: string | null;
+  projectType: string;
 }
 
 export interface ExperimentalStats {
@@ -1090,7 +1172,7 @@ export async function getExperimentalStats(filters: { divisionId?: number | null
 
   // 2. Fetch ALL work logs for these actions
   // We need to fetch 'prace' that are linked to these actions
-  const actionIds = activeActions.map(a => a.id);
+  const actionIds = activeActions.map((a: any) => a.id);
   const { data: workLogs } = await supabase
     .from('prace')
     .select('akce_id, pocet_hodin, datum, pracovnik_id')
@@ -1100,17 +1182,25 @@ export async function getExperimentalStats(filters: { divisionId?: number | null
   // (We could optimize this by fetching only relevant workers, but for now simple is fine)
   const { data: workers } = await supabase.from('pracovnici').select('id, hodinova_mzda');
   const workerRateMap = new Map<number, number>();
-  workers?.forEach(w => workerRateMap.set(w.id, Number(w.hodinova_mzda) || 0));
+  workers?.forEach((w: any) => workerRateMap.set(w.id, Number(w.hodinova_mzda) || 0));
+
+  // 3b. Fetch Finance (Revenues) for these actions (for Service/TM projects)
+  // We fetch finance records for proper Revenue Potential calculation
+  const { data: financeLogs } = await supabase
+    .from('finance')
+    .select('akce_id, castka')
+    .eq('typ', 'Příjem')
+    .in('akce_id', actionIds);
 
   // 4. Aggregate data per project
-  const projectStats: ProjectHealthStats[] = activeActions.map(action => {
-    const projectLogs = workLogs?.filter(log => log.akce_id === action.id) || [];
+  const projectStats: ProjectHealthStats[] = activeActions.map((action: any) => {
+    const projectLogs = workLogs?.filter((log: any) => log.akce_id === action.id) || [];
 
     let totalActualHours = 0;
     let laborCost = 0;
     let lastActivityDate: Date | null = null;
 
-    projectLogs.forEach(log => {
+    projectLogs.forEach((log: any) => {
       const hours = Number(log.pocet_hodin) || 0;
       totalActualHours += hours;
       const rate = workerRateMap.get(log.pracovnik_id || 0) || 0;
@@ -1129,22 +1219,26 @@ export async function getExperimentalStats(filters: { divisionId?: number | null
     const totalCost = laborCost + materialCost; // This is WIP Value (Cost based)
 
     // Budget Usage Logic
-    let budgetUsage = 0;
-    if (totalEstimated > 0) {
-      budgetUsage = totalActualHours / totalEstimated;
+    let budgetUsage = totalEstimated > 0 ? totalActualHours / totalEstimated : 0;
+
+    // Revenue Potential Calculation
+    let revenuePotential = 0;
+    const pType = action.project_type || 'STANDARD';
+
+    if (pType === 'STANDARD') {
+      // Fixed Price
+      revenuePotential = Number(action.cena_klient) || 0;
+    } else {
+      // Service/TM: Sum value of invoices (Realized Revenue as proxy for Potential/Scope)
+      // Using 'financeLogs' fetched earlier
+      const pFinance = financeLogs?.filter((f: any) => f.akce_id === action.id) || [];
+      revenuePotential = pFinance.reduce((sum: number, f: any) => sum + (Number(f.castka) || 0), 0);
     }
 
     // Status Logic
     let status: 'ok' | 'warning' | 'critical' = 'ok';
     if (budgetUsage > 1.1) status = 'critical';
     else if (budgetUsage > 0.85) status = 'warning';
-
-    // Revenue Potential
-    // Logic: If fixed price defined, how much of it have we "earned"?
-    // Simple approach: We count the full price as "Potential" if completed, but here it's WIP.
-    // Let's define Revenue Potential as the full fixed price, so we can see what's on the table.
-    // OR: completion * price. Let's use full fixed price for "Total Pipeline Value".
-    const revenuePotential = Number(action.cena_klient) || 0;
 
     return {
       id: action.id,
@@ -1158,17 +1252,18 @@ export async function getExperimentalStats(filters: { divisionId?: number | null
       materialCost,
       revenuePotential,
       status,
-      lastActivity: lastActivityDate ? (lastActivityDate as Date).toISOString().split('T')[0] : null
+      lastActivity: lastActivityDate ? (lastActivityDate as Date).toISOString().split('T')[0] : null,
+      projectType: pType
     };
   });
 
   // Calculate global stats
-  const totalWipValue = projectStats.reduce((sum, p) => sum + p.wipValue, 0);
-  const totalRevenuePotential = projectStats.reduce((sum, p) => sum + p.revenuePotential, 0);
-  const projectsAtRisk = projectStats.filter(p => p.status === 'critical' || p.status === 'warning').length;
+  const totalWipValue = projectStats.reduce((sum: number, p: any) => sum + p.wipValue, 0);
+  const totalRevenuePotential = projectStats.reduce((sum: number, p: any) => sum + p.revenuePotential, 0);
+  const projectsAtRisk = projectStats.filter((p: any) => p.status === 'critical' || p.status === 'warning').length;
 
   return {
-    activeProjects: projectStats.sort((a, b) => b.budgetUsage - a.budgetUsage), // Sort by risk (highest usage first)
+    activeProjects: projectStats.sort((a: any, b: any) => b.budgetUsage - a.budgetUsage), // Sort by risk (highest usage first)
     totalWipValue,
     totalRevenuePotential,
     projectsAtRisk

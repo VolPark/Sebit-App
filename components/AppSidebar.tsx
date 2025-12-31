@@ -64,6 +64,7 @@ const NAVIGATION: NavGroup[] = [
     {
         title: 'Finance',
         items: [
+            { name: 'Transakce', href: '/finance', icon: Icons.Money },
             { name: 'Výkazy', href: '/vykazy', icon: Icons.Report },
             { name: 'Mzdy', href: '/mzdy', icon: Icons.Money },
             { name: 'Náklady', href: '/naklady', icon: Icons.Cost },
