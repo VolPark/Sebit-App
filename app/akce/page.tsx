@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/formatDate'
+import { getMaterialConfig } from '@/lib/material-config'
 import ComboBox from '@/components/ComboBox'
 import { Menu, Transition } from '@headlessui/react'
 import { APP_START_DATE } from '@/lib/config'
@@ -348,16 +349,18 @@ export default function AkcePage() {
             </div>
           </div>
 
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Materiál (klient)</label>
-              <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={materialKlient} onChange={e => setMaterialKlient(e.target.value)} type="number" />
+          {getMaterialConfig().isVisible && (
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{getMaterialConfig().label} (klient)</label>
+                <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={materialKlient} onChange={e => setMaterialKlient(e.target.value)} type="number" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{getMaterialConfig().label} (my)</label>
+                <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={materialMy} onChange={e => setMaterialMy(e.target.value)} type="number" />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Materiál (my)</label>
-              <input className="appearance-none block w-full min-w-0 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white" placeholder="0" value={materialMy} onChange={e => setMaterialMy(e.target.value)} type="number" />
-            </div>
-          </div>
+          )}
 
           <div className="md:col-span-2 flex justify-end gap-4">
             {editingId && (
@@ -412,8 +415,12 @@ export default function AkcePage() {
               </div>
               <div className="mt-3 text-sm space-y-1 dark:text-gray-300">
                 <div><span className="font-medium">Cena:</span> {currency(Number(a.cena_klient || 0))}</div>
-                <div><span className="font-medium">Materiál (klient):</span> {currency(Number(a.material_klient || 0))}</div>
-                <div><span className="font-medium">Materiál (my):</span> {currency(Number(a.material_my || 0))}</div>
+                {getMaterialConfig().isVisible && (
+                  <>
+                    <div><span className="font-medium">{getMaterialConfig().label} (klient):</span> {currency(Number(a.material_klient || 0))}</div>
+                    <div><span className="font-medium">{getMaterialConfig().label} (my):</span> {currency(Number(a.material_my || 0))}</div>
+                  </>
+                )}
                 <div><span className="font-medium">Odhad:</span> {a.odhad_hodin} h</div>
               </div>
               <div className="flex items-center justify-between mt-4">
@@ -485,12 +492,16 @@ export default function AkcePage() {
                 <th className="p-3 text-right cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('cena_klient')}>
                   <div className="flex items-center justify-end gap-1">Částka klient {sortConfig?.key === 'cena_klient' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                 </th>
-                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('material_klient')}>
-                  <div className="flex items-center justify-end gap-1">Materiál klient {sortConfig?.key === 'material_klient' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                </th>
-                <th className="p-3 text-right cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('material_my')}>
-                  <div className="flex items-center justify-end gap-1">Materiál my {sortConfig?.key === 'material_my' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                </th>
+                {getMaterialConfig().isVisible && (
+                  <>
+                    <th className="p-3 text-right cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('material_klient')}>
+                      <div className="flex items-center justify-end gap-1">{getMaterialConfig().label} klient {sortConfig?.key === 'material_klient' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                    </th>
+                    <th className="p-3 text-right cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('material_my')}>
+                      <div className="flex items-center justify-end gap-1">{getMaterialConfig().label} my {sortConfig?.key === 'material_my' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                    </th>
+                  </>
+                )}
                 <th className="p-3 text-right cursor-pointer hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors select-none" onClick={() => requestSort('odhad_hodin')}>
                   <div className="flex items-center justify-end gap-1">Odhad hodin {sortConfig?.key === 'odhad_hodin' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                 </th>
@@ -511,8 +522,12 @@ export default function AkcePage() {
                     )}
                   </td>
                   <td className="p-3 text-right">{currency(Number(a.cena_klient || 0))}</td>
-                  <td className="p-3 text-right">{currency(Number(a.material_klient || 0))}</td>
-                  <td className="p-3 text-right">{currency(Number(a.material_my || 0))}</td>
+                  {getMaterialConfig().isVisible && (
+                    <>
+                      <td className="p-3 text-right">{currency(Number(a.material_klient || 0))}</td>
+                      <td className="p-3 text-right">{currency(Number(a.material_my || 0))}</td>
+                    </>
+                  )}
                   <td className="p-3 text-right">{a.odhad_hodin}</td>
                   <td className="p-3 text-right">
                     <div className="flex items-center justify-end gap-2">

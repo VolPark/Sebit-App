@@ -1,4 +1,5 @@
 import { ActionStats } from '@/lib/dashboard';
+import { getMaterialConfig } from '@/lib/material-config';
 import { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 
@@ -83,24 +84,26 @@ const ActionDetailModal = ({ action, onClose }: Props) => {
                                         <div className="space-y-3">
 
                                             {/* Material */}
-                                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-lg">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="font-medium text-slate-700 dark:text-slate-200">Materiál</span>
-                                                    <span className={`text-sm font-bold ${action.materialProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                        Zisk z mat.: {currency(action.materialProfit || 0)}
-                                                    </span>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                                    <div>
-                                                        <div className="text-slate-400 text-xs">Fakturace (Výnos)</div>
-                                                        <div className="font-medium">{currency(action.materialRevenue || 0)}</div>
+                                            {getMaterialConfig().isVisible && (
+                                                <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-lg">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="font-medium text-slate-700 dark:text-slate-200">{getMaterialConfig().label}</span>
+                                                        <span className={`text-sm font-bold ${action.materialProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                            Zisk ({getMaterialConfig().labelLowercase}): {currency(action.materialProfit || 0)}
+                                                        </span>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <div className="text-slate-400 text-xs">Nákup (Náklad)</div>
-                                                        <div className="font-medium text-red-500">{currency(action.materialCost)}</div>
+                                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                                        <div>
+                                                            <div className="text-slate-400 text-xs">Fakturace (Výnos)</div>
+                                                            <div className="font-medium">{currency(action.materialRevenue || 0)}</div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-slate-400 text-xs">Nákup (Náklad)</div>
+                                                            <div className="font-medium text-red-500">{currency(action.materialCost)}</div>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
+                                            )}
 
                                             {/* Wages */}
                                             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-lg">

@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, Fragment, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getDashboardData, getDetailedStats, getExperimentalStats, DashboardData, MonthlyData, WorkerStats, ClientStats, ActionStats, ExperimentalStats, ProjectHealthStats } from '@/lib/dashboard';
+import { getMaterialConfig } from '@/lib/material-config';
 import { supabase } from '@/lib/supabase';
 import { APP_START_YEAR } from '@/lib/config';
 import BarChart from '@/components/BarChart';
@@ -155,13 +156,15 @@ const DashboardKpiGrid = ({ data, selectedMonth }: { data: DashboardData, select
           percentage={profitPercentage}
           percentageColor={kpiData.grossProfit >= 0 ? "text-green-500" : "text-red-500"}
         />
-        <KPICard
-          title="Zisk na materiálu"
-          value={currency.format(kpiData.materialProfit)}
-          helpText="Rozdíl mezi fakturací materiálu klientovi a nákupní cenou"
-          percentage={materialProfitPercentage}
-          percentageColor={kpiData.materialProfit >= 0 ? "text-green-500" : "text-red-500"}
-        />
+        {getMaterialConfig().isVisible && (
+          <KPICard
+            title={`Zisk (${getMaterialConfig().labelLowercase})`}
+            value={currency.format(kpiData.materialProfit)}
+            helpText={`Rozdíl mezi fakturací ${getMaterialConfig().labelLowercase}u klientovi a nákupní cenou`}
+            percentage={materialProfitPercentage}
+            percentageColor={kpiData.materialProfit >= 0 ? "text-green-500" : "text-red-500"}
+          />
+        )}
       </div>
 
       {/* Row 2: Costs Breakdown */}
@@ -169,17 +172,19 @@ const DashboardKpiGrid = ({ data, selectedMonth }: { data: DashboardData, select
         <KPICard
           title={`${titleSuffix}Náklady`}
           value={currency.format(kpiData.totalCosts)}
-          helpText="Součet všech nákladů (Materiál + Mzdy + Režie)"
+          helpText={`Součet všech nákladů (${getMaterialConfig().isVisible ? getMaterialConfig().label + ' + ' : ''}Mzdy + Režie)`}
           percentage={costsPercentage}
           percentageColor="text-red-500"
         />
-        <KPICard
-          title="Materiál"
-          value={currency.format(kpiData.totalMaterialCost)}
-          helpText="Nákupní cena materiálu"
-          percentage={materialPercentage}
-          percentageColor="text-red-500"
-        />
+        {getMaterialConfig().isVisible && (
+          <KPICard
+            title={getMaterialConfig().label}
+            value={currency.format(kpiData.totalMaterialCost)}
+            helpText={`Nákupní cena ${getMaterialConfig().labelLowercase}u`}
+            percentage={materialPercentage}
+            percentageColor="text-red-500"
+          />
+        )}
         <KPICard
           title="Mzdy"
           value={currency.format(kpiData.totalLaborCost)}
@@ -352,9 +357,11 @@ const ClientsTable = ({ data, onActionClick }: { data: ClientStats[], onActionCl
               <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('revenue')}>
                 <div className="flex items-center justify-end gap-1">Příjmy {sortConfig?.key === 'revenue' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
               </th>
-              <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('materialCost')}>
-                <div className="flex items-center justify-end gap-1">Materiál {sortConfig?.key === 'materialCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-              </th>
+              {getMaterialConfig().isVisible && (
+                <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('materialCost')}>
+                  <div className="flex items-center justify-end gap-1">{getMaterialConfig().label} {sortConfig?.key === 'materialCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                </th>
+              )}
               <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('laborCost')}>
                 <div className="flex items-center justify-end gap-1">Mzdy {sortConfig?.key === 'laborCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
               </th>
@@ -393,7 +400,7 @@ const ClientsTable = ({ data, onActionClick }: { data: ClientStats[], onActionCl
                   <td className="p-3 font-medium text-gray-900 dark:text-white">{c.name}</td>
                   <td className="p-3 text-right font-medium dark:text-gray-200">{c.totalHours.toLocaleString('cs-CZ')} h</td>
                   <td className="p-3 text-right font-medium dark:text-gray-200">{currency(c.revenue)}</td>
-                  <td className="p-3 text-right text-gray-600 dark:text-gray-400">{currency(c.materialCost)}</td>
+                  {getMaterialConfig().isVisible && <td className="p-3 text-right text-gray-600 dark:text-gray-400">{currency(c.materialCost)}</td>}
                   <td className="p-3 text-right text-gray-600 dark:text-gray-400">{currency(c.laborCost)}</td>
                   <td className="p-3 text-right text-gray-600 dark:text-gray-400">{currency(c.overheadCost)}</td>
                   <td className="p-3 text-right text-red-600 dark:text-red-400 font-medium">{currency(c.totalCost)}</td>
@@ -410,7 +417,7 @@ const ClientsTable = ({ data, onActionClick }: { data: ClientStats[], onActionCl
                               <th className="py-2 pl-10 text-left font-medium uppercase tracking-wider">Akce</th>
                               <th className="py-2 text-right font-medium uppercase tracking-wider">Hodiny</th>
                               <th className="py-2 text-right font-medium uppercase tracking-wider">Příjmy</th>
-                              <th className="py-2 text-right font-medium uppercase tracking-wider">Materiál</th>
+                              {getMaterialConfig().isVisible && <th className="py-2 text-right font-medium uppercase tracking-wider">{getMaterialConfig().label}</th>}
                               <th className="py-2 text-right font-medium uppercase tracking-wider">Mzdy</th>
                               <th className="py-2 text-right font-medium uppercase tracking-wider">Režie</th>
                               <th className="py-2 text-right font-medium uppercase tracking-wider">Náklady</th>
@@ -426,7 +433,7 @@ const ClientsTable = ({ data, onActionClick }: { data: ClientStats[], onActionCl
                                 </td>
                                 <td className="py-2 text-right text-gray-600 dark:text-gray-400">{action.totalHours.toLocaleString('cs-CZ')} h</td>
                                 <td className="py-2 text-right text-gray-600 dark:text-gray-400">{currency(action.revenue)}</td>
-                                <td className="py-2 text-right text-gray-500 dark:text-gray-500">{currency(action.materialCost)}</td>
+                                {getMaterialConfig().isVisible && <td className="py-2 text-right text-gray-500 dark:text-gray-500">{currency(action.materialCost)}</td>}
                                 <td className="py-2 text-right text-gray-500 dark:text-gray-500">{currency(action.laborCost)}</td>
                                 <td className="py-2 text-right text-gray-500 dark:text-gray-500">{currency(action.overheadCost)}</td>
                                 <td className="py-2 text-right text-red-500 dark:text-red-400">{currency(action.totalCost)}</td>
@@ -499,10 +506,12 @@ const ClientsTable = ({ data, onActionClick }: { data: ClientStats[], onActionCl
                 <div className="rounded-xl bg-slate-50 dark:bg-slate-800/30 p-4 border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-1 duration-200">
                   <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 border-b border-gray-200 dark:border-slate-700 pb-2">Rozpad Nákladů</h4>
                   <div className="space-y-2 text-sm mb-4">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Materiál:</span>
-                      <span className="font-medium text-gray-900 dark:text-gray-200">{currency(c.materialCost)}</span>
-                    </div>
+                    {getMaterialConfig().isVisible && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">{getMaterialConfig().label}:</span>
+                        <span className="font-medium text-gray-900 dark:text-gray-200">{currency(c.materialCost)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">Mzdy:</span>
                       <span className="font-medium text-gray-900 dark:text-gray-200">{currency(c.laborCost)}</span>

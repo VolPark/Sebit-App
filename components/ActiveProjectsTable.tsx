@@ -1,4 +1,5 @@
 import { ProjectHealthStats } from '@/lib/dashboard';
+import { getMaterialConfig } from '@/lib/material-config';
 
 const ActiveProjectsTable = ({ data }: { data: ProjectHealthStats[] }) => {
     return (
@@ -16,7 +17,7 @@ const ActiveProjectsTable = ({ data }: { data: ProjectHealthStats[] }) => {
                             <th className="p-4 text-right whitespace-nowrap group relative cursor-help">
                                 <span>WIP (Kč)</span>
                                 <span className="invisible group-hover:visible absolute right-0 top-full mt-1 w-64 bg-slate-800 text-white text-xs p-2 rounded shadow-lg z-50">
-                                    Hodnota rozpracované výroby = (Odpracované hodiny * Sazba pracovníka) + Materiál
+                                    Hodnota rozpracované výroby = (Odpracované hodiny * Sazba pracovníka){getMaterialConfig().isVisible ? ` + ${getMaterialConfig().label}` : ''}
                                 </span>
                             </th>
                         </tr>
@@ -60,8 +61,8 @@ const ActiveProjectsTable = ({ data }: { data: ProjectHealthStats[] }) => {
                                             <span className="font-bold text-slate-900 dark:text-white">
                                                 {new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(p.wipValue)}
                                             </span>
-                                            <span className="text-[10px] text-slate-400 whitespace-nowrap" title={`Mzdy: ${p.laborCost.toLocaleString('cs-CZ')} Kč, Materiál: ${p.materialCost.toLocaleString('cs-CZ')} Kč`}>
-                                                Mzdy {new Intl.NumberFormat('cs-CZ', { notation: 'compact', maximumFractionDigits: 1 }).format(p.laborCost)} + Mat. {new Intl.NumberFormat('cs-CZ', { notation: 'compact', maximumFractionDigits: 1 }).format(p.materialCost)}
+                                            <span className="text-[10px] text-slate-400 whitespace-nowrap" title={`Mzdy: ${p.laborCost.toLocaleString('cs-CZ')} Kč${getMaterialConfig().isVisible ? `, ${getMaterialConfig().label}: ${p.materialCost.toLocaleString('cs-CZ')} Kč` : ''}`}>
+                                                Mzdy {new Intl.NumberFormat('cs-CZ', { notation: 'compact', maximumFractionDigits: 1 }).format(p.laborCost)}{getMaterialConfig().isVisible ? ` + ${getMaterialConfig().label} ${new Intl.NumberFormat('cs-CZ', { notation: 'compact', maximumFractionDigits: 1 }).format(p.materialCost)}` : ''}
                                             </span>
                                         </div>
                                     </td>
@@ -128,7 +129,7 @@ const ActiveProjectsTable = ({ data }: { data: ProjectHealthStats[] }) => {
                                         </div>
                                         <p className="font-bold text-slate-900 dark:text-white">{new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(p.wipValue)}</p>
                                         <p className="text-[10px] text-slate-400 mt-0.5">
-                                            Mzdy {new Intl.NumberFormat('cs-CZ', { notation: 'compact', maximumFractionDigits: 1 }).format(p.laborCost)} + Mat. {new Intl.NumberFormat('cs-CZ', { notation: 'compact', maximumFractionDigits: 1 }).format(p.materialCost)}
+                                            Mzdy {new Intl.NumberFormat('cs-CZ', { notation: 'compact', maximumFractionDigits: 1 }).format(p.laborCost)}{getMaterialConfig().isVisible ? ` + ${getMaterialConfig().label} ${new Intl.NumberFormat('cs-CZ', { notation: 'compact', maximumFractionDigits: 1 }).format(p.materialCost)}` : ''}
                                         </p>
                                     </div>
                                 </div>

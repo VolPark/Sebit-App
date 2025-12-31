@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createOfferItem, getItemTypes, createItemType, uploadOfferImage } from '@/lib/api/nabidky-api';
+import { getMaterialConfig } from '@/lib/material-config';
 import CreatableComboBox, { ComboBoxItem } from '@/components/CreatableCombobox';
 import { compressImage } from '@/lib/utils/image-utils';
 
@@ -152,7 +153,7 @@ export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFor
 
                 {/* Row 2: Description */}
                 <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Popis (Materiál, kování...)</label>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Popis ({getMaterialConfig().isVisible ? getMaterialConfig().label + ', ' : ''}kování...)</label>
                     <textarea
                         value={popis}
                         onChange={e => setPopis(e.target.value)}

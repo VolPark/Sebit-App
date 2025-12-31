@@ -1,4 +1,5 @@
 import { ActionStats } from '@/lib/dashboard';
+import { getMaterialConfig } from '@/lib/material-config';
 import { useState, useMemo } from 'react';
 
 const CompanyActionsTable = ({ data, onActionClick }: { data: ActionStats[], onActionClick: (action: ActionStats) => void }) => {
@@ -82,7 +83,10 @@ const CompanyActionsTable = ({ data, onActionClick }: { data: ActionStats[], onA
                                 <div className="flex items-center justify-end gap-1 group relative">
                                     Náklady {sortConfig?.key === 'totalCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                     <span className="invisible group-hover:visible absolute right-0 top-full mt-1 w-48 bg-slate-800 text-white text-xs p-2 rounded shadow-lg z-50 font-normal normal-case">
-                                        Materiál + Mzdy + Režie
+                                        {getMaterialConfig().isVisible
+                                            ? `${getMaterialConfig().label} + Mzdy + Režie`
+                                            : 'Mzdy + Režie'
+                                        }
                                     </span>
                                 </div>
                             </th>
@@ -107,7 +111,11 @@ const CompanyActionsTable = ({ data, onActionClick }: { data: ActionStats[], onA
                                 <td className="p-3 text-slate-600 dark:text-slate-300">{action.clientName}</td>
                                 <td className="p-3 text-right text-slate-600 dark:text-slate-400">{action.totalHours.toLocaleString('cs-CZ')} h</td>
                                 <td className="p-3 text-right font-medium text-slate-700 dark:text-slate-200">{currency(action.revenue)}</td>
-                                <td className="p-3 text-right text-red-600/80 dark:text-red-400/80" title={`Mat: ${currency(action.materialCost)}, Mzdy: ${currency(action.laborCost)}, Režie: ${currency(action.overheadCost)}`}>
+                                <td className="p-3 text-right text-red-600/80 dark:text-red-400/80" title={
+                                    getMaterialConfig().isVisible
+                                        ? `${getMaterialConfig().label}: ${currency(action.materialCost)}, Mzdy: ${currency(action.laborCost)}, Režie: ${currency(action.overheadCost)}`
+                                        : `Mzdy: ${currency(action.laborCost)}, Režie: ${currency(action.overheadCost)}`
+                                }>
                                     {currency(action.totalCost)}
                                 </td>
                                 <td className={`p-3 text-right font-bold ${action.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
