@@ -27,6 +27,7 @@ interface WorkLog {
     hours: number;
     clientName?: string;
     workerName?: string;
+    workerRole?: string;
 }
 
 export default function TimesheetsPage() {
@@ -202,7 +203,8 @@ export default function TimesheetsPage() {
                     description: item.popis,
                     hours: item.pocet_hodin,
                     clientName: item.akce?.klienti?.nazev,
-                    workerName: item.pracovnici?.role || item.pracovnici?.jmeno // Role if exists, else Name
+                    workerName: item.pracovnici?.jmeno,
+                    workerRole: item.pracovnici?.role
                 })));
             } else if (error) {
                 console.error("Error fetching logs:", JSON.stringify(error, null, 2));
