@@ -211,7 +211,7 @@ export default function AppSidebar() {
                                                 <item.icon
                                                     className={`
                                                     mr-3 h-5 w-5 flex-shrink-0 transition-colors
-                                                    ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-white'}
+                                                    ${isActive ? 'text-current' : 'text-gray-500 group-hover:text-white'}
                                                 `}
                                                     aria-hidden="true"
                                                 />
