@@ -48,5 +48,8 @@ export const CompanyConfig = {
         enableFinancePayroll: process.env.NEXT_PUBLIC_ENABLE_FINANCE_PAYROLL !== 'false',
         enableFinanceCosts: process.env.NEXT_PUBLIC_ENABLE_FINANCE_COSTS !== 'false',
         enableFinanceTimesheets: process.env.NEXT_PUBLIC_ENABLE_FINANCE_TIMESHEETS !== 'false',
+
+        // New Module
+        enableAccounting: process.env.NEXT_PUBLIC_ENABLE_ACCOUNTING === 'true',
     }
 };

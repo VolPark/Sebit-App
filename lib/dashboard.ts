@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { APP_START_YEAR } from '@/lib/config';
+import { CompanyConfig } from '@/lib/companyConfig';
 
 export interface MonthlyData {
   month: string;
@@ -115,6 +116,17 @@ export async function getDashboardData(
   let praceQuery = client.from('prace').select('id, datum, pocet_hodin, pracovnik_id, klient_id, akce_id, division_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
   let financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
 
+  // Accounting Query (if enabled)
+  let accountingQuery = Promise.resolve({ data: [] });
+  if (CompanyConfig.features.enableAccounting) {
+    // Fetch documents with mappings for the period
+    // @ts-ignore
+    accountingQuery = client.from('accounting_documents')
+      .select('id, type, amount, issue_date, provider_id, mappings:accounting_mappings(id, akce_id, pracovnik_id, division_id, cost_category, amount)')
+      .gte('issue_date', start)
+      .lte('issue_date', end);
+  }
+
   // Mzdy needs a slightly wider range to be safe or just matching years. Always GLOBAL for rate calc.
   let mzdyQuery = client.from('mzdy').select('rok, mesic, celkova_castka, pracovnik_id').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
 
@@ -144,7 +156,7 @@ export async function getDashboardData(
 
   // 3. Execute Parallel Queries
   // @ts-ignore
-  const [akceRes, praceRes, mzdyRes, fixedCostsRes, workersRes, allPraceRes, financeRes] = await Promise.all([
+  const [akceRes, praceRes, mzdyRes, fixedCostsRes, workersRes, allPraceRes, financeRes, accountingQueryRes] = await Promise.all([
     akceQuery,
     praceQuery,
     mzdyQuery,
@@ -154,7 +166,8 @@ export async function getDashboardData(
     (filters.divisionId || filters.klientId)
       ? client.from('prace').select('id, datum, pocet_hodin, pracovnik_id').gte('datum', start).lte('datum', end)
       : Promise.resolve({ data: null }),
-    financeQuery
+    financeQuery,
+    accountingQuery
   ]);
 
   const akceData = akceRes.data || [];
@@ -163,6 +176,8 @@ export async function getDashboardData(
   const fixedCostsData = fixedCostsRes.data || [];
   const workersData = workersRes.data || [];
   const financeData = financeRes.data || [];
+  // @ts-ignore
+  const accountingDocs = (accountingQueryRes?.data || []) as any[];
 
   // Use allPraceRes if available (global context), otherwise praceData (if no filters)
   // Check if allPraceRes.data is valid array, else use praceData
@@ -275,6 +290,101 @@ export async function getDashboardData(
       const currC = cMap.get(fAction.klient_id) || { name: cName || 'Neznámý', total: 0 };
       currC.total += (Number(f.castka) || 0);
       cMap.set(fAction.klient_id, currC);
+    }
+  }
+
+  // A3. Process Accounting Mappings
+  if (CompanyConfig.features.enableAccounting && accountingDocs.length > 0) {
+    for (const doc of accountingDocs) {
+      const d = new Date(doc.issue_date);
+      const key = getMonthKey(d);
+
+      if (!monthlyBuckets.has(key) && !isLast12Months) {
+        monthlyBuckets.set(key, createEmptyMonthlyData(d));
+        monthlyClientStats.set(key, new Map());
+        monthlyWorkerStats.set(key, new Map());
+      }
+
+      const bucket = monthlyBuckets.get(key);
+      if (!bucket) continue;
+
+      // Check doc type
+      if (doc.type === 'sales_invoice') {
+        // Revenue
+        if (doc.mappings && doc.mappings.length > 0) {
+          for (const m of doc.mappings) {
+            // Filter Check
+            let matchesFilter = true;
+            const linkedAkce = m.akce_id ? akceData.find((a: any) => a.id === m.akce_id) : null;
+
+            if (filters.klientId) {
+              if (!linkedAkce || linkedAkce.klient_id !== filters.klientId) matchesFilter = false;
+            }
+            if (filters.divisionId) {
+              const directMatch = m.division_id === filters.divisionId;
+              const actionMatch = linkedAkce && linkedAkce.division_id === filters.divisionId;
+              if (!directMatch && !actionMatch) matchesFilter = false;
+            }
+            if (filters.pracovnikId) {
+              if (m.pracovnik_id !== filters.pracovnikId) matchesFilter = false;
+            }
+
+            if (matchesFilter) {
+              bucket.totalRevenue += Number(m.amount);
+
+              // Client Stats
+              if (linkedAkce && linkedAkce.klient_id) {
+                if (!monthlyClientStats.has(key)) monthlyClientStats.set(key, new Map());
+                const cMap = monthlyClientStats.get(key)!;
+                const cName = Array.isArray(linkedAkce.klienti) ? linkedAkce.klienti[0]?.nazev : linkedAkce.klienti?.nazev;
+                const currC = cMap.get(linkedAkce.klient_id) || { name: cName || 'Neznámý', total: 0 };
+                currC.total += Number(m.amount);
+                cMap.set(linkedAkce.klient_id, currC);
+              }
+            }
+          }
+        } else {
+          // Unmapped revenue - Only add if NO filters active (Global view)
+          if (!filters.klientId && !filters.divisionId && !filters.pracovnikId) {
+            bucket.totalRevenue += Number(doc.amount);
+          }
+        }
+      } else if (doc.type === 'purchase_invoice') {
+        // Costs
+        if (doc.mappings && doc.mappings.length > 0) {
+          for (const m of doc.mappings) {
+            let matchesFilter = true;
+            const linkedAkce = m.akce_id ? akceData.find((a: any) => a.id === m.akce_id) : null;
+
+            if (filters.klientId) {
+              if (!linkedAkce || linkedAkce.klient_id !== filters.klientId) matchesFilter = false;
+            }
+            if (filters.divisionId) {
+              const directMatch = m.division_id === filters.divisionId;
+              const actionMatch = linkedAkce && linkedAkce.division_id === filters.divisionId;
+              if (!directMatch && !actionMatch) matchesFilter = false;
+            }
+            if (filters.pracovnikId) {
+              if (m.pracovnik_id !== filters.pracovnikId) matchesFilter = false;
+            }
+
+            if (matchesFilter) {
+              bucket.totalCosts += Number(m.amount);
+              if (m.cost_category === 'material') {
+                bucket.totalMaterialCost += Number(m.amount);
+                // Deduct mapping cost from "Profit from Material" (since it is a cost)
+                // Profit = Revenue - Cost. 
+                bucket.materialProfit -= Number(m.amount);
+              }
+            }
+          }
+        } else {
+          // Unmapped cost
+          if (!filters.klientId && !filters.divisionId && !filters.pracovnikId) {
+            bucket.totalCosts += Number(doc.amount);
+          }
+        }
+      }
     }
   }
 
@@ -747,6 +857,16 @@ export async function getDetailedStats(
   let fixedCostsQuery = client.from('fixed_costs').select('*').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
   let financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
 
+  // Accounting Query
+  let accountingQuery = Promise.resolve({ data: [] });
+  if (CompanyConfig.features.enableAccounting) {
+    // @ts-ignore
+    accountingQuery = client.from('accounting_documents')
+      .select('id, type, amount, issue_date, mappings:accounting_mappings(id, akce_id, cost_category, amount)')
+      .gte('issue_date', start)
+      .lte('issue_date', end);
+  }
+
   // New: Global Context Query for Overhead Rates (Minimal columns)
   // We need this to calculate "Total Company Hours" for the period, which is the denominator for Global Overhead Rate.
   // We cannot rely on 'praceQuery' because it might be filtered by worker/client.
@@ -774,7 +894,8 @@ export async function getDetailedStats(
     akceQuery,
     fixedCostsQuery,
     globalHoursQuery,
-    financeQuery
+    financeQuery,
+    accountingQuery
   ]);
 
   const workers = workersRes.data || [];
@@ -786,6 +907,8 @@ export async function getDetailedStats(
   const globalPrace = globalHoursRes.data || [];
   // @ts-ignore
   const financeData = (financeRes?.data || []) as any[];
+  // @ts-ignore
+  const accountingDocs = (accountingQueryRes?.data || []) as any[];
 
   // 1. Build Map: Worker ID -> Base Hourly Rate
   const workerBaseRateMap = new Map<number, number>();
@@ -802,6 +925,30 @@ export async function getDetailedStats(
       actionClientMap.set(a.id, a.klient_id);
     }
   });
+
+  // 2b. Build Accounting Map: Action ID -> { revenue, cost, materialCost }
+  const accountingActionMap = new Map<number, { revenue: number, cost: number, materialCost: number }>();
+  if (accountingDocs.length > 0) {
+    accountingDocs.forEach((doc: any) => {
+      if (doc.mappings && doc.mappings.length > 0) {
+        doc.mappings.forEach((m: any) => {
+          if (m.akce_id) {
+            const curr = accountingActionMap.get(m.akce_id) || { revenue: 0, cost: 0, materialCost: 0 };
+            const amt = Number(m.amount) || 0;
+            if (doc.type === 'sales_invoice') {
+              curr.revenue += amt;
+            } else if (doc.type === 'purchase_invoice') {
+              curr.cost += amt;
+              if (m.cost_category === 'material') {
+                curr.materialCost += amt;
+              }
+            }
+            accountingActionMap.set(m.akce_id, curr);
+          }
+        });
+      }
+    });
+  }
 
   // In-Memory Filter for Client & Division on 'prace'
   let filteredPrace = prace;
@@ -1060,11 +1207,29 @@ export async function getDetailedStats(
         aRevenue = aFinance.reduce((sum: number, f: any) => sum + (Number(f.castka) || 0), 0);
       }
 
-      const aMaterialCost = Number(a.material_my) || 0;
+      // Add Mapped Accounting Revenue
+      const accStats = accountingActionMap.get(a.id);
+      if (accStats) {
+        aRevenue += accStats.revenue;
+      }
+
+      const aMaterialCost = (Number(a.material_my) || 0) + (accStats?.materialCost || 0);
       const aMaterialRevenue = Number(a.material_klient) || 0;
       const aLaborCost = actionLaborCosts.get(a.id) || 0;
       const aOverheadCost = actionOverheadCosts.get(a.id) || 0;
-      const aTotalCost = aMaterialCost + aLaborCost + aOverheadCost;
+      const aTotalCost = aMaterialCost + aLaborCost + aOverheadCost + (accStats?.cost ? (accStats.cost - accStats.materialCost) : 0);
+      // Note: accStats.cost includes material. We added material separately to aMaterialCost. 
+      // So detailed breakdown:
+      // Material = akce.material + mapped.material
+      // Labor = calculated labor (from hours)
+      // Overhead = calculated overhead
+      // Other = mapped.cost (non-material)?
+      // If mapped.cost includes material, we shouldn't double add.
+      // logic: totalCost = calculatedLabor + calculatedOverhead + akce.material + mapped.cost
+      // But we want to breakdown material. 
+      // aMaterialCost = akce.material + mapped.material.
+      // So remaining mapped cost = mapped.cost - mapped.material.
+      // Result: aTotalCost = aLaborCost + aOverheadCost + aMaterialCost + (accStats.cost - accStats.materialCost)
       const aProfit = aRevenue - aTotalCost;
       const aMargin = aRevenue > 0 ? ((aRevenue - aTotalCost) / aRevenue) * 100 : 0;
 
