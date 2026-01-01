@@ -886,7 +886,7 @@ export async function getDetailedStats(
     akceQuery = akceQuery.eq('division_id', filters.divisionId);
   }
 
-  const [workersRes, clientsRes, praceRes, mzdyRes, akceRes, fixedCostsRes, globalHoursRes, financeRes] = await Promise.all([
+  const [workersRes, clientsRes, praceRes, mzdyRes, akceRes, fixedCostsRes, globalHoursRes, financeRes, accountingQueryRes] = await Promise.all([
     client.from('pracovnici').select('*'),
     client.from('klienti').select('*'),
     praceQuery,
