@@ -43,6 +43,7 @@ export const CompanyConfig = {
         enableAdminWorkers: process.env.NEXT_PUBLIC_ENABLE_ADMIN_WORKERS !== 'false',
 
         // Granular Features (Finance)
+        enableFinanceTransactions: process.env.NEXT_PUBLIC_ENABLE_FINANCE_TRANSACTIONS === 'true',
         enableFinanceReports: process.env.NEXT_PUBLIC_ENABLE_FINANCE_REPORTS !== 'false',
         enableFinancePayroll: process.env.NEXT_PUBLIC_ENABLE_FINANCE_PAYROLL !== 'false',
         enableFinanceCosts: process.env.NEXT_PUBLIC_ENABLE_FINANCE_COSTS !== 'false',

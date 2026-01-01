@@ -134,6 +134,7 @@ export default function AppSidebar() {
         }
 
         if (group.title === 'Finance') {
+            if (!CompanyConfig.features.enableFinanceTransactions) items = items.filter(i => i.name !== 'Transakce');
             if (!CompanyConfig.features.enableFinanceReports) items = items.filter(i => i.name !== 'Výkazy');
             if (!CompanyConfig.features.enableFinancePayroll) items = items.filter(i => i.name !== 'Mzdy');
             if (!CompanyConfig.features.enableFinanceCosts) items = items.filter(i => i.name !== 'Náklady');
