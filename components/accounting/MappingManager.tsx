@@ -21,6 +21,7 @@ interface Mapping {
 export function MappingManager({ document }: MappingManagerProps) {
     const [mappings, setMappings] = useState<Mapping[]>([]);
     const [loading, setLoading] = useState(true);
+    const [editingId, setEditingId] = useState<number | null>(null);
 
     const [projects, setProjects] = useState<any[]>([]);
     const [workers, setWorkers] = useState<any[]>([]);
@@ -62,7 +63,7 @@ export function MappingManager({ document }: MappingManagerProps) {
         setLoading(false);
     };
 
-    const handleAdd = async () => {
+    const handleSubmit = async () => {
         if (newMapping.amount <= 0) {
             alert('Částka musí být kladná');
             return;
@@ -78,25 +79,45 @@ export function MappingManager({ document }: MappingManagerProps) {
             note: newMapping.note
         };
 
-        const { data, error } = await supabase.from('accounting_mappings').insert(payload).select().single();
-        if (error) {
-            alert('Chyba při ukládání: ' + error.message);
+        if (editingId) {
+            // Update
+            const { error } = await supabase.from('accounting_mappings').update(payload).eq('id', editingId);
+            if (error) {
+                alert('Chyba při úpravě: ' + error.message);
+            } else {
+                setMappings(mappings.map(m => m.id === editingId ? { ...m, ...payload, id: editingId } : m));
+                resetForm();
+            }
         } else {
-            const added = data as Mapping;
-            setMappings([...mappings, added]);
-
-            const currentTotal = mappings.reduce((acc, m) => acc + Number(m.amount), 0) + added.amount;
-            const remaining = Math.max(0, document.amount - currentTotal);
-
-            setNewMapping({
-                akce_id: null,
-                pracovnik_id: null,
-                division_id: null,
-                cost_category: document.type === 'sales_invoice' ? 'service' : 'material',
-                amount: Number(remaining.toFixed(2)),
-                note: ''
-            });
+            // Insert
+            const { data, error } = await supabase.from('accounting_mappings').insert(payload).select().single();
+            if (error) {
+                alert('Chyba při ukládání: ' + error.message);
+            } else {
+                setMappings([...mappings, data as Mapping]);
+                resetForm(mappings, (data as Mapping).amount);
+            }
         }
+    };
+
+    const resetForm = (currentMappings = mappings, addedAmount = 0) => {
+        const currentTotal = currentMappings.reduce((acc, m) => acc + Number(m.amount), 0) + addedAmount;
+        const remaining = Math.max(0, document.amount - currentTotal);
+
+        setEditingId(null);
+        setNewMapping({
+            akce_id: null,
+            pracovnik_id: null,
+            division_id: null,
+            cost_category: document.type === 'sales_invoice' ? 'service' : 'material',
+            amount: Number(remaining.toFixed(2)),
+            note: ''
+        });
+    };
+
+    const handleEdit = (mapping: Mapping) => {
+        setEditingId(mapping.id!);
+        setNewMapping({ ...mapping });
     };
 
     const handleDelete = async (id: number) => {
@@ -128,23 +149,35 @@ export function MappingManager({ document }: MappingManagerProps) {
             <div className="flex-1 overflow-auto p-4 flex flex-col gap-2">
                 {mappings.map(m => (
                     <div key={m.id} className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row md:items-center justify-between shadow-sm gap-2">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1 text-sm">
-                            <div>
+                        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 flex-1 text-sm">
+                            <div className="md:col-span-1">
                                 <span className="block text-xs text-slate-500">Projekt</span>
-                                <span className="font-medium truncate block">{projects.find(p => p.id === m.akce_id)?.nazev || '-'}</span>
+                                <span className="font-medium truncate block" title={projects.find(p => p.id === m.akce_id)?.nazev}>{projects.find(p => p.id === m.akce_id)?.nazev || '-'}</span>
                             </div>
-                            <div>
+                            <div className="md:col-span-1">
                                 <span className="block text-xs text-slate-500">Pracovník</span>
-                                <span className="truncate block">{workers.find(w => w.id === m.pracovnik_id)?.jmeno || '-'}</span>
+                                <span className="truncate block" title={workers.find(w => w.id === m.pracovnik_id)?.jmeno}>{workers.find(w => w.id === m.pracovnik_id)?.jmeno || '-'}</span>
                             </div>
-                            <div>
+                            <div className="md:col-span-1">
                                 <span className="block text-xs text-slate-500">Divize</span>
                                 {/* @ts-ignore */}
                                 <span className="truncate block">{divisions.find(d => d.id === m.division_id)?.nazev || '-'}</span>
                             </div>
-                            <div className="text-right">
+                            <div className="md:col-span-1">
+                                <span className="block text-xs text-slate-500">Kategorie</span>
+                                <span className="truncate block">
+                                    {m.cost_category === 'material' ? 'Materiál' :
+                                        m.cost_category === 'service' ? 'Služba' :
+                                            m.cost_category === 'overhead' ? 'Režie' : m.cost_category}
+                                </span>
+                            </div>
+                            <div className="md:col-span-1">
+                                <span className="block text-xs text-slate-500">Poznámka</span>
+                                <span className="truncate block" title={m.note}>{m.note || '-'}</span>
+                            </div>
+                            <div className="text-right md:col-span-1">
                                 <span className="block text-xs text-slate-500">Částka</span>
-                                <span className="font-bold">{m.amount}</span>
+                                <span className="font-bold">{new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: document.currency }).format(m.amount)}</span>
                             </div>
                         </div>
                         <button onClick={() => handleDelete(m.id!)} className="self-end md:self-center ml-4 p-2 text-slate-400 hover:text-red-600 rounded-full hover:bg-red-50 transition-colors">
@@ -155,9 +188,11 @@ export function MappingManager({ document }: MappingManagerProps) {
                 {mappings.length === 0 && <div className="text-center text-slate-500 py-8 italic">Žádná přiřazení.</div>}
             </div>
 
-            {/* Add Form */}
-            <div className="bg-white dark:bg-slate-900 p-4 border-t dark:border-slate-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-10">
-                <h3 className="font-bold mb-3 text-xs uppercase tracking-wider text-slate-500">Nové přiřazení</h3>
+            {/* Add/Edit Form */}
+            <div className={`bg-white dark:bg-slate-900 p-4 border-t dark:border-slate-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-10 ${editingId ? 'ring-2 ring-blue-500 ring-inset' : ''}`}>
+                <h3 className={`font-bold mb-3 text-xs uppercase tracking-wider ${editingId ? 'text-blue-600' : 'text-slate-500'}`}>
+                    {editingId ? 'Úprava přiřazení' : 'Nové přiřazení'}
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
 
                     {/* Project Select */}
@@ -238,12 +273,22 @@ export function MappingManager({ document }: MappingManagerProps) {
 
                 </div>
 
-                <button
-                    onClick={handleAdd}
-                    className="w-full mt-4 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 rounded-lg transition-colors"
-                >
-                    + Přidat přiřazení
-                </button>
+                <div className="flex gap-3 mt-4">
+                    {editingId && (
+                        <button
+                            onClick={() => resetForm()}
+                            className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-lg transition-colors"
+                        >
+                            Zrušit úpravu
+                        </button>
+                    )}
+                    <button
+                        onClick={handleSubmit}
+                        className={`flex-1 font-bold py-2 rounded-lg transition-colors text-white ${editingId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-900 hover:bg-slate-800'}`}
+                    >
+                        {editingId ? 'Uložit změny' : '+ Přidat přiřazení'}
+                    </button>
+                </div>
             </div>
         </div>
     );

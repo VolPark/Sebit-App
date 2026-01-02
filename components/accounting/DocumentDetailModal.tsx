@@ -150,7 +150,14 @@ export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDe
                                                     <td className="px-4 py-2 text-right">{item.quantity || '1'} {item.unit || 'ks'}</td>
                                                     <td className="px-4 py-2 text-right">{formatMoney(item.unit_price || item.unit_price_vat_exclusive || 0)}</td>
                                                     <td className="px-4 py-2 text-right">{item.vat_rate || item.vat_percent || '0'} %</td>
-                                                    <td className="px-4 py-2 text-right font-medium">{formatMoney(item.total_price || item.total_price_vat_inclusive || 0)}</td>
+                                                    <td className="px-4 py-2 text-right font-medium">
+                                                        {formatMoney(
+                                                            item.total_price ||
+                                                            item.total_price_vat_inclusive ||
+                                                            (parseFloat(item.quantity || '0') * parseFloat(item.unit_price_vat_inclusive || '0')) ||
+                                                            0
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             ))}
                                             {items.length === 0 && (

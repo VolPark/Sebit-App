@@ -18,6 +18,10 @@ export interface AccountingDocument {
     raw_data: any;
     created_at: string;
     updated_at: string;
+    accounting_mappings?: {
+        id: number;
+        amount: number;
+    }[];
 }
 
 export interface AccountingProvider {
