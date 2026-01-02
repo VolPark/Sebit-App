@@ -13,6 +13,7 @@ Font.register({
 });
 
 const THEME_COLOR = process.env.NEXT_PUBLIC_PDF_THEME_COLOR || '#E30613';
+const SECONDARY_COLOR = '#002B5C'; // Navy Blue
 
 const styles = StyleSheet.create({
     page: {
@@ -224,11 +225,11 @@ export default function TimesheetPdf({ reportType, period, entityName, items, to
                             return (
                                 <View key={groupIndex} style={{ marginBottom: 20 }} break={groupIndex > 0}>
                                     {/* Client Header */}
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, backgroundColor: '#f3f4f6', padding: 8, borderLeftWidth: 4, borderLeftColor: THEME_COLOR }}>
-                                        <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#111827' }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, backgroundColor: SECONDARY_COLOR, padding: 8, borderRadius: 2 }}>
+                                        <Text style={{ fontSize: 14, fontWeight: 'bold', color: THEME_COLOR }}>
                                             {clientName}
                                         </Text>
-                                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#374151' }}>
+                                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: THEME_COLOR }}>
                                             Celkem: {clientTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(clientTotalHours / 8).toFixed(2)} MD
                                         </Text>
                                     </View>
@@ -241,11 +242,11 @@ export default function TimesheetPdf({ reportType, period, entityName, items, to
                                         return (
                                             <View key={projectIndex} style={{ marginBottom: 15, paddingLeft: 10 }}>
                                                 {/* Project Header */}
-                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingBottom: 2 }}>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, backgroundColor: SECONDARY_COLOR, padding: 4, borderRadius: 2 }}>
                                                     <Text style={{ fontSize: 11, fontWeight: 'bold', color: THEME_COLOR, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                                                         {projectName}
                                                     </Text>
-                                                    <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#6b7280' }}>
+                                                    <Text style={{ fontSize: 10, fontWeight: 'bold', color: THEME_COLOR }}>
                                                         {projectTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(projectTotalHours / 8).toFixed(2)} MD
                                                     </Text>
                                                 </View>
@@ -312,11 +313,11 @@ export default function TimesheetPdf({ reportType, period, entityName, items, to
                             return (
                                 <View key={groupIndex} style={{ marginBottom: 20 }} break={groupIndex > 0}>
                                     {/* Worker Header */}
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, backgroundColor: '#f3f4f6', padding: 5 }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, backgroundColor: SECONDARY_COLOR, padding: 5, borderRadius: 2 }}>
                                         <Text style={{ fontSize: 12, fontWeight: 'bold', color: THEME_COLOR }}>
                                             {headerTitle}
                                         </Text>
-                                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#374151' }}>
+                                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: THEME_COLOR }}>
                                             Celkem: {workerTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(workerTotalHours / 8).toFixed(2)} MD
                                         </Text>
                                     </View>
