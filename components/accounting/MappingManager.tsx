@@ -61,15 +61,15 @@ export function MappingManager({ document }: MappingManagerProps) {
         // Auto-fill remaining
         const currentTotal = (mRes.data || []).reduce((acc: number, m: any) => acc + Number(m.amount), 0);
         const remaining = document.amount - currentTotal;
-        if (remaining > 0) {
+        if (Math.abs(remaining) > 0.001) {
             setNewMapping(prev => ({ ...prev, amount: Number(remaining.toFixed(2)) }));
         }
         setLoading(false);
     };
 
     const handleSubmit = async () => {
-        if (newMapping.amount <= 0) {
-            alert('Částka musí být kladná');
+        if (newMapping.amount === 0) {
+            alert('Částka nesmí být nulová');
             return;
         }
 
@@ -108,7 +108,7 @@ export function MappingManager({ document }: MappingManagerProps) {
 
     const resetForm = (currentMappings: Mapping[]) => {
         const currentTotal = currentMappings.reduce((acc, m) => acc + Number(m.amount), 0);
-        const remaining = Math.max(0, document.amount - currentTotal);
+        const remaining = document.amount - currentTotal;
 
         setEditingId(null);
         setNewMapping({
