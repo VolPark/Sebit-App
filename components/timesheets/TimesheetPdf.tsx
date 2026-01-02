@@ -196,24 +196,82 @@ export default function TimesheetPdf({ reportType, period, entityName, items, to
 
                 {/* Content based on Report Type */}
                 {reportType === 'worker' ? (
-                    <View style={styles.table}>
-                        <View style={styles.tableHeader}>
-                            <Text style={[styles.colDate, styles.headerText]}>Datum</Text>
-                            <Text style={[styles.colProject, styles.headerText, { width: '20%' }]}>Klient</Text>
-                            <Text style={[styles.colProject, styles.headerText, { width: '20%' }]}>Projekt</Text>
-                            <Text style={[styles.colDesc, styles.headerText, { width: '30%' }]}>Popis</Text>
-                            <Text style={[styles.colHours, styles.headerText]}>Hodiny</Text>
-                        </View>
-                        {items.map((item, index) => (
-                            <View key={index} style={styles.tableRow}>
-                                <Text style={[styles.colDate, styles.cellText]}>{new Date(item.date).toLocaleDateString('cs-CZ')}</Text>
-                                <Text style={[styles.colProject, styles.cellText, { width: '20%' }]}>{item.clientName || '-'}</Text>
-                                <Text style={[styles.colProject, styles.cellText, { width: '20%' }]}>{item.project}</Text>
-                                <Text style={[styles.colDesc, styles.cellText, { width: '30%' }]}>{item.description}</Text>
-                                <Text style={[styles.colHours, styles.cellText]}>{item.hours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })}</Text>
-                            </View>
-                        ))}
-                    </View>
+                    (() => {
+                        // Group items by Client Name
+                        const groups: { [key: string]: TimesheetItem[] } = {};
+                        items.forEach(item => {
+                            const client = item.clientName || 'Ostatní';
+                            if (!groups[client]) groups[client] = [];
+                            groups[client].push(item);
+                        });
+
+                        // Sort by Client Name
+                        const sortedKeys = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+
+                        return sortedKeys.map((clientName, groupIndex) => {
+                            const clientItems = groups[clientName];
+                            const clientTotalHours = clientItems.reduce((sum, item) => sum + item.hours, 0);
+
+                            // Group by Project within this Client
+                            const projectGroups: { [key: string]: TimesheetItem[] } = {};
+                            clientItems.forEach(item => {
+                                const project = item.project || 'Bez projektu';
+                                if (!projectGroups[project]) projectGroups[project] = [];
+                                projectGroups[project].push(item);
+                            });
+                            const sortedProjects = Object.keys(projectGroups).sort((a, b) => a.localeCompare(b));
+
+                            return (
+                                <View key={groupIndex} style={{ marginBottom: 20 }} break={groupIndex > 0}>
+                                    {/* Client Header */}
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, backgroundColor: '#f3f4f6', padding: 8, borderLeftWidth: 4, borderLeftColor: THEME_COLOR }}>
+                                        <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#111827' }}>
+                                            {clientName}
+                                        </Text>
+                                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#374151' }}>
+                                            Celkem: {clientTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod
+                                        </Text>
+                                    </View>
+
+                                    {/* Projects Loop */}
+                                    {sortedProjects.map((projectName, projectIndex) => {
+                                        const projectItems = projectGroups[projectName];
+                                        const projectTotalHours = projectItems.reduce((sum, item) => sum + item.hours, 0);
+
+                                        return (
+                                            <View key={projectIndex} style={{ marginBottom: 15, paddingLeft: 10 }}>
+                                                {/* Project Header */}
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingBottom: 2 }}>
+                                                    <Text style={{ fontSize: 11, fontWeight: 'bold', color: THEME_COLOR, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                                        {projectName}
+                                                    </Text>
+                                                    <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#6b7280' }}>
+                                                        {projectTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod
+                                                    </Text>
+                                                </View>
+
+                                                {/* Table for this Project */}
+                                                <View style={[styles.table, { marginBottom: 0 }]}>
+                                                    <View style={styles.tableHeader}>
+                                                        <Text style={[styles.colDate, styles.headerText]}>Datum</Text>
+                                                        <Text style={[styles.colDesc, styles.headerText, { width: '70%' }]}>Popis</Text>
+                                                        <Text style={[styles.colHours, styles.headerText]}>Hodiny</Text>
+                                                    </View>
+                                                    {projectItems.map((item, index) => (
+                                                        <View key={index} style={styles.tableRow}>
+                                                            <Text style={[styles.colDate, styles.cellText]}>{new Date(item.date).toLocaleDateString('cs-CZ')}</Text>
+                                                            <Text style={[styles.colDesc, styles.cellText, { width: '70%' }]}>{item.description}</Text>
+                                                            <Text style={[styles.colHours, styles.cellText]}>{item.hours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })}</Text>
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            );
+                        });
+                    })()
                 ) : (
                     // Client Report - Grouped by Role + Worker
 
