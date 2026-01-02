@@ -359,7 +359,7 @@ export default function TimesheetsPage() {
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Náhled dat</h2>
-                    <span className="text-sm font-medium bg-brand-accent text-brand-primary px-3 py-1 rounded-full shadow-sm">
+                    <span className="text-sm font-medium bg-gray-100 dark:bg-gray-800 text-brand-primary px-3 py-1 rounded-full shadow-sm">
                         Celkem: {totalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(totalHours / 8).toFixed(2)} MD
                     </span>
                 </div>
@@ -417,7 +417,7 @@ export default function TimesheetsPage() {
                                                 return (
                                                     <div key={projectKey} className="pl-2">
                                                         {/* Project Header */}
-                                                        <div className="flex justify-between items-center mb-3 p-2 bg-brand-accent rounded-lg shadow-sm">
+                                                        <div className="flex justify-between items-center mb-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-sm">
                                                             <h4 className="font-bold text-xs uppercase tracking-wider text-brand-primary">
                                                                 {projectKey}
                                                             </h4>
