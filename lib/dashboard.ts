@@ -122,7 +122,7 @@ export async function getDashboardData(
     // Fetch documents with mappings for the period
     // @ts-ignore
     accountingQuery = client.from('accounting_documents')
-      .select('id, type, amount, issue_date, provider_id, mappings:accounting_mappings(id, akce_id, pracovnik_id, division_id, cost_category, amount)')
+      .select('id, type, amount, issue_date, currency, amount_czk, provider_id, mappings:accounting_mappings(id, akce_id, pracovnik_id, division_id, cost_category, amount, amount_czk)')
       .gte('issue_date', start)
       .lte('issue_date', end);
   }
@@ -192,7 +192,12 @@ export async function getDashboardData(
         for (const m of doc.mappings) {
           if (m.pracovnik_id) {
             const key = `${m.pracovnik_id}-${keySuffix}`;
-            workerMonthlyMappedLabor.set(key, (workerMonthlyMappedLabor.get(key) || 0) + (Number(m.amount) || 0));
+            // Use amount_czk if available, else fallback
+            let val = Number(m.amount_czk);
+            if (!val) {
+              val = Number(m.amount) * (doc.currency === 'EUR' ? 25 : doc.currency === 'USD' ? 23 : 1);
+            }
+            workerMonthlyMappedLabor.set(key, (workerMonthlyMappedLabor.get(key) || 0) + (val || 0));
           }
         }
       }
@@ -229,9 +234,21 @@ export async function getDashboardData(
       }
       curr.setMonth(curr.getMonth() + 1);
     }
-  } else if (typeof period === 'object' && period.year && period.month === undefined) {
-    for (let m = 0; m < 12; m++) {
-      const d = new Date(period.year, m, 1);
+  } else if (typeof period === 'object' && period.year) {
+    if (period.month === undefined) {
+      // Whole Year
+      for (let m = 0; m < 12; m++) {
+        const d = new Date(period.year, m, 1);
+        const key = getMonthKey(d);
+        if (!monthlyBuckets.has(key)) {
+          monthlyBuckets.set(key, createEmptyMonthlyData(d));
+          monthlyClientStats.set(key, new Map());
+          monthlyWorkerStats.set(key, new Map());
+        }
+      }
+    } else {
+      // Specific Month
+      const d = new Date(period.year, period.month, 1);
       const key = getMonthKey(d);
       if (!monthlyBuckets.has(key)) {
         monthlyBuckets.set(key, createEmptyMonthlyData(d));
@@ -239,18 +256,21 @@ export async function getDashboardData(
         monthlyWorkerStats.set(key, new Map());
       }
     }
+  } else if (period === 'month') {
+    // Current Month
+    const d = new Date(now.getFullYear(), now.getMonth(), 1);
+    const key = getMonthKey(d);
+    if (!monthlyBuckets.has(key)) {
+      monthlyBuckets.set(key, createEmptyMonthlyData(d));
+      monthlyClientStats.set(key, new Map());
+      monthlyWorkerStats.set(key, new Map());
+    }
   }
 
   // A. Process Akce (Revenue, Material)
   for (const a of akceData) {
     const d = new Date(a.datum);
     const key = getMonthKey(d);
-
-    if (!monthlyBuckets.has(key) && !isLast12Months) {
-      monthlyBuckets.set(key, createEmptyMonthlyData(d));
-      monthlyClientStats.set(key, new Map());
-      monthlyWorkerStats.set(key, new Map());
-    }
 
     const bucket = monthlyBuckets.get(key);
     if (bucket) {
@@ -292,12 +312,6 @@ export async function getDashboardData(
     const d = new Date(f.datum);
     const key = getMonthKey(d);
 
-    if (!monthlyBuckets.has(key) && !isLast12Months) {
-      monthlyBuckets.set(key, createEmptyMonthlyData(d));
-      monthlyClientStats.set(key, new Map());
-      monthlyWorkerStats.set(key, new Map());
-    }
-
     const bucket = monthlyBuckets.get(key);
     if (bucket) {
       bucket.totalRevenue += (Number(f.castka) || 0);
@@ -318,12 +332,6 @@ export async function getDashboardData(
     for (const doc of accountingDocs) {
       const d = new Date(doc.issue_date);
       const key = getMonthKey(d);
-
-      if (!monthlyBuckets.has(key) && !isLast12Months) {
-        monthlyBuckets.set(key, createEmptyMonthlyData(d));
-        monthlyClientStats.set(key, new Map());
-        monthlyWorkerStats.set(key, new Map());
-      }
 
       const bucket = monthlyBuckets.get(key);
       if (!bucket) continue;
@@ -350,7 +358,10 @@ export async function getDashboardData(
             }
 
             if (matchesFilter) {
-              bucket.totalRevenue += Number(m.amount);
+              let val = Number(m.amount_czk);
+              if (!val) val = Number(m.amount) * (doc.currency === 'EUR' ? 25 : doc.currency === 'USD' ? 23 : 1);
+
+              bucket.totalRevenue += val;
 
               // Client Stats
               if (linkedAkce && linkedAkce.klient_id) {
@@ -358,7 +369,7 @@ export async function getDashboardData(
                 const cMap = monthlyClientStats.get(key)!;
                 const cName = Array.isArray(linkedAkce.klienti) ? linkedAkce.klienti[0]?.nazev : linkedAkce.klienti?.nazev;
                 const currC = cMap.get(linkedAkce.klient_id) || { name: cName || 'Neznámý', total: 0 };
-                currC.total += Number(m.amount);
+                currC.total += val;
                 cMap.set(linkedAkce.klient_id, currC);
               }
             }
@@ -366,7 +377,9 @@ export async function getDashboardData(
         } else {
           // Unmapped revenue - Only add if NO filters active (Global view)
           if (!filters.klientId && !filters.divisionId && !filters.pracovnikId) {
-            bucket.totalRevenue += Number(doc.amount);
+            let val = Number(doc.amount_czk);
+            if (!val) val = Number(doc.amount) * (doc.currency === 'EUR' ? 25 : doc.currency === 'USD' ? 23 : 1);
+            bucket.totalRevenue += val;
           }
         }
       } else if (doc.type === 'purchase_invoice') {
@@ -392,19 +405,30 @@ export async function getDashboardData(
               // SKIP LABOR: If mapped to a worker, it counts as Labor Cost (Wage), not generic cost here.
               if (m.pracovnik_id) continue;
 
-              bucket.totalCosts += Number(m.amount);
+              let val = Number(m.amount_czk);
+              if (!val) val = Number(m.amount) * (doc.currency === 'EUR' ? 25 : doc.currency === 'USD' ? 23 : 1);
+
+              bucket.totalCosts += val;
               if (m.cost_category === 'material') {
-                bucket.totalMaterialCost += Number(m.amount);
+                bucket.totalMaterialCost += val;
                 // Deduct mapping cost from "Profit from Material" (since it is a cost)
                 // Profit = Revenue - Cost. 
-                bucket.materialProfit -= Number(m.amount);
+                bucket.materialProfit -= val;
+              } else if (m.cost_category === 'overhead') {
+                // Only count as "Company Overhead" if NOT linked to a project.
+                // Project-linked overheads are Direct Costs.
+                if (!m.akce_id) {
+                  bucket.totalOverheadCost += val;
+                }
               }
             }
           }
         } else {
           // Unmapped cost
           if (!filters.klientId && !filters.divisionId && !filters.pracovnikId) {
-            bucket.totalCosts += Number(doc.amount);
+            let val = Number(doc.amount_czk);
+            if (!val) val = Number(doc.amount) * (doc.currency === 'EUR' ? 25 : doc.currency === 'USD' ? 23 : 1);
+            bucket.totalCosts += val;
           }
         }
       }
@@ -468,14 +492,24 @@ export async function getDashboardData(
   fixedCostsData.forEach((fc: any) => {
     const key = `${fc.rok}-${fc.mesic - 1}`;
     const amount = Number(fc.castka) || 0;
+
+    // Explicit Overhead Tracking: Add Fixed Costs to bucket (ONCE)
+    const d = new Date(fc.rok, fc.mesic - 1, 1);
+    const bucketStartKey = getMonthKey(d);
+    const bucket = monthlyBuckets.get(bucketStartKey);
+
+    // Only add if bucket exists and is in range
+    if (bucket) {
+      bucket.totalOverheadCost += amount;
+      bucket.totalCosts += amount;
+    }
+
     if (fc.division_id) {
-      // Specific
-      // Verify it matches filter (if filter active). query used OR, so we might have others if no filter? 
-      // If filter is active, query ensures we only get null or filterId.
+      // Specific Rate Map
       totalSpecificFixedCosts += amount;
       monthlySpecificFixedCosts.set(key, (monthlySpecificFixedCosts.get(key) || 0) + amount);
     } else {
-      // Global
+      // Global Rate Map
       totalGlobalFixedCosts += amount;
       monthlyGlobalFixedCosts.set(key, (monthlyGlobalFixedCosts.get(key) || 0) + amount);
     }
@@ -562,23 +596,11 @@ export async function getDashboardData(
       const d = new Date(year, monthIndex, 1);
       const key = getMonthKey(d);
 
-      if (!monthlyBuckets.has(key) && !isLast12Months) {
-        monthlyBuckets.set(key, createEmptyMonthlyData(d));
-        monthlyClientStats.set(key, new Map());
-        monthlyWorkerStats.set(key, new Map());
-      }
       const bucket = monthlyBuckets.get(key);
       if (bucket) {
         let finalLaborCost = laborCost;
         // Fallback checks (Cap Logic)
-        const hours = workerMonthHours.get(rateKey) || 0;
-        if (hours > 0) {
-          const calculatedRate = laborCost / hours;
-          const baseRate = workerBaseRateMap.get(pId) || 0;
-          if (baseRate > 0 && calculatedRate > (baseRate * 1.5)) {
-            finalLaborCost = hours * baseRate;
-          }
-        }
+
         bucket.totalLaborCost += finalLaborCost;
         bucket.totalCosts += finalLaborCost;
       }
@@ -647,20 +669,7 @@ export async function getDashboardData(
     }
   }
 
-  // C. Fixed Costs - Add explicit costs if they exist directly?
-  // If Filter Mode (Division or Client), we calculated Overhead Rate based on filtered fixed costs and applied it to hours.
-  // So we do NOT add lump sum FixedCosts again in Filter Mode.
 
-  if (!useFilterMode) {
-    for (const fc of fixedCostsData) {
-      const d = new Date(fc.rok, fc.mesic - 1, 1);
-      const key = getMonthKey(d);
-      const bucket = monthlyBuckets.get(key);
-      if (bucket) {
-        bucket.totalCosts += (Number(fc.castka) || 0);
-      }
-    }
-  }
 
   // 5. Finalize Monthly Data Array
   // Sort by date key?
@@ -680,7 +689,7 @@ export async function getDashboardData(
     // Note: totalCosts includes Labor + Overhead + MaterialCost.
     // MaterialCost = totalMaterialKlient - materialProfit.
     const materialCost = b.totalMaterialCost; // We track it directly now
-    b.totalOverheadCost = b.totalCosts - b.totalLaborCost - materialCost;
+    // b.totalOverheadCost = b.totalCosts - b.totalLaborCost - materialCost; // REMOVED: Using explicit accumulation now
 
     // Calculate Monthly KPIs
     b.avgCompanyRate = b.totalHours > 0 ? (b.totalRevenue - b.totalMaterialKlient) / b.totalHours : 0;
@@ -765,6 +774,43 @@ export async function getDashboardData(
       clientMap.set(fAction.klient_id, curr);
     }
   }
+
+  // Add Accounting Revenue (Mapped) to Top Clients
+  if (CompanyConfig.features.enableAccounting && accountingDocs.length > 0) {
+    for (const doc of accountingDocs) {
+      if (doc.type === 'sales_invoice' && doc.mappings && doc.mappings.length > 0) {
+        for (const m of doc.mappings) {
+          let matchesFilter = true;
+          const linkedAkce = m.akce_id ? akceData.find((a: any) => a.id === m.akce_id) : null;
+
+          if (filters.klientId) {
+            if (!linkedAkce || linkedAkce.klient_id !== filters.klientId) matchesFilter = false;
+          }
+          if (filters.divisionId) {
+            const directMatch = m.division_id === filters.divisionId;
+            const actionMatch = linkedAkce && linkedAkce.division_id === filters.divisionId;
+            if (!directMatch && !actionMatch) matchesFilter = false;
+          }
+          if (filters.pracovnikId) {
+            if (m.pracovnik_id !== filters.pracovnikId) matchesFilter = false;
+          }
+
+          if (matchesFilter) {
+            if (linkedAkce && linkedAkce.klient_id) {
+              const cName = Array.isArray(linkedAkce.klienti) ? linkedAkce.klienti[0]?.nazev : linkedAkce.klienti?.nazev;
+              const currC = clientMap.get(linkedAkce.klient_id) || { name: cName || 'Neznámý', total: 0 };
+
+              let val = Number(m.amount_czk);
+              if (!val) val = Number(m.amount) * (doc.currency === 'EUR' ? 25 : doc.currency === 'USD' ? 23 : 1);
+
+              currC.total += val;
+              clientMap.set(linkedAkce.klient_id, currC);
+            }
+          }
+        }
+      }
+    }
+  }
   const topClients = Array.from(clientMap.entries()).sort(([, a], [, b]) => b.total - a.total).slice(0, 5).map(([id, d]) => ({ klient_id: id, nazev: d.name, total: d.total }));
 
   // Rebuild Action Client Map for global filtering
@@ -803,7 +849,7 @@ export async function getDashboardData(
     totalCosts,
     totalLaborCost,
     totalMaterialCost: monthlyDataResult.reduce((sum, m) => sum + m.totalMaterialCost, 0),
-    totalOverheadCost: totalCosts - totalLaborCost - (monthlyDataResult.reduce((sum, m) => sum + m.totalMaterialCost, 0)),
+    totalOverheadCost: monthlyDataResult.reduce((sum, m) => sum + m.totalOverheadCost, 0),
     grossProfit: totalRevenue - totalCosts,
     materialProfit: totalMaterialProfit,
     totalHours,

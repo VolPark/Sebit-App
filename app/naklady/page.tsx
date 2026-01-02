@@ -89,7 +89,7 @@ export default function NakladyPage() {
 
             const { data: accData } = await supabase
                 .from('accounting_documents')
-                .select('id, description, supplier_name, issue_date, mappings:accounting_mappings(id, amount, cost_category, note, division_id)')
+                .select('id, description, supplier_name, issue_date, currency, amount_czk, exchange_rate, mappings:accounting_mappings(id, amount, amount_czk, cost_category, note, division_id)')
                 .gte('issue_date', dateStart)
                 .lte('issue_date', dateEnd);
 
@@ -103,14 +103,25 @@ export default function NakladyPage() {
                                 const divName = m.division_id && divisionsData ? divisionsData.find(d => d.id === m.division_id)?.nazev : null;
 
                                 mappedData.push({
-                                    id: `acc_${m.id}`, // String ID to prevent collision
+                                    id: `acc_${m.id}`,
                                     nazev: m.note || doc.description || doc.supplier_name || 'Neznámý náklad',
-                                    castka: Number(m.amount) || 0,
+                                    castka: Number(m.amount_czk) || convertWithFallback(Number(m.amount), doc.currency),
+                                    original_amount: Number(m.amount),
+                                    currency: doc.currency,
                                     divisions: divName ? { nazev: divName } : null,
                                     division_id: m.division_id,
                                     source: 'accounting',
                                     doc_id: doc.id
                                 });
+
+                                // Trigger background sync if needed (no amount_czk but foreign currency)
+                                if ((!m.amount_czk || m.amount_czk === 0) && doc.currency !== 'CZK') {
+                                    // Fire and forget sync
+                                    fetch('/api/accounting/sync-currency', {
+                                        method: 'POST',
+                                        body: JSON.stringify({ docId: doc.id })
+                                    }).catch(e => console.error(e));
+                                }
                             }
                         });
                     }
@@ -131,6 +142,13 @@ export default function NakladyPage() {
             setCosts(combined);
         }
         setLoading(false);
+    }
+
+    function convertWithFallback(amount: number, currency: string = 'CZK'): number {
+        if (!currency || currency === 'CZK') return amount;
+        // Fallback rates if sync hasn't happened yet
+        const RATES: Record<string, number> = { 'EUR': 25, 'USD': 23 };
+        return amount * (RATES[currency] || 1);
     }
 
     async function performAutoImport(targetYear: number, targetMonth: number): Promise<boolean> {
