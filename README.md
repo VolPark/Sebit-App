@@ -152,9 +152,11 @@ Control the visibility of application sections. Set to `false` to hide.
 - **Monthly Overview**: View and download summaries of hours worked per month.
 
 ### 💰 Financial Management (Náklady)
-- **Expense Tracking**: Categorize and log all business expenses.
-- **Fixed Costs Automation**: Automatically generates recurring monthly costs for better financial forecasting.
-- **Division Tracking**: Track revenues and costs by division (e.g., Joinery vs. Interiors), including specific overhead allocation.
+- [x] Expense Tracking: Categorize and log all business expenses.
+- [x] Fixed Costs Automation: Automatically generates recurring monthly costs.
+- [x] Division Tracking: Track revenues and costs by division.
+- [x] **Accounting Integration**: Sync invoices from external systems (UOL/Abra) and map them to projects or overhead.
+- [x] **Currency Conversion**: Automatic conversion of foreign currency costs (EUR/USD) to CZK using daily CNB exchange rates.
 
 ---
 
@@ -262,6 +264,11 @@ erDiagram
     divisions ||--o{ prace : "categorizes"
     divisions ||--o{ fixed_costs : "allocated to"
     divisions ||--o{ worker_divisions : "staffed by"
+
+    accounting_providers ||--o{ accounting_documents : "provides"
+    accounting_documents ||--o{ accounting_mappings : "mapped to"
+    accounting_mappings ||--o{ akce : "cost allocation"
+    currency_rates ||--o{ accounting_documents : "converts"
 ```
 
 ### Core Tables
@@ -275,6 +282,9 @@ erDiagram
 - **`mzdy`**: Monthly salary records/calculations.
 - **`finance`**: Income/Expense tracking.
 - **`fixed_costs`**: Recurring monthly expenses.
+- **`accounting_documents`**: Invoices synced from external providers.
+- **`accounting_mappings`**: Links between invoices and internal projects/categories.
+- **`currency_rates`**: Cache of daily CNB exchange rates.
 - **`organizations`**: Multi-tenancy support.
 
 ---
