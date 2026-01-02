@@ -272,6 +272,24 @@ export default function TimesheetsPage() {
     const dateObj = new Date(selectedMonth + '-01');
     const periodString = dateObj.toLocaleString('cs-CZ', { month: 'long', year: 'numeric' });
 
+    // Dynamic Branding Check
+    const isSebit = CompanyConfig.name.toUpperCase().includes('SEBIT');
+    const projectHeaderClass = isSebit
+        ? "flex justify-between items-center mb-3 p-2 bg-[#002B5C] rounded-lg shadow-sm" // SEBIT Navy
+        : "flex justify-between items-center mb-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-sm"; // Horyna Gray
+
+    const projectTitleClass = isSebit
+        ? "font-bold text-xs uppercase tracking-wider text-[#C6FF00]" // SEBIT Lime
+        : "font-bold text-xs uppercase tracking-wider text-brand-primary"; // Horyna Red
+
+    const projectTotalClass = isSebit
+        ? "text-xs font-bold text-[#C6FF00]/90" // SEBIT Lime
+        : "text-xs font-bold text-brand-primary/90"; // Horyna Red
+
+    const summaryPillClass = isSebit
+        ? "text-sm font-medium bg-[#002B5C] text-[#C6FF00] px-3 py-1 rounded-full shadow-sm"
+        : "text-sm font-medium bg-gray-100 dark:bg-gray-800 text-brand-primary px-3 py-1 rounded-full shadow-sm";
+
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Timesheety</h1>
@@ -359,7 +377,7 @@ export default function TimesheetsPage() {
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Náhled dat</h2>
-                    <span className="text-sm font-medium bg-gray-100 dark:bg-gray-800 text-brand-primary px-3 py-1 rounded-full shadow-sm">
+                    <span className={summaryPillClass}>
                         Celkem: {totalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(totalHours / 8).toFixed(2)} MD
                     </span>
                 </div>
@@ -417,11 +435,11 @@ export default function TimesheetsPage() {
                                                 return (
                                                     <div key={projectKey} className="pl-2">
                                                         {/* Project Header */}
-                                                        <div className="flex justify-between items-center mb-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-sm">
-                                                            <h4 className="font-bold text-xs uppercase tracking-wider text-brand-primary">
+                                                        <div className={projectHeaderClass}>
+                                                            <h4 className={projectTitleClass}>
                                                                 {projectKey}
                                                             </h4>
-                                                            <span className="text-xs font-bold text-brand-primary/90">
+                                                            <span className={projectTotalClass}>
                                                                 {projectTotal.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(projectTotal / 8).toFixed(2)} MD
                                                             </span>
                                                         </div>

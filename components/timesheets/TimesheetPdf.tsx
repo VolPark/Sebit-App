@@ -13,7 +13,15 @@ Font.register({
 });
 
 const THEME_COLOR = process.env.NEXT_PUBLIC_PDF_THEME_COLOR || '#E30613';
-const SECONDARY_COLOR = process.env.NEXT_PUBLIC_PDF_SECONDARY_COLOR || '#f3f4f6'; // Default to light gray instead of Navy
+
+// Dynamic Secondary Color Logic
+// If env var is set, use it.
+// Else if Company is SEBIT (Lime/Navy), default to Navy.
+// Else default to Light Gray (Horyna).
+const IS_SEBIT = (CompanyConfig.name.toUpperCase().includes('SEBIT') || THEME_COLOR === '#C6FF00');
+const DEFAULT_SECONDARY = IS_SEBIT ? '#002B5C' : '#f3f4f6';
+
+const SECONDARY_COLOR = process.env.NEXT_PUBLIC_PDF_SECONDARY_COLOR || DEFAULT_SECONDARY;
 
 const styles = StyleSheet.create({
     page: {
