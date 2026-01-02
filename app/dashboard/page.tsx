@@ -768,9 +768,8 @@ function DashboardContent() {
                   data={
                     (detailedStats?.clients.flatMap(c => c.actions) || []).filter(a => {
                       if (!selectedMonth) return true;
-                      // Filter by selected month if active
-                      const d = new Date(a.date);
-                      return d.getMonth() === selectedMonth.monthIndex && d.getFullYear() === selectedMonth.year;
+                      const key = `${selectedMonth.year}-${selectedMonth.monthIndex}`;
+                      return a.activeMonths?.includes(key);
                     })
                   }
                   onActionClick={setSelectedAction}

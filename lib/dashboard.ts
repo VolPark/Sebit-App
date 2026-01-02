@@ -813,9 +813,9 @@ export interface ActionStats {
   isCompleted: boolean;
   date: string;
   clientName: string;
-  materialRevenue: number;
   materialProfit: number;
   workers: { name: string; hours: number; cost: number; }[];
+  activeMonths: string[]; // YYYY-M format
 }
 
 export async function getDetailedStats(
@@ -852,8 +852,8 @@ export async function getDetailedStats(
   const end = endDate.toISOString();
 
   // Prepare queries
+  // Prepare queries (Logs)
   let praceQuery = client.from('prace').select('*').gte('datum', start).lte('datum', end);
-  let akceQuery = client.from('akce').select('*, klienti(nazev)').gte('datum', start).lte('datum', end);
   let fixedCostsQuery = client.from('fixed_costs').select('*').gte('rok', startDate.getFullYear()).lte('rok', endDate.getFullYear());
   let financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
 
@@ -867,31 +867,22 @@ export async function getDetailedStats(
       .lte('issue_date', end);
   }
 
-  // New: Global Context Query for Overhead Rates (Minimal columns)
-  // We need this to calculate "Total Company Hours" for the period, which is the denominator for Global Overhead Rate.
-  // We cannot rely on 'praceQuery' because it might be filtered by worker/client.
-  // ADDED: pracovnik_id is needed for accurate Worker Rate calculations below.
+  // Global Context Query
   const globalHoursQuery = client.from('prace').select('id, datum, pocet_hodin, pracovnik_id').gte('datum', start).lte('datum', end);
 
-
-  // Apply Filters to Primary Queries
-  if (filters.klientId) {
-    akceQuery = akceQuery.eq('klient_id', filters.klientId);
-  }
+  // Apply Filters to Primary Log Queries
   if (filters.pracovnikId) {
     praceQuery = praceQuery.eq('pracovnik_id', filters.pracovnikId);
   }
   if (filters.divisionId) {
     fixedCostsQuery = fixedCostsQuery.or(`division_id.is.null,division_id.eq.${filters.divisionId}`);
-    akceQuery = akceQuery.eq('division_id', filters.divisionId);
   }
 
-  const [workersRes, clientsRes, praceRes, mzdyRes, akceRes, fixedCostsRes, globalHoursRes, financeRes, accountingQueryRes] = await Promise.all([
+  const [workersRes, clientsRes, praceRes, mzdyRes, fixedCostsRes, globalHoursRes, financeRes, accountingQueryRes] = await Promise.all([
     client.from('pracovnici').select('*'),
     client.from('klienti').select('*'),
     praceQuery,
     client.from('mzdy').select('*').gte('rok', startDate.getFullYear() - 1).lte('rok', endDate.getFullYear() + 1),
-    akceQuery,
     fixedCostsQuery,
     globalHoursQuery,
     financeQuery,
@@ -902,13 +893,53 @@ export async function getDetailedStats(
   const clients = clientsRes.data || [];
   const prace = praceRes.data || [];
   const mzdy = mzdyRes.data || [];
-  const akce = akceRes.data || [];
   const fixedCosts = fixedCostsRes?.data || [];
   const globalPrace = globalHoursRes.data || [];
   // @ts-ignore
   const financeData = (financeRes?.data || []) as any[];
   // @ts-ignore
   const accountingDocs = (accountingQueryRes?.data || []) as any[];
+
+  // --- Fetch Actions (Created OR Active) ---
+  const activeActionIds = new Set<number>();
+  prace.forEach((p: any) => { if (p.akce_id) activeActionIds.add(p.akce_id); });
+  financeData.forEach((f: any) => { if (f.akce_id) activeActionIds.add(f.akce_id); });
+  accountingDocs.forEach((doc: any) => {
+    if (doc.mappings) {
+      doc.mappings.forEach((m: any) => { if (m.akce_id) activeActionIds.add(m.akce_id); });
+    }
+  });
+
+  let akceCreatedQuery = client.from('akce').select('*, klienti(nazev)').gte('datum', start).lte('datum', end);
+  let akceActiveQuery = client.from('akce').select('*, klienti(nazev)');
+
+  if (activeActionIds.size > 0) {
+    akceActiveQuery = akceActiveQuery.in('id', Array.from(activeActionIds));
+  } else {
+    akceActiveQuery = akceActiveQuery.eq('id', -1); // Return empty if no active IDs
+  }
+
+  // Apply Action Filters
+  if (filters.klientId) {
+    akceCreatedQuery = akceCreatedQuery.eq('klient_id', filters.klientId);
+    akceActiveQuery = akceActiveQuery.eq('klient_id', filters.klientId);
+  }
+  if (filters.divisionId) {
+    akceCreatedQuery = akceCreatedQuery.eq('division_id', filters.divisionId);
+    akceActiveQuery = akceActiveQuery.eq('division_id', filters.divisionId);
+  }
+
+  const [akceCreatedRes, akceActiveRes] = await Promise.all([
+    akceCreatedQuery,
+    akceActiveQuery
+  ]);
+
+  // Merge and Deduplicate Actions
+  const akceMap = new Map<number, any>();
+  (akceCreatedRes.data || []).forEach((a: any) => akceMap.set(a.id, a));
+  (akceActiveRes.data || []).forEach((a: any) => akceMap.set(a.id, a));
+
+  const akce = Array.from(akceMap.values());
 
   // 1. Build Map: Worker ID -> Base Hourly Rate
   const workerBaseRateMap = new Map<number, number>();
@@ -1186,6 +1217,37 @@ export async function getDetailedStats(
     };
   }).sort((a, b) => b.totalHours - a.totalHours);
 
+  // 5. Pre-calculate Activity Months per Action
+  const actionActivityMap = new Map<number, Set<string>>();
+
+  prace.forEach((p: any) => {
+    if (p.akce_id) {
+      if (!actionActivityMap.has(p.akce_id)) actionActivityMap.set(p.akce_id, new Set());
+      const d = new Date(p.datum);
+      actionActivityMap.get(p.akce_id)!.add(`${d.getFullYear()}-${d.getMonth()}`);
+    }
+  });
+
+  financeData.forEach((f: any) => {
+    if (f.akce_id) {
+      if (!actionActivityMap.has(f.akce_id)) actionActivityMap.set(f.akce_id, new Set());
+      const d = new Date(f.datum);
+      actionActivityMap.get(f.akce_id)!.add(`${d.getFullYear()}-${d.getMonth()}`);
+    }
+  });
+
+  accountingDocs.forEach((doc: any) => {
+    if (doc.mappings) {
+      doc.mappings.forEach((m: any) => {
+        if (m.akce_id) {
+          if (!actionActivityMap.has(m.akce_id)) actionActivityMap.set(m.akce_id, new Set());
+          const d = new Date(doc.issue_date);
+          actionActivityMap.get(m.akce_id)!.add(`${d.getFullYear()}-${d.getMonth()}`);
+        }
+      });
+    }
+  });
+
   const clientStats: ClientStats[] = clients.map((c: any) => {
     const cAkce = akce.filter((a: any) => a.klient_id === c.id);
     const revenue = cAkce.reduce((sum: number, a: any) => sum + (Number(a.cena_klient) || 0), 0);
@@ -1198,8 +1260,15 @@ export async function getDetailedStats(
 
     const actions: ActionStats[] = cAkce.map((a: any) => {
       let aRevenue = 0;
+      const actionDate = new Date(a.datum);
+      const periodStart = new Date(start);
+      const periodEnd = new Date(end);
+      const isCreatedInPeriod = actionDate >= periodStart && actionDate <= periodEnd;
+
       if ((a.project_type || 'STANDARD') === 'STANDARD') {
-        aRevenue = Number(a.cena_klient) || 0;
+        if (isCreatedInPeriod) {
+          aRevenue = Number(a.cena_klient) || 0;
+        }
       } else {
         // For Service/TM, revenue is sum of linked finance records
         // financeData is available in scope
@@ -1213,8 +1282,15 @@ export async function getDetailedStats(
         aRevenue += accStats.revenue;
       }
 
-      const aMaterialCost = (Number(a.material_my) || 0) + (accStats?.materialCost || 0);
-      const aMaterialRevenue = Number(a.material_klient) || 0;
+      let aMaterialCost = (accStats?.materialCost || 0);
+      if (isCreatedInPeriod) {
+        aMaterialCost += (Number(a.material_my) || 0);
+      }
+
+      let aMaterialRevenue = 0;
+      if (isCreatedInPeriod) {
+        aMaterialRevenue = Number(a.material_klient) || 0;
+      }
       const aLaborCost = actionLaborCosts.get(a.id) || 0;
       const aOverheadCost = actionOverheadCosts.get(a.id) || 0;
       const aTotalCost = aMaterialCost + aLaborCost + aOverheadCost + (accStats?.cost ? (accStats.cost - accStats.materialCost) : 0);
@@ -1248,7 +1324,12 @@ export async function getDetailedStats(
       }
       actionWorkers.sort((wa: any, wb: any) => wb.hours - wa.hours);
 
+      const am = actionActivityMap.get(a.id) || new Set();
+      const ad = new Date(a.datum);
+      am.add(`${ad.getFullYear()}-${ad.getMonth()}`);
+
       return {
+        activeMonths: Array.from(am),
         id: a.id,
         name: a.nazev,
         projectType: a.project_type || 'STANDARD',
