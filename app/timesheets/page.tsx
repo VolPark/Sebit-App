@@ -360,36 +360,99 @@ export default function TimesheetsPage() {
                 <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Náhled dat</h2>
                     <span className="text-sm font-medium bg-brand-primary/10 text-brand-primary px-3 py-1 rounded-full">
-                        Celkem: {totalHours.toLocaleString('cs-CZ')} hod
+                        Celkem: {totalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(totalHours / 8).toFixed(2)} MD
                     </span>
                 </div>
 
                 {workLogs.length > 0 ? (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-gray-600 dark:text-gray-400">
-                            <thead className="bg-gray-50 dark:bg-gray-900/50 uppercase font-medium text-xs">
-                                <tr>
-                                    <th className="px-6 py-4">Datum</th>
-                                    {reportType === 'worker' && <th className="px-6 py-4">Klient</th>}
-                                    {reportType === 'client' && <th className="px-6 py-4">Pracovník</th>}
-                                    <th className="px-6 py-4">Projekt</th>
-                                    <th className="px-6 py-4">Popis</th>
-                                    <th className="px-6 py-4 text-right">Hodiny</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                {workLogs.map((log) => (
-                                    <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                        <td className="px-6 py-4">{new Date(log.date).toLocaleDateString('cs-CZ')}</td>
-                                        {reportType === 'worker' && <td className="px-6 py-4">{log.clientName || '-'}</td>}
-                                        {reportType === 'client' && <td className="px-6 py-4">{log.workerName || '-'}</td>}
-                                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-200">{log.project}</td>
-                                        <td className="px-6 py-4 max-w-md truncate" title={log.description}>{log.description}</td>
-                                        <td className="px-6 py-4 text-right font-mono text-brand-primary font-bold">{log.hours}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    <div className="flex flex-col">
+                        {(() => {
+                            // 1. Group by Primary Key (Client for Worker report, Worker for Client report)
+                            const primaryGroups: { [key: string]: WorkLog[] } = {};
+                            workLogs.forEach(log => {
+                                let key = '';
+                                if (reportType === 'worker') {
+                                    key = log.clientName || 'Ostatní';
+                                } else {
+                                    // For client report, group by Worker (maybe include Role?)
+                                    key = log.workerName || 'Neznámý';
+                                }
+
+                                if (!primaryGroups[key]) primaryGroups[key] = [];
+                                primaryGroups[key].push(log);
+                            });
+
+                            const sortedPrimaryKeys = Object.keys(primaryGroups).sort((a, b) => a.localeCompare(b));
+
+                            return sortedPrimaryKeys.map((primaryKey) => {
+                                const primaryItems = primaryGroups[primaryKey];
+                                const primaryTotal = primaryItems.reduce((sum, item) => sum + item.hours, 0);
+
+                                // 2. Group by Project within Primary
+                                const projectGroups: { [key: string]: WorkLog[] } = {};
+                                primaryItems.forEach(log => {
+                                    const pKey = log.project || 'Bez projektu';
+                                    if (!projectGroups[pKey]) projectGroups[pKey] = [];
+                                    projectGroups[pKey].push(log);
+                                });
+
+                                const sortedProjectKeys = Object.keys(projectGroups).sort((a, b) => a.localeCompare(b));
+
+                                return (
+                                    <div key={primaryKey} className="border-b border-gray-200 dark:border-gray-700 last:border-0">
+                                        {/* Primary Header */}
+                                        <div className="bg-gray-100 dark:bg-gray-900/50 px-6 py-3 flex justify-between items-center border-l-4 border-brand-primary">
+                                            <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg">{primaryKey}</h3>
+                                            <span className="font-mono font-bold text-gray-700 dark:text-gray-300">
+                                                Celkem: {primaryTotal.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(primaryTotal / 8).toFixed(2)} MD
+                                            </span>
+                                        </div>
+
+                                        {/* Projects Loop */}
+                                        <div className="p-4 space-y-6">
+                                            {sortedProjectKeys.map((projectKey) => {
+                                                const projectItems = projectGroups[projectKey];
+                                                const projectTotal = projectItems.reduce((sum, item) => sum + item.hours, 0);
+
+                                                return (
+                                                    <div key={projectKey} className="pl-2">
+                                                        {/* Project Header */}
+                                                        <div className="flex justify-between items-center mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
+                                                            <h4 className="font-bold text-xs uppercase tracking-wider text-brand-primary">
+                                                                {projectKey}
+                                                            </h4>
+                                                            <span className="text-xs font-bold text-gray-500">
+                                                                {projectTotal.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(projectTotal / 8).toFixed(2)} MD
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Items Table */}
+                                                        <table className="w-full text-left text-sm text-gray-600 dark:text-gray-400">
+                                                            <thead className="text-xs text-gray-400 font-medium uppercase">
+                                                                <tr>
+                                                                    <th className="py-2 w-32">Datum</th>
+                                                                    <th className="py-2">Popis</th>
+                                                                    <th className="py-2 w-24 text-right">Hodiny</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                                                {projectItems.map(log => (
+                                                                    <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                                                                        <td className="py-2">{new Date(log.date).toLocaleDateString('cs-CZ')}</td>
+                                                                        <td className="py-2">{log.description}</td>
+                                                                        <td className="py-2 text-right font-mono text-gray-900 dark:text-gray-200">{log.hours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            });
+                        })()}
                     </div>
                 ) : (
                     <div className="p-12 text-center text-gray-500">

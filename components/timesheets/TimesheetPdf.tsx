@@ -229,7 +229,7 @@ export default function TimesheetPdf({ reportType, period, entityName, items, to
                                             {clientName}
                                         </Text>
                                         <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#374151' }}>
-                                            Celkem: {clientTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod
+                                            Celkem: {clientTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(clientTotalHours / 8).toFixed(2)} MD
                                         </Text>
                                     </View>
 
@@ -246,7 +246,7 @@ export default function TimesheetPdf({ reportType, period, entityName, items, to
                                                         {projectName}
                                                     </Text>
                                                     <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#6b7280' }}>
-                                                        {projectTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod
+                                                        {projectTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(projectTotalHours / 8).toFixed(2)} MD
                                                     </Text>
                                                 </View>
 
@@ -317,7 +317,7 @@ export default function TimesheetPdf({ reportType, period, entityName, items, to
                                             {headerTitle}
                                         </Text>
                                         <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#374151' }}>
-                                            Celkem: {workerTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod
+                                            Celkem: {workerTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(workerTotalHours / 8).toFixed(2)} MD
                                         </Text>
                                     </View>
 
@@ -348,7 +348,7 @@ export default function TimesheetPdf({ reportType, period, entityName, items, to
 
                 {/* Total Row (Global) */}
                 <View style={[styles.totalRow, { marginTop: 0 }]}>
-                    <Text style={styles.totalText}>CELKEM: {totalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod</Text>
+                    <Text style={styles.totalText}>CELKEM: {totalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(totalHours / 8).toFixed(2)} MD</Text>
                 </View>
 
                 {/* Signatures */}
