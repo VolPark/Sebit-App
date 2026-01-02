@@ -47,7 +47,8 @@ export async function updateSession(request: NextRequest) {
 
     // Protected Routes Logic
     // If no user and accessing protected route -> redirect to login
-    if (!user && !request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/auth')) {
+    // EXCLUDE /api routes from this check (handled by API auth or cron secrets)
+    if (!user && !request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/auth') && !request.nextUrl.pathname.startsWith('/api')) {
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)
