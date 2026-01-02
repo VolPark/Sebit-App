@@ -179,6 +179,26 @@ export async function getDashboardData(
   // @ts-ignore
   const accountingDocs = (accountingQueryRes?.data || []) as any[];
 
+  // --- PRE-PROCESS: Mapped Labor Costs ---
+  // Map: `${pracovnikId}-${year}-${month}` -> Amount
+  const workerMonthlyMappedLabor = new Map<string, number>();
+
+  if (CompanyConfig.features.enableAccounting && accountingDocs.length > 0) {
+    for (const doc of accountingDocs) {
+      if (doc.mappings && doc.mappings.length > 0) {
+        const d = new Date(doc.issue_date);
+        const keySuffix = `${d.getFullYear()}-${d.getMonth()}`; // month is 0-indexed in getMonth()
+
+        for (const m of doc.mappings) {
+          if (m.pracovnik_id) {
+            const key = `${m.pracovnik_id}-${keySuffix}`;
+            workerMonthlyMappedLabor.set(key, (workerMonthlyMappedLabor.get(key) || 0) + (Number(m.amount) || 0));
+          }
+        }
+      }
+    }
+  }
+
   // Use allPraceRes if available (global context), otherwise praceData (if no filters)
   // Check if allPraceRes.data is valid array, else use praceData
   const allPraceDataForRates = (allPraceRes.data && Array.isArray(allPraceRes.data)) ? allPraceRes.data : praceData;
@@ -369,6 +389,9 @@ export async function getDashboardData(
             }
 
             if (matchesFilter) {
+              // SKIP LABOR: If mapped to a worker, it counts as Labor Cost (Wage), not generic cost here.
+              if (m.pracovnik_id) continue;
+
               bucket.totalCosts += Number(m.amount);
               if (m.cost_category === 'material') {
                 bucket.totalMaterialCost += Number(m.amount);
@@ -398,19 +421,34 @@ export async function getDashboardData(
     workerMonthHours.set(key, (workerMonthHours.get(key) || 0) + (p.pocet_hodin || 0)); // Global hours
   }
 
-  const workerMonthRate = new Map<string, number>();
+  // Calculate Rates (Mzdy + Mapped Labor)
+  const workerMonthTotalCost = new Map<string, number>();
+
+  // 1. From Mzdy
   for (const m of mzdyData) {
     const key = `${m.pracovnik_id}-${m.rok}-${m.mesic - 1}`;
+    workerMonthTotalCost.set(key, (workerMonthTotalCost.get(key) || 0) + (Number(m.celkova_castka) || 0));
+  }
+  // 2. From Mapped Labor
+  workerMonthlyMappedLabor.forEach((amount: number, key: string) => {
+    workerMonthTotalCost.set(key, (workerMonthTotalCost.get(key) || 0) + amount);
+  });
+
+  const workerMonthRate = new Map<string, number>();
+  workerMonthTotalCost.forEach((totalCost, key) => {
     const hours = workerMonthHours.get(key) || 0;
+    const parts = key.split('-');
+    const pId = parseInt(parts[0]);
+
     if (hours > 0) {
-      let calculatedRate = (m.celkova_castka || 0) / hours;
-      const baseRate = workerBaseRateMap.get(m.pracovnik_id) || 0;
+      let calculatedRate = totalCost / hours;
+      const baseRate = workerBaseRateMap.get(pId) || 0;
       if (baseRate > 0 && calculatedRate > (baseRate * 1.5)) {
         calculatedRate = baseRate;
       }
       workerMonthRate.set(key, calculatedRate);
     }
-  }
+  });
 
   // Overhead Rates (Use Fixed Costs from Query - filtering applied if division selected)
   // Calculate Overhead Rate (Global + Specific)
@@ -512,9 +550,18 @@ export async function getDashboardData(
 
   if (!useFilterMode) {
     // Simple Mode: Sum Mzdy
-    for (const m of mzdyData) {
-      const d = new Date(m.rok, m.mesic - 1, 1);
+    // Simple Mode: Sum Labor Costs (Mzdy + Mapped)
+    // Iterate workerMonthTotalCost which contains combined totals
+    workerMonthTotalCost.forEach((laborCost, rateKey) => {
+      // rateKey is "pid-YYYY-M" (M is 0-indexed)
+      const parts = rateKey.split('-');
+      const pId = parseInt(parts[0]);
+      const year = parseInt(parts[1]);
+      const monthIndex = parseInt(parts[2]);
+
+      const d = new Date(year, monthIndex, 1);
       const key = getMonthKey(d);
+
       if (!monthlyBuckets.has(key) && !isLast12Months) {
         monthlyBuckets.set(key, createEmptyMonthlyData(d));
         monthlyClientStats.set(key, new Map());
@@ -522,21 +569,20 @@ export async function getDashboardData(
       }
       const bucket = monthlyBuckets.get(key);
       if (bucket) {
-        let laborCost = (m.celkova_castka || 0);
-        // Fallback checks
-        const rateKey = `${m.pracovnik_id}-${m.rok}-${m.mesic - 1}`;
+        let finalLaborCost = laborCost;
+        // Fallback checks (Cap Logic)
         const hours = workerMonthHours.get(rateKey) || 0;
         if (hours > 0) {
           const calculatedRate = laborCost / hours;
-          const baseRate = workerBaseRateMap.get(m.pracovnik_id) || 0;
+          const baseRate = workerBaseRateMap.get(pId) || 0;
           if (baseRate > 0 && calculatedRate > (baseRate * 1.5)) {
-            laborCost = hours * baseRate;
+            finalLaborCost = hours * baseRate;
           }
         }
-        bucket.totalLaborCost += laborCost;
-        bucket.totalCosts += laborCost;
+        bucket.totalLaborCost += finalLaborCost;
+        bucket.totalCosts += finalLaborCost;
       }
-    }
+    });
     // Sum hours from filteredPraceData (was praceData)
     for (const p of filteredPraceData) {
       const d = new Date(p.datum);
@@ -900,6 +946,24 @@ export async function getDetailedStats(
   // @ts-ignore
   const accountingDocs = (accountingQueryRes?.data || []) as any[];
 
+  // --- PRE-PROCESS: Mapped Labor Costs ---
+  const workerMonthlyMappedLabor = new Map<string, number>();
+  if (CompanyConfig.features.enableAccounting && accountingDocs.length > 0) {
+    for (const doc of accountingDocs) {
+      if (doc.mappings && doc.mappings.length > 0) {
+        const d = new Date(doc.issue_date);
+        const keySuffix = `${d.getFullYear()}-${d.getMonth() + 1}`; // 1-indexed month for this function
+
+        for (const m of doc.mappings) {
+          if (m.pracovnik_id) {
+            const key = `${m.pracovnik_id}-${keySuffix}`;
+            workerMonthlyMappedLabor.set(key, (workerMonthlyMappedLabor.get(key) || 0) + (Number(m.amount) || 0));
+          }
+        }
+      }
+    }
+  }
+
   // --- Fetch Actions (Created OR Active) ---
   const activeActionIds = new Set<number>();
   prace.forEach((p: any) => { if (p.akce_id) activeActionIds.add(p.akce_id); });
@@ -964,6 +1028,9 @@ export async function getDetailedStats(
       if (doc.mappings && doc.mappings.length > 0) {
         doc.mappings.forEach((m: any) => {
           if (m.akce_id) {
+            // SKIP LABOR: If mapped to a worker, it counts as Labor Cost (allocated via rate), not direct Action Cost.
+            if (m.pracovnik_id) return;
+
             const curr = accountingActionMap.get(m.akce_id) || { revenue: 0, cost: 0, materialCost: 0 };
             const amt = Number(m.amount) || 0;
             if (doc.type === 'sales_invoice') {
@@ -1067,12 +1134,27 @@ export async function getDetailedStats(
     }
   });
 
+  // Calculate Rates (Mzdy + Mapped Labor)
+  const workerMonthTotalCost = new Map<string, number>();
+
+  // 1. From Mzdy
   mzdy.forEach((m: any) => {
     const key = `${m.pracovnik_id}-${m.rok}-${m.mesic}`;
+    workerMonthTotalCost.set(key, (workerMonthTotalCost.get(key) || 0) + (Number(m.celkova_castka) || 0));
+  });
+  // 2. From Mapped Labor
+  workerMonthlyMappedLabor.forEach((amount: number, key: string) => {
+    workerMonthTotalCost.set(key, (workerMonthTotalCost.get(key) || 0) + amount);
+  });
+
+  workerMonthTotalCost.forEach((totalCost, key) => {
     const hours = workerMonthHours.get(key) || 0;
+    const parts = key.split('-');
+    const pId = parseInt(parts[0]);
+
     if (hours > 0) {
-      let calculatedRate = (Number(m.celkova_castka) || 0) / hours;
-      const baseRate = workerBaseRateMap.get(m.pracovnik_id) || 0;
+      let calculatedRate = totalCost / hours;
+      const baseRate = workerBaseRateMap.get(pId) || 0;
       if (baseRate > 0 && calculatedRate > (baseRate * 1.5)) {
         calculatedRate = baseRate;
       }
@@ -1165,9 +1247,19 @@ export async function getDetailedStats(
     // Fortunately, we have 'mzdy' (all wages in range) and 'globalHoursQuery' (all hours in range)
 
     // 1. Total Wages for this worker in the period
-    const workerWages = mzdy
-      .filter((m: any) => m.pracovnik_id === w.id)
-      .reduce((sum: number, m: any) => sum + (Number(m.celkova_castka) || 0), 0);
+    let workerWages = 0;
+    workerMonthTotalCost.forEach((cost, key) => {
+      if (key.startsWith(`${w.id}-`)) {
+        // Filter by date range (since mzdy/costs might be wider)
+        const parts = key.split('-');
+        const year = parseInt(parts[1]);
+        const month = parseInt(parts[2]);
+        const d = new Date(year, month - 1, 1);
+        if (d >= startDate && d <= endDate) {
+          workerWages += cost;
+        }
+      }
+    });
 
     // 2. Total Global Hours for this worker in the period
     // We need to aggregate from globalHoursRes (which we fetched for overhead calc, but it contains all hours)

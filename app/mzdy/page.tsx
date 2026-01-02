@@ -51,6 +51,23 @@ export default function MzdyPage() {
     fetchData()
   }, [selectedDate])
 
+
+
+  // --- Date navigation ---
+  const changeMonth = (offset: number) => {
+    setEditingPracovnikId(null); // Close any open editors
+    setSelectedDate(currentDate => {
+      const newDate = new Date(currentDate);
+      newDate.setMonth(newDate.getMonth() + offset);
+
+      // Restriction: Do not allow going before Jan APP_START_YEAR
+      if (newDate.getFullYear() < APP_START_YEAR) {
+        return new Date(APP_START_YEAR, 0, 1);
+      }
+      return newDate;
+    });
+  }
+
   async function fetchData() {
     setLoading(true);
 
@@ -78,14 +95,42 @@ export default function MzdyPage() {
       .eq('rok', year)
       .eq('mesic', month);
 
-    if (pracError || mzdyError) {
-      console.error('Chyba při načítání dat:', pracError || mzdyError);
+    // 2.5 Fetch mapped costs for the selected month
+    // We filter by accounting_documents.issue_date within the selected month
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1)).toISOString().split('T')[0];
+    const endOfMonth = new Date(Date.UTC(year, month, 0)).toISOString().split('T')[0];
+
+    const { data: mappedCosts, error: costsError } = await supabase
+      .from('accounting_mappings')
+      .select(`
+        amount,
+        pracovnik_id,
+        accounting_documents!inner (
+          issue_date
+        )
+      `)
+      .not('pracovnik_id', 'is', null)
+      .gte('accounting_documents.issue_date', startOfMonth)
+      .lte('accounting_documents.issue_date', endOfMonth);
+
+    if (pracError || mzdyError || costsError) {
+      console.error('Chyba při načítání dat:', pracError || mzdyError || costsError);
       setStatusMessage('Nepodařilo se načíst data.');
       setLoading(false);
       return;
     }
 
-    // 2.5 Fetch roles for workers (to filter visibility)
+    // Process costs
+    const costsMap = new Map<number, number>();
+    if (mappedCosts) {
+      mappedCosts.forEach((item: any) => {
+        const pid = item.pracovnik_id;
+        const amount = Number(item.amount) || 0;
+        costsMap.set(pid, (costsMap.get(pid) || 0) + amount);
+      });
+    }
+
+    // 2.6 Fetch roles for workers (to filter visibility)
     const userIds = allPracovnici.map(p => p.user_id).filter((id: any) => id !== null); // user_id comes from select(*)
     const workerRolesMap = new Map<string, string>();
     if (userIds.length > 0) {
@@ -100,15 +145,27 @@ export default function MzdyPage() {
 
     // 3. Combine the data
     const mzdyMap = new Map(monthlyMzdy.map(m => [m.pracovnik_id, m]));
-    const combinedData = allPracovnici.map(p => ({
-      ...p,
-      mzda: mzdyMap.get(p.id) || null,
-    }));
+    const combinedData = allPracovnici.map(p => {
+      const mzda = mzdyMap.get(p.id) || null;
+      const mappedCost = costsMap.get(p.id) || 0;
+
+      // Calculate total with mapped cost
+      // Note: If mzda is null but we have mappedCost, should we show it? 
+      // Current logic filters by isActiveOrHasMoney below, checking p.mzda !== null
+      // We should update that logic too.
+
+      return {
+        ...p,
+        mzda: mzda,
+        mappedCost: mappedCost,
+        totalWithCost: (mzda?.celkova_castka || 0) + mappedCost
+      };
+    });
 
     // 4. Filter for display
     const filteredPracovnici = combinedData.filter(p => {
-      // Rule 1: Show if active OR if they have a salary this month
-      const isActiveOrHasMoney = p.is_active || p.mzda !== null;
+      // Rule 1: Show if active OR if they have a salary this month OR mapped costs
+      const isActiveOrHasMoney = p.is_active || p.mzda !== null || p.mappedCost > 0;
       if (!isActiveOrHasMoney) return false;
 
       // Rule 2: Office role cannot see Owners
@@ -123,22 +180,6 @@ export default function MzdyPage() {
     setPracovnici(filteredPracovnici);
     setLoading(false);
   }
-
-  // --- Date navigation ---
-  const changeMonth = (offset: number) => {
-    setEditingPracovnikId(null); // Close any open editors
-    setSelectedDate(currentDate => {
-      const newDate = new Date(currentDate);
-      newDate.setMonth(newDate.getMonth() + offset);
-
-      // Restriction: Do not allow going before Jan APP_START_YEAR
-      if (newDate.getFullYear() < APP_START_YEAR) {
-        return new Date(APP_START_YEAR, 0, 1);
-      }
-      return newDate;
-    });
-  }
-
   // --- Form handling ---
   const startEditing = (pracovnik: any) => {
     // Prevent editing if worker is inactive
@@ -225,7 +266,7 @@ export default function MzdyPage() {
   const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), []);
   const totalMonthSalary = useMemo(() => {
     return pracovnici.reduce((sum, p) => {
-      return sum + (p.mzda?.celkova_castka || 0);
+      return sum + (p.totalWithCost || 0);
     }, 0);
   }, [pracovnici]);
 
@@ -285,8 +326,13 @@ export default function MzdyPage() {
                     <div className="flex items-center gap-4">
                       <span className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
                         {currency.format(mzda.hruba_mzda || 0)} + {currency.format(mzda.faktura || 0)} + {currency.format(mzda.priplatek || 0)}
+                        {p.mappedCost > 0 && (
+                          <span className="text-orange-600 dark:text-orange-400 font-medium"> + {currency.format(p.mappedCost)} (náklady)</span>
+                        )}
                       </span>
-                      <span className={`font-bold text-lg dark:text-white ${!canEdit ? 'text-gray-500 dark:text-gray-500' : ''}`}>{currency.format(mzda.celkova_castka)}</span>
+                      <span className={`font-bold text-lg dark:text-white ${!canEdit ? 'text-gray-500 dark:text-gray-500' : ''}`}>
+                        {currency.format(p.totalWithCost)}
+                      </span>
                       {canEdit && (
                         <Menu as="div" className="relative inline-block text-left">
                           <Menu.Button className="p-2 rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-800 hover:text-gray-600 dark:hover:text-gray-200">
@@ -327,14 +373,32 @@ export default function MzdyPage() {
                     </div>
                   ) : (
                     <>
-                      {canEdit ? (
-                        <div className="px-4 py-1.5 rounded-full bg-[#E30613]/10 dark:bg-[#E30613]/20 text-[#E30613] dark:text-[#E30613] text-sm font-semibold cursor-pointer hover:bg-[#E30613]/20 dark:hover:bg-[#E30613]/30 transition" onClick={() => startEditing(p)}>
-                          Zadat mzdu
+                      {p.mappedCost > 0 ? (
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                            {currency.format(p.mappedCost)} (náklady)
+                          </span>
+                          <span className={`font-bold text-lg dark:text-white`}>
+                            {currency.format(p.totalWithCost)}
+                          </span>
+                          {canEdit && (
+                            <div className="px-4 py-1.5 rounded-full bg-[#E30613]/10 dark:bg-[#E30613]/20 text-[#E30613] dark:text-[#E30613] text-sm font-semibold cursor-pointer hover:bg-[#E30613]/20 dark:hover:bg-[#E30613]/30 transition" onClick={() => startEditing(p)}>
+                              Doplnit mzdu
+                            </div>
+                          )}
                         </div>
                       ) : (
-                        <div className="px-4 py-1.5 rounded-full bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-gray-400 text-sm font-semibold">
-                          Ukončen
-                        </div>
+                        <>
+                          {canEdit ? (
+                            <div className="px-4 py-1.5 rounded-full bg-[#E30613]/10 dark:bg-[#E30613]/20 text-[#E30613] dark:text-[#E30613] text-sm font-semibold cursor-pointer hover:bg-[#E30613]/20 dark:hover:bg-[#E30613]/30 transition" onClick={() => startEditing(p)}>
+                              Zadat mzdu
+                            </div>
+                          ) : (
+                            <div className="px-4 py-1.5 rounded-full bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-gray-400 text-sm font-semibold">
+                              Ukončen
+                            </div>
+                          )}
+                        </>
                       )}
                     </>
                   )}
