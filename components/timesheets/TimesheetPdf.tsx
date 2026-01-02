@@ -13,7 +13,7 @@ Font.register({
 });
 
 const THEME_COLOR = process.env.NEXT_PUBLIC_PDF_THEME_COLOR || '#E30613';
-const SECONDARY_COLOR = '#002B5C'; // Navy Blue
+const SECONDARY_COLOR = process.env.NEXT_PUBLIC_PDF_SECONDARY_COLOR || '#f3f4f6'; // Default to light gray instead of Navy
 
 const styles = StyleSheet.create({
     page: {

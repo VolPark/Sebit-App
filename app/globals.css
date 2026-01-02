@@ -6,14 +6,9 @@
   --foreground: #171717;
 
   /* Brand Colors (Default: Interiéry Horyna) */
-  /* NOTE: These defaults are overriden by SEBIT branch specific requirements */
-  /* Sebit Colors: Primary = Lime (#C6FF00), Secondary/Text = Navy (#002B5C) */
-  --brand-primary: #C6FF00;
-  /* Sebit Lime */
-  --brand-primary-foreground: #002B5C;
-  /* Sebit Navy */
-  --brand-accent: #002B5C;
-  /* Sebit Navy */
+  --brand-primary: #E30613; /* Horyna Red */
+  --brand-primary-foreground: #FFFFFF; /* White */
+  --brand-accent: #f3f4f6; /* Light Gray (Neutral Accent) */
 }
 
 @theme inline {
