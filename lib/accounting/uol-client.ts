@@ -57,6 +57,7 @@ export interface UolContactItem {
 
 export class UolClient {
     private config: UolConfig;
+    private rateLimiter = new RateLimiter(30, 10000); // 30 requests per 10 seconds
 
     constructor(config: UolConfig) {
         this.config = config;
@@ -69,26 +70,44 @@ export class UolClient {
 
     private async fetchApi<T>(endpoint: string): Promise<T> {
         const url = `${this.config.baseUrl}${endpoint}`;
-        console.log(`[UOL Client] Fetching ${url}`);
+        // console.log(`[UOL Client] Fetching ${url}`);
 
-        // Check if endpoint already contains query params
-        const separator = endpoint.includes('?') ? '&' : '?';
-        // Add page/per_page defaults if needed? 
-        // Actually the user wants to sync incrementally, but for listing we might need pagination loop.
-        // For now simple fetch.
+        let attempt = 0;
+        const maxRetries = 3;
 
-        const res = await fetch(url, {
-            headers: {
-                'Accept': 'application/json',
-                'Authorization': this.getAuthHeader()
+        while (attempt < maxRetries) {
+            try {
+                // Rate Limiting
+                await this.rateLimiter.throttle();
+
+                const res = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': this.getAuthHeader()
+                    }
+                });
+
+                if (res.status === 429) {
+                    console.warn(`[UOL Client] Rate limit exceeded (429) for ${url}. Waiting 30s...`);
+                    await new Promise(resolve => setTimeout(resolve, 31000)); // 31s wait
+                    attempt++;
+                    continue;
+                }
+
+                if (!res.ok) {
+                    throw new Error(`UOL API Error ${res.status}: ${res.statusText}`);
+                }
+
+                return await res.json() as T;
+            } catch (e: any) {
+                // Rethrow normal errors, but retry on network errors if needed? 
+                // For now only retry on 429 handled above. 
+                // If it's the last attempt, allow error to bubble.
+                if (attempt === maxRetries - 1) throw e;
+                throw e; // Rethrow other errors immediately
             }
-        });
-
-        if (!res.ok) {
-            throw new Error(`UOL API Error ${res.status}: ${res.statusText}`);
         }
-
-        return await res.json() as T;
+        throw new Error(`Failed to fetch ${url} after ${maxRetries} attempts`);
     }
 
     async getSalesInvoices(page = 1, perPage = 20) {
@@ -126,5 +145,37 @@ export class UolClient {
             path = endpointUrl.replace(this.config.baseUrl, '');
         }
         return this.fetchApi<any>(path);
+    }
+}
+
+class RateLimiter {
+    private timestamps: number[] = [];
+    private readonly limit: number;
+    private readonly windowMs: number;
+
+    constructor(limit: number, windowMs: number) {
+        this.limit = limit;
+        this.windowMs = windowMs;
+    }
+
+    async throttle() {
+        while (true) {
+            const now = Date.now();
+            // Remove timestamps older than the window
+            this.timestamps = this.timestamps.filter(t => now - t < this.windowMs);
+
+            if (this.timestamps.length < this.limit) {
+                this.timestamps.push(now);
+                return;
+            }
+
+            // Wait for the oldest timestamp to expire
+            const oldest = this.timestamps[0];
+            const waitTime = this.windowMs - (now - oldest) + 100; // +100ms buffer
+            if (waitTime > 0) {
+                // console.log(`Rate limit reached (${this.limit}/${this.windowMs}ms). Waiting ${waitTime}ms...`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
+        }
     }
 }
