@@ -86,6 +86,12 @@ export default function AccountingPage() {
                         >
                             Přijaté faktury
                         </button>
+                        <button
+                            onClick={() => router.push('/accounting/reports')}
+                            className="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2"
+                        >
+                            Reporty <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">NOVÉ</span>
+                        </button>
                     </nav>
                 </div>
 
@@ -130,6 +136,6 @@ export default function AccountingPage() {
                 open={isSettingsOpen}
                 onOpenChange={setIsSettingsOpen}
             />
-        </div>
+        </div >
     );
 }

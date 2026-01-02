@@ -146,6 +146,61 @@ export class UolClient {
         }
         return this.fetchApi<any>(path);
     }
+
+    async getBankAccounts() {
+        return this.fetchApi<{ items: any[], _meta: UolMeta }>('/v1/my_bank_accounts?page=1&per_page=100');
+    }
+
+    async getBankAccountDetail(id: string) {
+        return this.fetchApi<any>(`/v1/my_bank_accounts/${id}`);
+    }
+
+    async getBankMovements(accountId: string, params: { page?: number, per_page?: number } = {}) {
+        const query = new URLSearchParams();
+        if (params.page) query.append('page', String(params.page));
+        if (params.per_page) query.append('per_page', String(params.per_page));
+
+        // We cannot filter by account ID on API side (causes 500). 
+        // We must filter manually in the route.
+
+        return this.fetchApi<{ items: any[], _meta: UolMeta }>(`/v1/bank_movements?${query.toString()}`);
+    }
+
+    async getAllBankMovements(accountId: string) {
+        let allFilteredItems: any[] = [];
+        let currentPage = 1;
+        const PER_PAGE = 100;
+        const MAX_PAGES = 50; // Safety limit
+
+        while (currentPage <= MAX_PAGES) {
+            const movementsRes = await this.getBankMovements(accountId, { page: currentPage, per_page: PER_PAGE });
+            const pageItems = movementsRes.items || [];
+
+            if (pageItems.length === 0) break;
+
+            const filtered = pageItems.filter((item: any) => {
+                const itemId = item.bank_account?.bank_account_id || item.bank_account_id;
+                return String(itemId) === String(accountId);
+            });
+
+            allFilteredItems = [...allFilteredItems, ...filtered];
+
+            if (!movementsRes._meta.pagination?.next) break;
+            currentPage++;
+        }
+        return allFilteredItems;
+    }
+
+    async getAccountingRecords(params: { date_from?: string, date_to?: string, page?: number, per_page?: number } = {}) {
+        const query = new URLSearchParams();
+        if (params.date_from) query.append('date_from', params.date_from);
+        if (params.date_to) query.append('date_till', params.date_to); // check if till or to. Docs usually date_till. Browser search said date_till.
+        // wait, browser output for Step 52 said params were ['date_from', 'date_till', ...]
+        if (params.page) query.append('page', String(params.page));
+        if (params.per_page) query.append('per_page', String(params.per_page));
+
+        return this.fetchApi<{ items: any[], _meta: UolMeta }>(`/v1/accounting_records?${query.toString()}`);
+    }
 }
 
 class RateLimiter {

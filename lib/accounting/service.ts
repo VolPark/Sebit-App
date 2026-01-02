@@ -46,9 +46,11 @@ export class AccountingService {
 
             const salesCount = await this.syncSalesInvoices();
             const purchaseCount = await this.syncPurchaseInvoices();
+            const movementsCount = await this.syncBankMovements();
+            const journalCount = await this.syncAccountingJournal();
 
             await this.completeLog(logId, 'success');
-            return { sales: salesCount, purchase: purchaseCount };
+            return { sales: salesCount, purchase: purchaseCount, movements: movementsCount, journal: journalCount };
         } catch (e: any) {
             console.error('Sync failed', e);
             await this.completeLog(logId, 'error', e.message);
@@ -135,6 +137,7 @@ export class AccountingService {
         // Let's assume listing is enough for basic sync, but if we need full detail we fetch it.
         // Actually user explicitly listed detail endpoint call.
         // To be safe and "world-class", we should fetch detail to ensure we have ALL data (e.g. detailed breakdown).
+        // AESTHETICS note: Backend logic doesn't affect aesthetics directly, but data completeness does.
 
         const detailUrl = item._meta.href;
         const detail = await this.uolClient.getInvoiceDetail(detailUrl);
@@ -241,5 +244,165 @@ export class AccountingService {
                 throw error;
             }
         }
+    }
+
+    async syncBankMovements() {
+        console.log('Starting Bank Movements Sync...');
+        // 1. Get Accounts
+        const accountsRes = await this.uolClient.getBankAccounts();
+        const accounts = accountsRes.items || [];
+
+        let totalSynced = 0;
+
+        for (const acc of accounts) {
+            if (!acc.bank_account_id) continue;
+
+            // 2. Get last synced date for this account
+            const { data: lastMove } = await supabaseAdmin
+                .from('accounting_bank_movements')
+                .select('date')
+                .eq('bank_account_id', acc.bank_account_id)
+                .order('date', { ascending: false })
+                .limit(1)
+                .single();
+
+            const lastDate = lastMove?.date;
+            console.log(`Account ${acc.bank_account_id}: Last synced date ${lastDate || 'Never'}`);
+
+            // 3. Fetch from UOL
+            let page = 1;
+            let hasNext = true;
+
+            while (hasNext) {
+                const params: any = { page, per_page: 50 };
+                if (lastDate) {
+                    params.date_from = lastDate;
+                }
+
+                const res = await this.uolClient.getBankMovements(acc.bank_account_id, params);
+                const items = res.items || [];
+
+                if (items.length === 0) break;
+
+                // Filter for this account (due to API limitation discussed earlier)
+                const accountItems = items.filter((item: any) => {
+                    const itemId = item.bank_account?.bank_account_id || item.bank_account_id;
+                    return String(itemId) === String(acc.bank_account_id);
+                });
+
+                for (const item of accountItems) {
+                    // Extract detail
+                    const detail = item.items && item.items.length > 0 ? item.items[0] : {}; // Often the movement detail is in items array or root?
+                    // Based on previous JSON inspection, root has some props, items has others.
+                    // Let's assume item is the movement object.
+
+                    const payload = {
+                        bank_account_id: acc.bank_account_id,
+                        movement_id: String(item.bank_movement_id || item.id),
+                        date: detail.date || item.create_at || new Date().toISOString(), // Fallback
+                        amount: parseFloat(item.amount),
+                        currency: item.currency?.currency_id || 'CZK',
+                        variable_symbol: item.variable_symbol,
+                        description: item.note || detail.note,
+                        raw_data: item
+                    };
+
+                    // Upsert
+                    const { error } = await supabaseAdmin
+                        .from('accounting_bank_movements')
+                        .upsert(payload, { onConflict: 'movement_id', ignoreDuplicates: false });
+
+                    if (error) console.error('Error upserting movement', error);
+                    else totalSynced++;
+                }
+
+                if (res._meta.pagination?.next) page++;
+                else hasNext = false;
+            }
+        }
+        console.log(`Bank Sync Complete. Synced ${totalSynced} movements.`);
+        return totalSynced;
+    }
+
+    async syncAccountingJournal() {
+        console.log('Starting General Ledger Sync...');
+
+        // Sync from 2025 up to current year
+        const startYear = 2025;
+        const currentYear = new Date().getFullYear();
+        let totalSynced = 0;
+
+        for (let year = startYear; year <= currentYear; year++) {
+            console.log(`Syncing Journal for year ${year}...`);
+            const start = `${year}-01-01`;
+            const end = `${year}-12-31`;
+
+            let page = 1;
+            let hasNext = true;
+
+            while (hasNext) {
+                // console.log(`Fetching Journal page ${page} for ${year}`);
+                const res = await this.uolClient.getAccountingRecords({
+                    date_from: start,
+                    date_to: end,
+                    page: page,
+                    per_page: 100
+                });
+
+                const items = res.items || [];
+                if (items.length === 0) break;
+
+                // Transform & Insert
+                const payload = items.map((item: any) => {
+                    // Extract account number from object if needed
+                    const extractAccount = (val: any) => {
+                        if (!val) return '';
+                        // If it's an object, try to find chart_of_account_id or similar
+                        if (typeof val === 'object') {
+                            return val.chart_of_account_id || val.id || JSON.stringify(val);
+                        }
+                        // If string looks like JSON
+                        if (typeof val === 'string' && (val.trim().startsWith('{') || val.trim().startsWith('['))) {
+                            try {
+                                const parsed = JSON.parse(val);
+                                return parsed.chart_of_account_id || parsed.id || val;
+                            } catch (e) {
+                                return val; // Failed to parse, return as is
+                            }
+                        }
+                        return String(val);
+                    };
+
+                    return {
+                        uol_id: String(item.id),
+                        date: item.date,
+                        account_md: extractAccount(item.account_md || item.debit_account),
+                        account_d: extractAccount(item.account_d || item.credit_account),
+                        amount: parseFloat(item.amount || '0'),
+                        currency: 'CZK',
+                        text: item.text || item.description,
+                        fiscal_year: year
+                    };
+                });
+
+                // Upsert
+                const { error: upsertError } = await supabaseAdmin
+                    .from('accounting_journal')
+                    .upsert(payload, { onConflict: 'uol_id' });
+
+                if (upsertError) {
+                    console.error('Error upserting journal batch', upsertError);
+                    throw upsertError;
+                }
+
+                totalSynced += items.length;
+
+                if (res._meta.pagination?.next) page++;
+                else hasNext = false;
+            }
+        }
+
+        console.log(`Journal Sync Complete. Synced ${totalSynced} records.`);
+        return totalSynced;
     }
 }

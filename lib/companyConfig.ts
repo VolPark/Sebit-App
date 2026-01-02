@@ -51,5 +51,11 @@ export const CompanyConfig = {
 
         // New Module
         enableAccounting: process.env.NEXT_PUBLIC_ENABLE_ACCOUNTING === 'true',
+    },
+    api: {
+        uol: {
+            email: process.env.UOL_EMAIL || '',
+            apiKey: process.env.UOL_API_KEY || ''
+        }
     }
 };
