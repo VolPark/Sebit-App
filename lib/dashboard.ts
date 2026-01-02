@@ -122,7 +122,7 @@ export async function getDashboardData(
     // Fetch documents with mappings for the period
     // @ts-ignore
     accountingQuery = client.from('accounting_documents')
-      .select('id, type, amount, issue_date, currency, amount_czk, provider_id, mappings:accounting_mappings(id, akce_id, pracovnik_id, division_id, cost_category, amount, amount_czk)')
+      .select('id, type, amount, issue_date, tax_date, currency, amount_czk, provider_id, mappings:accounting_mappings(id, akce_id, pracovnik_id, division_id, cost_category, amount, amount_czk)')
       .gte('issue_date', start)
       .lte('issue_date', end);
   }
@@ -186,7 +186,7 @@ export async function getDashboardData(
   if (CompanyConfig.features.enableAccounting && accountingDocs.length > 0) {
     for (const doc of accountingDocs) {
       if (doc.mappings && doc.mappings.length > 0) {
-        const d = new Date(doc.issue_date);
+        const d = new Date(doc.tax_date || doc.issue_date);
         const keySuffix = `${d.getFullYear()}-${d.getMonth()}`; // month is 0-indexed in getMonth()
 
         for (const m of doc.mappings) {
@@ -330,7 +330,7 @@ export async function getDashboardData(
   // A3. Process Accounting Mappings
   if (CompanyConfig.features.enableAccounting && accountingDocs.length > 0) {
     for (const doc of accountingDocs) {
-      const d = new Date(doc.issue_date);
+      const d = new Date(doc.tax_date || doc.issue_date);
       const key = getMonthKey(d);
 
       const bucket = monthlyBuckets.get(key);

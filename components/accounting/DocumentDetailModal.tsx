@@ -120,7 +120,7 @@ export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDe
                                 </div>
                                 <div>
                                     <span className="block text-xs text-gray-500 mb-1">DUZP</span>
-                                    <span className="font-medium">{rd.tax_date ? new Date(rd.tax_date).toLocaleDateString('cs-CZ') : '-'}</span>
+                                    <span className="font-medium">{document.tax_date ? new Date(document.tax_date).toLocaleDateString('cs-CZ') : (rd.tax_payment_date ? new Date(rd.tax_payment_date).toLocaleDateString('cs-CZ') : (rd.tax_date ? new Date(rd.tax_date).toLocaleDateString('cs-CZ') : '-'))}</span>
                                 </div>
                                 <div className="text-right">
                                     <span className="block text-xs text-gray-500 mb-1">Celkem k úhradě</span>

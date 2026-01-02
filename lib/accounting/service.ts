@@ -199,7 +199,7 @@ export class AccountingService {
             currency: detail.currency?.currency_id || 'CZK',
             issue_date: detail.issue_date,
             due_date: detail.due_date,
-            tax_date: detail.tax_date,
+            tax_date: detail.tax_payment_date || detail.tax_date,
             description: description,
             status: detail.status,
             raw_data: detail,

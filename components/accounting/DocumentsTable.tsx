@@ -95,10 +95,10 @@ export function DocumentsTable({ type }: DocumentsTableProps) {
                     <tr>
                         <th className="px-6 py-4 whitespace-nowrap">Číslo</th>
                         <th className="px-6 py-4 whitespace-nowrap">{type === 'sales_invoice' ? 'Odběratel' : 'Dodavatel'}</th>
-                        <th className="px-6 py-4 whitespace-nowrap">Datum vystavení</th>
+                        <th className="px-6 py-4 whitespace-nowrap">DUZP / Vystaveno</th>
                         <th className="px-6 py-4 whitespace-nowrap">Datum splatnosti</th>
                         <th className="px-6 py-4 whitespace-nowrap">Částka</th>
-                        <th className="px-6 py-4 whitespace-nowrap">Stav</th>
+
                         <th className="px-6 py-4 whitespace-nowrap">Mapování</th>
                         <th className="px-6 py-4 text-right whitespace-nowrap">Akce</th>
                     </tr>
@@ -111,16 +111,19 @@ export function DocumentsTable({ type }: DocumentsTableProps) {
                             <tr key={doc.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                 <td className="px-6 py-4 font-medium">{doc.number}</td>
                                 <td className="px-6 py-4">{doc.supplier_name || '-'}</td>
-                                <td className="px-6 py-4">{doc.issue_date ? new Date(doc.issue_date).toLocaleDateString('cs-CZ') : '-'}</td>
+                                <td className="px-6 py-4">
+                                    <div className="flex flex-col">
+                                        <span>{doc.tax_date ? new Date(doc.tax_date).toLocaleDateString('cs-CZ') : (doc.issue_date ? new Date(doc.issue_date).toLocaleDateString('cs-CZ') : '-')}</span>
+                                        {doc.tax_date && doc.issue_date && doc.tax_date !== doc.issue_date && (
+                                            <span className="text-xs text-slate-400">Vyst: {new Date(doc.issue_date).toLocaleDateString('cs-CZ')}</span>
+                                        )}
+                                    </div>
+                                </td>
                                 <td className="px-6 py-4">{doc.due_date ? new Date(doc.due_date).toLocaleDateString('cs-CZ') : '-'}</td>
                                 <td className="px-6 py-4 text-right font-bold">
                                     {formatCurrency(doc.amount, doc.currency)}
                                 </td>
-                                <td className="px-6 py-4">
-                                    <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">
-                                        {doc.status}
-                                    </span>
-                                </td>
+
                                 <td className="px-6 py-4">
                                     <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${mappingStatus.color}`}>
                                         {mappingStatus.label}

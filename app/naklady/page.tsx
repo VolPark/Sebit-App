@@ -89,7 +89,7 @@ export default function NakladyPage() {
 
             const { data: accData } = await supabase
                 .from('accounting_documents')
-                .select('id, description, supplier_name, issue_date, currency, amount_czk, exchange_rate, mappings:accounting_mappings(id, amount, amount_czk, cost_category, note, division_id)')
+                .select('id, description, supplier_name, issue_date, tax_date, currency, amount_czk, exchange_rate, mappings:accounting_mappings(id, amount, amount_czk, cost_category, note, division_id)')
                 .gte('issue_date', dateStart)
                 .lte('issue_date', dateEnd);
 
