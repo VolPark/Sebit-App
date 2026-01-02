@@ -908,7 +908,7 @@ export async function getDetailedStats(
   if (CompanyConfig.features.enableAccounting) {
     // @ts-ignore
     accountingQuery = client.from('accounting_documents')
-      .select('id, type, amount, issue_date, mappings:accounting_mappings(id, akce_id, cost_category, amount)')
+      .select('id, type, amount, issue_date, mappings:accounting_mappings(id, akce_id, pracovnik_id, cost_category, amount)')
       .gte('issue_date', start)
       .lte('issue_date', end);
   }
@@ -952,7 +952,7 @@ export async function getDetailedStats(
     for (const doc of accountingDocs) {
       if (doc.mappings && doc.mappings.length > 0) {
         const d = new Date(doc.issue_date);
-        const keySuffix = `${d.getFullYear()}-${d.getMonth() + 1}`; // 1-indexed month for this function
+        const keySuffix = `${d.getFullYear()}-${d.getMonth()}`; // 0-indexed month for consistency
 
         for (const m of doc.mappings) {
           if (m.pracovnik_id) {
@@ -1254,7 +1254,7 @@ export async function getDetailedStats(
         const parts = key.split('-');
         const year = parseInt(parts[1]);
         const month = parseInt(parts[2]);
-        const d = new Date(year, month - 1, 1);
+        const d = new Date(year, month, 1);
         if (d >= startDate && d <= endDate) {
           workerWages += cost;
         }

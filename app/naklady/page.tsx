@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Menu, Transition } from '@headlessui/react'
 import { APP_START_YEAR } from '@/lib/config'
+import { CompanyConfig } from '@/lib/companyConfig'
 
 // Helper to get month name
 const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
@@ -10,6 +11,8 @@ const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", 
 export default function NakladyPage() {
     // Data state
     const [costs, setCosts] = useState<any[]>([])
+    // We keep divisions separate to resolve names easily
+    const [divisions, setDivisions] = useState<any[]>([]);
 
     // UI state
     const [loading, setLoading] = useState(true)
@@ -42,6 +45,7 @@ export default function NakladyPage() {
     // Form State
     const [formNazev, setFormNazev] = useState('')
     const [formCastka, setFormCastka] = useState('')
+    const [formDivisionId, setFormDivisionId] = useState<number | null>(null);
 
     useEffect(() => {
         fetchData()
@@ -52,30 +56,82 @@ export default function NakladyPage() {
         const year = selectedDate.getFullYear();
         const month = selectedDate.getMonth() + 1;
 
-        const { data, error } = await supabase
+        // 1. Fetch Manual Fixed Costs
+        const { data: fixedData, error } = await supabase
             .from('fixed_costs')
             .select('*, divisions(nazev)')
             .eq('rok', year)
             .eq('mesic', month)
             .order('nazev');
 
+        // 2. Fetch Divisions (for lookup)
         const { data: divisionsData } = await supabase.from('divisions').select('id, nazev').order('id');
+        if (divisionsData) setDivisions(divisionsData);
+
+        // 3. Fetch Accounting Mapped Costs (if enabled)
+        let mappedData: any[] = [];
+        if (CompanyConfig.features.enableAccounting) {
+            const startDate = new Date(year, month - 1, 1); // Month is 0-indexed in Date
+            const endDate = new Date(year, month, 0); // Last day of month
+            // Adjust to cover full days in UTC/ISO. 
+            // We use YYYY-MM-DD string comparisons for simplicity with issue_date (DATE type usually)
+            // But Supabase Timestamptz requires full ISO.
+            // Let's use simple date construction that covers local day => UTC
+            // Or better: construct precise range.
+            const startStr = `${year}-${String(month).padStart(2, '0')}-01T00:00:00.000Z`; // Approximation (UTC)
+            const endD = new Date(year, month, 0);
+            const endStr = `${year}-${String(month).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}T23:59:59.999Z`;
+
+            // Wait, issue_date is DATE (YYYY-MM-DD). If it's DATE, exact comparison with strings works best.
+            // Or use gte/lte with "YYYY-MM-DD" format.
+            const dateStart = `${year}-${String(month).padStart(2, '0')}-01`;
+            const dateEnd = `${year}-${String(month).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}`;
+
+            const { data: accData } = await supabase
+                .from('accounting_documents')
+                .select('id, description, supplier_name, issue_date, mappings:accounting_mappings(id, amount, cost_category, note, division_id)')
+                .gte('issue_date', dateStart)
+                .lte('issue_date', dateEnd);
+
+            if (accData) {
+                accData.forEach((doc: any) => {
+                    if (doc.mappings) {
+                        doc.mappings.forEach((m: any) => {
+                            if (m.cost_category === 'overhead') {
+                                // Resolve division name
+                                // @ts-ignore
+                                const divName = m.division_id && divisionsData ? divisionsData.find(d => d.id === m.division_id)?.nazev : null;
+
+                                mappedData.push({
+                                    id: `acc_${m.id}`, // String ID to prevent collision
+                                    nazev: m.note || doc.description || doc.supplier_name || 'Neznámý náklad',
+                                    castka: Number(m.amount) || 0,
+                                    divisions: divName ? { nazev: divName } : null,
+                                    division_id: m.division_id,
+                                    source: 'accounting',
+                                    doc_id: doc.id
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+        }
 
         if (error) {
             console.error(error);
             setStatusMessage('Chyba při načítání dat.');
         } else {
-            setCosts(data || []);
-            // load divisions
-            if (divisionsData) setDivisions(divisionsData);
+            // Merge lists
+            // Add 'source: manual' to fixedData items
+            const manualCosts = (fixedData || []).map(c => ({ ...c, source: 'manual' }));
+            const combined = [...manualCosts, ...mappedData];
+            combined.sort((a, b) => a.nazev.localeCompare(b.nazev));
+
+            setCosts(combined);
         }
         setLoading(false);
     }
-
-    const [divisions, setDivisions] = useState<any[]>([]);
-
-    // Form State additions
-    const [formDivisionId, setFormDivisionId] = useState<number | null>(null);
 
     async function performAutoImport(targetYear: number, targetMonth: number): Promise<boolean> {
         // Calculate previous month
@@ -140,6 +196,7 @@ export default function NakladyPage() {
     }
 
     const openEditModal = (cost: any) => {
+        if (cost.source === 'accounting') return; // Should not happen via UI but safety check
         setFormNazev(cost.nazev);
         setFormCastka(String(cost.castka));
         setFormDivisionId(cost.division_id);
@@ -301,7 +358,14 @@ export default function NakladyPage() {
                     {costs.map(c => (
                         <div key={c.id} className="p-4 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-slate-800/50 transition">
                             <div>
-                                <div className="font-semibold text-gray-900 dark:text-white">{c.nazev}</div>
+                                <div className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                    {c.nazev}
+                                    {c.source === 'accounting' && (
+                                        <span className="text-[10px] uppercase font-bold tracking-wider text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded-full" title="Tento náklad je načten z účetního modulu">
+                                            Účtárna
+                                        </span>
+                                    )}
+                                </div>
                                 {c.divisions && (
                                     <div className="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full inline-block mt-1">
                                         {c.divisions.nazev}
@@ -311,16 +375,22 @@ export default function NakladyPage() {
                             <div className="flex items-center gap-4">
                                 <div className="font-bold text-gray-900 dark:text-white">{currency.format(c.castka)}</div>
                                 <div className="flex gap-2">
-                                    <button onClick={() => openEditModal(c)} className="p-2 text-gray-400 hover:text-blue-600 transition">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                                        </svg>
-                                    </button>
-                                    <button onClick={() => openDeleteModal(c.id)} className="p-2 text-gray-400 hover:text-red-600 transition">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                        </svg>
-                                    </button>
+                                    {c.source === 'accounting' ? (
+                                        <div className="w-20"></div> // Spacer to keep alignment? Or just empty.
+                                    ) : (
+                                        <>
+                                            <button onClick={() => openEditModal(c)} className="p-2 text-gray-400 hover:text-blue-600 transition">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                                </svg>
+                                            </button>
+                                            <button onClick={() => openDeleteModal(c.id)} className="p-2 text-gray-400 hover:text-red-600 transition">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                                </svg>
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
