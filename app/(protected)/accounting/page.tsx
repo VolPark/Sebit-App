@@ -7,6 +7,7 @@ import { RefreshCw, Settings } from 'lucide-react';
 import { DocumentsTable } from '@/components/accounting/DocumentsTable';
 import { toast } from 'sonner';
 import { ProviderSettingsModal } from '@/components/accounting/ProviderSettingsModal';
+import { AccountingStats } from '@/components/accounting/AccountingStats';
 
 export default function AccountingPage() {
     const router = useRouter();
@@ -96,7 +97,7 @@ export default function AccountingPage() {
                                 <h3 className="font-semibold leading-none tracking-tight">Rychlý přehled</h3>
                             </div>
                             <div className="p-6 pt-0">
-                                <p className="text-muted-foreground text-slate-500">Zde bude souhrn.</p>
+                                <AccountingStats />
                             </div>
                         </div>
                     )}
