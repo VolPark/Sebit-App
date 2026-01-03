@@ -13,7 +13,9 @@ import { GeneralLedgerTile } from '@/components/accounting/reports/GeneralLedger
 import { BalanceSheetTile } from '@/components/accounting/reports/BalanceSheetTile';
 import { ProfitLossTile } from '@/components/accounting/reports/ProfitLossTile';
 
-export default function AccountingPage() {
+import { Suspense } from 'react';
+
+function AccountingContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [isSyncing, setIsSyncing] = useState(false);
@@ -178,6 +180,14 @@ export default function AccountingPage() {
                 open={isSettingsOpen}
                 onOpenChange={setIsSettingsOpen}
             />
-        </div >
+        </div>
+    );
+}
+
+export default function AccountingPage() {
+    return (
+        <Suspense fallback={<div className="p-6 text-slate-500">Načítám...</div>}>
+            <AccountingContent />
+        </Suspense>
     );
 }
