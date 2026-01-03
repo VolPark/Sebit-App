@@ -34,8 +34,6 @@ export async function GET(req: Request) {
         // 2. Aggregate Balances
         const balances: Record<string, { md: number; d: number }> = {};
 
-        // ... (Aggregation logic remains same)
-
         const addBalance = (account: string, amount: number, side: 'md' | 'd') => {
             if (!account) return;
             if (!balances[account]) balances[account] = { md: 0, d: 0 };
@@ -47,93 +45,143 @@ export async function GET(req: Request) {
             if (entry.account_d) addBalance(entry.account_d, Number(entry.amount), 'd');
         });
 
-        // 3. Classify and Calculate
-        const assets: any[] = [];
-        const liabilities: any[] = [];
+        // 3. Helper to get net balance (MD - D)
+        const getNet = (acc: string) => (balances[acc].md - balances[acc].d);
+
+        // 4. Structure Definition (Simplified Scope)
+        // Groups definition
+        const assetsGroups = {
+            'B': { id: 'B', name: 'B. Stálá aktiva', accounts: [] as any[], balance: 0 },
+            'C': { id: 'C', name: 'C. Oběžná aktiva', accounts: [] as any[], balance: 0 },
+            'D': { id: 'D', name: 'D. Časové rozlišení (Aktiva)', accounts: [] as any[], balance: 0 }
+        };
+
+        const liabilitiesGroups = {
+            'A': { id: 'A', name: 'A. Vlastní kapitál', accounts: [] as any[], balance: 0 },
+            'B_C': { id: 'B_C', name: 'B.+C. Cizí zdroje', accounts: [] as any[], balance: 0 },
+            'D': { id: 'D', name: 'D. Časové rozlišení (Pasiva)', accounts: [] as any[], balance: 0 }
+        };
+
         let expenseSum = 0; // Class 5
         let revenueSum = 0; // Class 6 (Credit balance usually)
-
-        // Helper to get net balance (MD - D)
-        const getNet = (acc: string) => (balances[acc].md - balances[acc].d);
 
         Object.keys(balances).forEach(account => {
             const net = getNet(account);
             const firstChar = account.charAt(0);
-            const name = accountNames[account] || '';
+            const firstTwo = account.substring(0, 2);
+            // Fallback: Try full account, then first 3 digits
+            const name = accountNames[account] || accountNames[account.substring(0, 3)] || '';
 
-            if (['5'].includes(firstChar)) {
-                // Costs
-                expenseSum += net; // Usually positive
-            } else if (['6'].includes(firstChar)) {
-                // Revenues
-                revenueSum += net; // Usually negative (Credit)
-            } else if (['0', '1', '2'].includes(firstChar)) {
-                // Assets
-                assets.push({ account, name, balance: net });
-            } else if (['4', '9'].includes(firstChar)) {
-                // Liabilities (Show as positive for matching side calculation later, or keep sign?)
-                // Standard: Liabilities side shows D - MD (Credit Balance).
-                liabilities.push({ account, name, balance: -net });
-            } else if (['3'].includes(firstChar)) {
-                // Mixed Class 3
-                if (net >= 0) {
-                    assets.push({ account, name, balance: net });
-                } else {
-                    liabilities.push({ account, name, balance: -net });
+            // Skip zero balance accounts? Or keep them? Usually keep if movement exists.
+            if (Math.abs(net) < 0.01 && balances[account].md === 0 && balances[account].d === 0) return;
+
+            if (firstChar === '5') {
+                expenseSum += net;
+            } else if (firstChar === '6') {
+                revenueSum += net;
+            } else if (['0', '1', '2', '3', '4', '9'].includes(firstChar)) {
+                // Determine Active/Passive side and Group
+
+                // --- ASSETS LOGIC ---
+                // Class 0: Fixed Assets -> Group B
+                if (firstChar === '0') {
+                    assetsGroups['B'].accounts.push({ account, name, balance: net });
+                    assetsGroups['B'].balance += net;
                 }
-            } else {
-                // Other? Class 8, 7 (Off-balance)?
-                if (net >= 0) assets.push({ account, name, balance: net });
-                else liabilities.push({ account, name, balance: -net });
+                // Class 1, 2: Current Assets -> Group C
+                else if (firstChar === '1' || firstChar === '2') {
+                    assetsGroups['C'].accounts.push({ account, name, balance: net });
+                    assetsGroups['C'].balance += net;
+                }
+                // Class 3: Receivables/Payables - mixed logic
+                else if (firstChar === '3') {
+                    // Specific checking for Accruals (38x)
+                    if (firstTwo === '38') {
+                        if (net >= 0) {
+                            assetsGroups['D'].accounts.push({ account, name, balance: net });
+                            assetsGroups['D'].balance += net;
+                        } else {
+                            liabilitiesGroups['D'].accounts.push({ account, name, balance: -net }); // Shown as positive liability
+                            liabilitiesGroups['D'].balance += -net;
+                        }
+                    }
+                    // Standard Receivables (Debit balance) -> Assets C
+                    else if (net >= 0) {
+                        assetsGroups['C'].accounts.push({ account, name, balance: net });
+                        assetsGroups['C'].balance += net;
+                    }
+                    // Payables (Credit balance) -> Liabilities B+C
+                    else {
+                        liabilitiesGroups['B_C'].accounts.push({ account, name, balance: -net });
+                        liabilitiesGroups['B_C'].balance += -net;
+                    }
+                }
+                // Class 4: Equity / Long-term Liabilities
+                else if (firstChar === '4') {
+                    // Equity: 41, 42, 43
+                    if (['41', '42', '43'].includes(firstTwo)) {
+                        // Equity accounts usually Credit balance, so invert net (which is MD-D)
+                        liabilitiesGroups['A'].accounts.push({ account, name, balance: -net });
+                        liabilitiesGroups['A'].balance += -net;
+                    }
+                    // Liabilities: 44, 45, 46, 47, ...
+                    else {
+                        liabilitiesGroups['B_C'].accounts.push({ account, name, balance: -net });
+                        liabilitiesGroups['B_C'].balance += -net;
+                    }
+                }
+                // Class 9: Off-balance (ignored in Balance Sheet usually) or specific cases
             }
         });
 
-        // 4. Calculate Profit/Loss (Hospodářský výsledek)
-        // Profit = Revenue - Expenses. 
-        // In terms of Net Balances (MD-D):
-        // Revenue (Class 6) has Net < 0. (e.g. -1000).
-        // Expense (Class 5) has Net > 0. (e.g. 800).
-        // Sum = -200.
-        // Profit should be 200.
-        // So Profit = - (Sum of 5xx and 6xx).
-
+        // 5. Calculate Profit/Loss (Current Year) and Add to Equity
+        // Profit = Revenue (Credit) - Expense (Debit)
+        // Revenue (Class 6) net is usually negative (Credit). Expense (Class 5) net is positive (Debit).
+        // Profit = -(RevenueNet + ExpenseNet)
+        // Example: Rev -1000, Exp +800. Net Sum = -200. Profit = 200.
         const sum5and6 = expenseSum + revenueSum;
-        const profit = -sum5and6;
+        const currentYearProfit = -sum5and6;
 
-        // Add Profit to Liabilities (Equity)
-        // If Profit > 0, it's a Liability (Credit side).
-        // If Profit < 0 (Loss), it's a negative Liability (or visible in Assets as Loss).
-        // Usually shown in Liabilities section.
-        liabilities.push({
+        liabilitiesGroups['A'].accounts.push({
             account: 'HV',
-            name: 'Hospodářský výsledek ve schvalovacím řízení',
-            balance: profit,
+            name: 'Výsledek hospodaření běžného účetního období',
+            balance: currentYearProfit,
             isTotal: true
         });
+        liabilitiesGroups['A'].balance += currentYearProfit;
 
-        // 5. Sort
-        assets.sort((a, b) => a.account.localeCompare(b.account));
-        liabilities.sort((a, b) => {
-            if (a.account === 'HV') return 1; // Put HV at end
-            if (b.account === 'HV') return -1;
-            return a.account.localeCompare(b.account);
-        });
+        // 6. Convert Groups to Arrays and Sort
+        const assetsFinal = Object.values(assetsGroups)
+            .filter(g => Math.abs(g.balance) > 0 || g.accounts.length > 0)
+            .map(g => ({
+                ...g,
+                accounts: g.accounts.sort((a, b) => a.account.localeCompare(b.account))
+            }));
 
-        // 6. Calculate Totals
-        const totalAssets = assets.reduce((sum, item) => sum + item.balance, 0);
-        const totalLiabilities = liabilities.reduce((sum, item) => sum + item.balance, 0);
+        const liabilitiesFinal = Object.values(liabilitiesGroups)
+            .filter(g => Math.abs(g.balance) > 0 || g.accounts.length > 0)
+            .map(g => ({
+                ...g,
+                accounts: g.accounts.sort((a, b) => {
+                    if (a.account === 'HV') return 1;
+                    if (b.account === 'HV') return -1;
+                    return a.account.localeCompare(b.account)
+                })
+            }));
+
+        // 7. Calculate Grand Totals
+        const totalAssets = assetsFinal.reduce((sum, g) => sum + g.balance, 0);
+        const totalLiabilities = liabilitiesFinal.reduce((sum, g) => sum + g.balance, 0);
 
         return NextResponse.json({
-            assets,
-            liabilities,
+            assets: assetsFinal,
+            liabilities: liabilitiesFinal,
             totals: {
                 assets: totalAssets,
                 liabilities: totalLiabilities,
-                diff: totalAssets - totalLiabilities // Should be 0
+                diff: totalAssets - totalLiabilities
             },
-            meta: {
-                year
-            }
+            meta: { year }
         });
 
     } catch (e: any) {

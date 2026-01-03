@@ -7,7 +7,13 @@ import { toast } from 'sonner';
 
 export default function ProfitLossPage() {
     // State
-    const [data, setData] = useState<{ costs: any[], revenues: any[], totals: any } | null>(null);
+    const [data, setData] = useState<{
+        operating: { revenues: any[], costs: any[], result: number },
+        financial: { revenues: any[], costs: any[], result: number },
+        tax: { costs: any[], total: number },
+        results: { beforeTax: number, afterTax: number },
+        meta: any
+    } | null>(null);
     const [loading, setLoading] = useState(true);
     const [year, setYear] = useState(new Date().getFullYear());
 
@@ -93,89 +99,102 @@ export default function ProfitLossPage() {
             </div>
 
             {/* Profit Summary */}
-            <div className={`p-6 rounded-xl border flex flex-col items-center justify-center gap-2 ${data?.totals.profit >= 0
+            <div className={`p-6 rounded-xl border flex flex-col items-center justify-center gap-2 ${data?.results.afterTax! >= 0
                 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
                 : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
                 }`}>
-                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Hospodářský výsledek</div>
-                <div className={`text-4xl font-bold ${data?.totals.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Výsledek hospodaření</div>
+                <div className={`text-4xl font-bold ${data?.results.afterTax! >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
                     }`}>
-                    {data ? currencyFormat(data.totals.profit) : '...'}
+                    {data ? currencyFormat(data.results.afterTax) : '...'}
                 </div>
             </div>
 
             {/* Content */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:grid-cols-2 print:gap-4">
-                {/* Costs Column */}
+            <div className="grid grid-cols-1 gap-6 print:grid-cols-1 print:gap-4">
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
                     <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
-                        <h2 className="font-semibold text-slate-900 dark:text-white">Náklady (5xx)</h2>
+                        <h2 className="font-semibold text-slate-900 dark:text-white">Výkazy zisku a ztráty</h2>
                         <span className="font-bold text-lg text-slate-900 dark:text-white">
-                            {data ? currencyFormat(data.totals.costs) : '...'}
+                            {data ? currencyFormat(data.results.afterTax) : '...'}
                         </span>
                     </div>
                     <div className="flex-1 overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800">
                                 <tr>
-                                    <th className="px-4 py-2 font-medium text-slate-500">Účet</th>
-                                    <th className="px-4 py-2 font-medium text-slate-500 text-right">Částka</th>
+                                    <th className="px-4 py-2 font-medium text-slate-500">Položka</th>
+                                    <th className="px-4 py-2 font-medium text-slate-500 text-right">Hodnota</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {loading && !data ? (
                                     <tr><td colSpan={2} className="px-4 py-8 text-center text-slate-500">Načítám...</td></tr>
-                                ) : data?.costs.length === 0 ? (
-                                    <tr><td colSpan={2} className="px-4 py-8 text-center text-slate-500">Žádné náklady</td></tr>
+                                ) : !data ? (
+                                    <tr><td colSpan={2} className="px-4 py-8 text-center text-slate-500">Žádná data</td></tr>
                                 ) : (
-                                    data?.costs.map((item) => (
-                                        <tr key={item.account} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                            <td className="px-4 py-2 font-mono text-slate-600 dark:text-slate-300">
-                                                {item.account} {item.name ? `(${item.name})` : ''}
-                                            </td>
-                                            <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
-                                                {currencyFormat(item.balance)}
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                                    <>
+                                        {/* OPERATING RESULT */}
+                                        <tr className="bg-slate-100 dark:bg-slate-800 font-bold"><td colSpan={2} className="px-4 py-2 text-slate-800 dark:text-slate-100 mt-4">Provozní výsledek hospodaření</td></tr>
 
-                {/* Revenues Column */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
-                    <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
-                        <h2 className="font-semibold text-slate-900 dark:text-white">Výnosy (6xx)</h2>
-                        <span className="font-bold text-lg text-slate-900 dark:text-white">
-                            {data ? currencyFormat(data.totals.revenues) : '...'}
-                        </span>
-                    </div>
-                    <div className="flex-1 overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800">
-                                <tr>
-                                    <th className="px-4 py-2 font-medium text-slate-500">Účet</th>
-                                    <th className="px-4 py-2 font-medium text-slate-500 text-right">Částka</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {loading && !data ? (
-                                    <tr><td colSpan={2} className="px-4 py-8 text-center text-slate-500">Načítám...</td></tr>
-                                ) : data?.revenues.length === 0 ? (
-                                    <tr><td colSpan={2} className="px-4 py-8 text-center text-slate-500">Žádné výnosy</td></tr>
-                                ) : (
-                                    data?.revenues.map((item) => (
-                                        <tr key={item.account} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                            <td className="px-4 py-2 font-mono text-slate-600 dark:text-slate-300">
-                                                {item.account} {item.name ? `(${item.name})` : ''}
+                                        {/* Operating Revenues */}
+                                        {data.operating.revenues.map((g: any) => (
+                                            <ReportGroupSection key={g.id} group={g} currencyFormat={currencyFormat} />
+                                        ))}
+
+                                        {/* Operating Costs */}
+                                        {data.operating.costs.map((g: any) => (
+                                            <ReportGroupSection key={g.id} group={g} isCost currencyFormat={currencyFormat} />
+                                        ))}
+
+                                        {/* Operating Result Summary */}
+                                        <tr className="bg-slate-50 dark:bg-slate-800/50 font-bold border-t-2 border-slate-200 dark:border-slate-700">
+                                            <td className="px-4 py-2 text-slate-900 dark:text-white">
+                                                * Provozní výsledek hospodaření
                                             </td>
-                                            <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
-                                                {currencyFormat(item.balance)}
+                                            <td className="px-4 py-2 text-right text-slate-900 dark:text-white">
+                                                {currencyFormat(data.operating.result)}
                                             </td>
                                         </tr>
-                                    ))
+
+                                        {/* FINANCIAL RESULT */}
+                                        <tr className="bg-slate-100 dark:bg-slate-800 font-bold"><td colSpan={2} className="px-4 py-2 text-slate-800 dark:text-slate-100 mt-4">Finanční výsledek hospodaření</td></tr>
+
+                                        {/* Fin Revenues */}
+                                        {data.financial.revenues.map((g: any) => (
+                                            <ReportGroupSection key={g.id} group={g} currencyFormat={currencyFormat} />
+                                        ))}
+                                        {/* Fin Costs */}
+                                        {data.financial.costs.map((g: any) => (
+                                            <ReportGroupSection key={g.id} group={g} isCost currencyFormat={currencyFormat} />
+                                        ))}
+
+                                        {/* Financial Result Summary */}
+                                        <tr className="bg-slate-50 dark:bg-slate-800/50 font-bold border-t-2 border-slate-200 dark:border-slate-700">
+                                            <td className="px-4 py-2 text-slate-900 dark:text-white">
+                                                * Finanční výsledek hospodaření
+                                            </td>
+                                            <td className="px-4 py-2 text-right text-slate-900 dark:text-white">
+                                                {currencyFormat(data.financial.result)}
+                                            </td>
+                                        </tr>
+
+                                        {/* INCOME TAX */}
+                                        <tr className="bg-slate-100 dark:bg-slate-800 font-bold"><td colSpan={2} className="px-4 py-2 text-slate-800 dark:text-slate-100 mt-4">Daň z příjmů</td></tr>
+                                        {data.tax.costs.map((g: any) => (
+                                            <ReportGroupSection key={g.id} group={g} isCost currencyFormat={currencyFormat} />
+                                        ))}
+
+                                        {/* GRAND TOTAL */}
+                                        <tr className="bg-amber-50 dark:bg-amber-900/20 font-bold border-t-2 border-amber-200 dark:border-amber-700 text-lg">
+                                            <td className="px-4 py-3 text-amber-900 dark:text-amber-100">
+                                                ** Výsledek hospodaření za účetní období
+                                            </td>
+                                            <td className="px-4 py-3 text-right text-amber-900 dark:text-amber-100">
+                                                {currencyFormat(data.results.afterTax)}
+                                            </td>
+                                        </tr>
+                                    </>
                                 )}
                             </tbody>
                         </table>
@@ -183,5 +202,33 @@ export default function ProfitLossPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+function ReportGroupSection({ group, isCost = false, currencyFormat }: { group: any, isCost?: boolean, currencyFormat: (val: number) => string }) {
+    return (
+        <>
+            {/* Group Header */}
+            <tr className="bg-slate-50/80 dark:bg-slate-800/30 font-semibold text-slate-700 dark:text-slate-300">
+                <td className="px-4 py-1.5 ">
+                    {group.name}
+                </td>
+                <td className="px-4 py-1.5 text-right">
+                    {/* Costs shown as negative in group header for clarity? Or strictly standard positive? Standard shows Costs as positive numbers in column, but mathematically they are minus. Let's show as positive with sign if needed, or just abs. */}
+                    {isCost ? '-' : ''}{currencyFormat(group.balance)}
+                </td>
+            </tr>
+            {/* Group Items */}
+            {group.accounts.map((item: any) => (
+                <tr key={item.account} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                    <td className="px-4 py-1 pl-8 font-mono text-slate-600 dark:text-slate-400 text-xs">
+                        {item.account} - {item.name}
+                    </td>
+                    <td className="px-4 py-1 text-right font-medium text-slate-600 dark:text-slate-400 text-xs">
+                        {currencyFormat(item.balance)}
+                    </td>
+                </tr>
+            ))}
+        </>
     );
 }

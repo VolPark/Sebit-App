@@ -18,7 +18,7 @@ export function ProfitLossTile() {
             if (!res.ok) throw new Error(data.error || 'Failed to fetch');
 
             setStats({
-                profit: data.totals?.profit || 0,
+                profit: data.results?.afterTax || 0,
                 year: new Date().getFullYear()
             });
         } catch (e: any) {

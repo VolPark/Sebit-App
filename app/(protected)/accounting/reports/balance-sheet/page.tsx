@@ -106,7 +106,7 @@ export default function BalanceSheetPage() {
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800">
                                 <tr>
-                                    <th className="px-4 py-2 font-medium text-slate-500">Účet</th>
+                                    <th className="px-4 py-2 font-medium text-slate-500">Účet / Skupina</th>
                                     <th className="px-4 py-2 font-medium text-slate-500 text-right">Zůstatek</th>
                                 </tr>
                             </thead>
@@ -116,15 +116,29 @@ export default function BalanceSheetPage() {
                                 ) : data?.assets.length === 0 ? (
                                     <tr><td colSpan={2} className="px-4 py-8 text-center text-slate-500">Žádná aktiva</td></tr>
                                 ) : (
-                                    data?.assets.map((item) => (
-                                        <tr key={item.account} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                            <td className="px-4 py-2 font-mono text-slate-600 dark:text-slate-300">
-                                                {item.account}
-                                            </td>
-                                            <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
-                                                {currencyFormat(item.balance)}
-                                            </td>
-                                        </tr>
+                                    data?.assets.map((group: any) => (
+                                        <>
+                                            {/* Group Header */}
+                                            <tr key={group.id} className="bg-slate-50/80 dark:bg-slate-800/50 font-semibold">
+                                                <td className="px-4 py-2 text-slate-900 dark:text-white">
+                                                    {group.name}
+                                                </td>
+                                                <td className="px-4 py-2 text-right text-slate-900 dark:text-white">
+                                                    {currencyFormat(group.balance)}
+                                                </td>
+                                            </tr>
+                                            {/* Group Items */}
+                                            {group.accounts.map((item: any) => (
+                                                <tr key={item.account} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                    <td className="px-4 py-1.5 pl-8 font-mono text-slate-600 dark:text-slate-300 text-xs">
+                                                        {item.account} {item.name ? `(${item.name})` : ''}
+                                                    </td>
+                                                    <td className="px-4 py-1.5 text-right font-medium text-slate-700 dark:text-slate-200 text-xs">
+                                                        {currencyFormat(item.balance)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </>
                                     ))
                                 )}
                             </tbody>
@@ -144,7 +158,7 @@ export default function BalanceSheetPage() {
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800">
                                 <tr>
-                                    <th className="px-4 py-2 font-medium text-slate-500">Účet</th>
+                                    <th className="px-4 py-2 font-medium text-slate-500">Účet / Skupina</th>
                                     <th className="px-4 py-2 font-medium text-slate-500 text-right">Zůstatek</th>
                                 </tr>
                             </thead>
@@ -154,15 +168,29 @@ export default function BalanceSheetPage() {
                                 ) : data?.liabilities.length === 0 ? (
                                     <tr><td colSpan={2} className="px-4 py-8 text-center text-slate-500">Žádná pasiva</td></tr>
                                 ) : (
-                                    data?.liabilities.map((item) => (
-                                        <tr key={item.account} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 ${item.isTotal ? 'bg-amber-50 dark:bg-amber-900/20 font-semibold' : ''}`}>
-                                            <td className="px-4 py-2 font-mono text-slate-600 dark:text-slate-300">
-                                                {item.account} {item.name ? `(${item.name})` : ''}
-                                            </td>
-                                            <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
-                                                {currencyFormat(item.balance)}
-                                            </td>
-                                        </tr>
+                                    data?.liabilities.map((group: any) => (
+                                        <>
+                                            {/* Group Header */}
+                                            <tr key={group.id} className="bg-slate-50/80 dark:bg-slate-800/50 font-semibold">
+                                                <td className="px-4 py-2 text-slate-900 dark:text-white">
+                                                    {group.name}
+                                                </td>
+                                                <td className="px-4 py-2 text-right text-slate-900 dark:text-white">
+                                                    {currencyFormat(group.balance)}
+                                                </td>
+                                            </tr>
+                                            {/* Group Items */}
+                                            {group.accounts.map((item: any) => (
+                                                <tr key={item.account} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 ${item.isTotal ? 'text-amber-700 dark:text-amber-400 font-bold' : ''}`}>
+                                                    <td className="px-4 py-1.5 pl-8 font-mono text-slate-600 dark:text-slate-300 text-xs">
+                                                        {item.account} {item.name ? `(${item.name})` : ''}
+                                                    </td>
+                                                    <td className="px-4 py-1.5 text-right font-medium text-slate-700 dark:text-slate-200 text-xs">
+                                                        {currencyFormat(item.balance)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </>
                                     ))
                                 )}
                             </tbody>

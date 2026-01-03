@@ -21,8 +21,8 @@ export function GeneralLedgerTile() {
 
             // We can also assume we might want to sum totals here if we had a summary endpoint
             setStats({
-                totalRecords: data.meta?.total || 0,
-                lastSync: new Date().toLocaleDateString('cs-CZ') // Approximate
+                totalAccounts: data.meta?.totalAccounts || 0,
+                year: data.meta?.year || new Date().getFullYear()
             });
         } catch (e: any) {
             console.error(e);
@@ -37,7 +37,7 @@ export function GeneralLedgerTile() {
     }, []);
 
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full group relative hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full group relative hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors">
             <Link href="/accounting/reports/general-ledger" className="absolute inset-0 z-10" />
 
             <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/20">
@@ -47,7 +47,7 @@ export function GeneralLedgerTile() {
                     </div>
                     <div>
                         <h3 className="font-semibold text-slate-900 dark:text-white">Hlavní kniha</h3>
-                        <p className="text-xs text-slate-500">Účetní deník</p>
+                        <p className="text-xs text-slate-500">Přehled účtů</p>
                     </div>
                 </div>
             </div>
@@ -58,10 +58,10 @@ export function GeneralLedgerTile() {
                 ) : (
                     <div className="text-center">
                         <div className="text-3xl font-bold text-slate-900 dark:text-white mb-1">
-                            {stats?.totalRecords?.toLocaleString('cs-CZ')}
+                            {stats?.totalAccounts?.toLocaleString('cs-CZ')}
                         </div>
                         <div className="text-sm text-slate-500 mb-4">
-                            Záznamů v deníku
+                            Aktivních účtů {stats?.year}
                         </div>
                         <div className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full group-hover:bg-blue-100 transition-colors">
                             Zobrazit detail <ArrowRight className="w-4 h-4 ml-0.5" />
