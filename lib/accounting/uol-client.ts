@@ -118,9 +118,12 @@ export class UolClient {
         return this.fetchApi<{ items: UolPurchaseInvoiceItem[], _meta: UolMeta }>(`/v1/purchase_invoices?page=${page}&per_page=${perPage}`);
     }
 
-    async getReceivables() {
-        // No pagination logic added yet, just simple fetch as per probe
-        return this.fetchApi<{ items: any[] }>(`/v1/receivables`);
+    async getReceivables(page = 1, perPage = 20) {
+        return this.fetchApi<{ items: any[], _meta: UolMeta }>(`/v1/receivables?page=${page}&per_page=${perPage}`);
+    }
+
+    async getPayables(page = 1, perPage = 20) {
+        return this.fetchApi<{ items: any[], _meta: UolMeta }>(`/v1/payables?page=${page}&per_page=${perPage}`);
     }
 
     async getInvoiceDetail(endpointUrl: string) {

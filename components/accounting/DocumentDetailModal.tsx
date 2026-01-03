@@ -3,6 +3,7 @@
 import { AccountingDocument } from '@/types/accounting';
 import { useState } from 'react';
 import { MappingManager } from './MappingManager';
+import { markInvoiceAsPaid } from '@/lib/accounting/actions';
 
 interface DocumentDetailModalProps {
     open: boolean;
@@ -32,9 +33,24 @@ export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDe
                 {/* Header */}
                 <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50">
                     <h2 className="text-xl font-bold">Detail faktury {document.number}</h2>
-                    <button onClick={() => onOpenChange(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white">
-                        ✕
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {document.type === 'purchase_invoice' && (document.amount - (document.paid_amount || 0)) > 1 && (
+                            <button
+                                onClick={async () => {
+                                    if (confirm('Opravdu chcete označit tuto fakturu jako uhrazenou?')) {
+                                        await markInvoiceAsPaid(document.id, document.amount);
+                                        onOpenChange(false);
+                                    }
+                                }}
+                                className="px-3 py-1.5 text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50 rounded-lg transition-colors mr-2"
+                            >
+                                Označit jako uhrazeno
+                            </button>
+                        )}
+                        <button onClick={() => onOpenChange(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white">
+                            ✕
+                        </button>
+                    </div>
                 </div>
 
                 {/* Tabs */}

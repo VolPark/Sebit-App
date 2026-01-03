@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Search, RefreshCw, Filter, Calendar, Printer } from 'lucide-react';
 import { toast } from 'sonner';
@@ -161,27 +161,27 @@ export default function GeneralLedgerPage() {
                                 </tr>
                             ) : (
                                 groupedData.map((cls: any) => (
-                                    <>
+                                    <React.Fragment key={`class-${cls.code}`}>
                                         {/* CLASS HEADER */}
-                                        <tr key={`class-${cls.code}`} className="bg-slate-100/80 dark:bg-slate-800/80 border-y border-slate-200 dark:border-slate-700">
+                                        <tr className="bg-slate-100/80 dark:bg-slate-800/80 border-y border-slate-200 dark:border-slate-700">
                                             <td colSpan={6} className="px-6 py-2 font-bold text-slate-800 dark:text-slate-100">
                                                 Třída {cls.code}
                                             </td>
                                         </tr>
 
                                         {cls.groups.map((grp: any) => (
-                                            <>
+                                            <React.Fragment key={`group-${grp.code}`}>
                                                 {/* GROUP HEADER */}
-                                                <tr key={`group-${grp.code}`} className="bg-slate-50/80 dark:bg-slate-800/40">
+                                                <tr className="bg-slate-50/80 dark:bg-slate-800/40">
                                                     <td colSpan={6} className="px-6 py-2 font-semibold text-slate-700 dark:text-slate-200">
                                                         Skupina {grp.code}
                                                     </td>
                                                 </tr>
 
                                                 {grp.synths.map((synth: any) => (
-                                                    <>
+                                                    <React.Fragment key={`synth-${synth.code}`}>
                                                         {/* SYNTH HEADER */}
-                                                        <tr key={`synth-${synth.code}`} className="bg-slate-50/30 dark:bg-slate-800/10">
+                                                        <tr className="bg-slate-50/30 dark:bg-slate-800/10">
                                                             <td colSpan={6} className="px-6 py-1.5 font-medium text-slate-600 dark:text-slate-300 pl-8">
                                                                 Syntetický účet {synth.code}
                                                             </td>
@@ -189,9 +189,8 @@ export default function GeneralLedgerPage() {
 
                                                         {/* ACCOUNTS */}
                                                         {synth.accounts.map((acc: any) => (
-                                                            <>
+                                                            <React.Fragment key={acc.account}>
                                                                 <tr
-                                                                    key={acc.account}
                                                                     onClick={() => toggleExpand(acc.account)}
                                                                     className="hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors cursor-pointer group border-b border-slate-100 dark:border-slate-800/30"
                                                                 >
@@ -260,7 +259,7 @@ export default function GeneralLedgerPage() {
                                                                         </td>
                                                                     </tr>
                                                                 )}
-                                                            </>
+                                                            </React.Fragment>
                                                         ))}
 
                                                         {/* SYNTH TOTAL */}
@@ -271,7 +270,7 @@ export default function GeneralLedgerPage() {
                                                             <td className="px-6 py-2 text-right">{currencyFormat(synth.d)}</td>
                                                             <td className="px-6 py-2 text-right">{currencyFormat(synth.final)}</td>
                                                         </tr>
-                                                    </>
+                                                    </React.Fragment>
                                                 ))}
 
                                                 {/* GROUP TOTAL */}
@@ -282,7 +281,7 @@ export default function GeneralLedgerPage() {
                                                     <td className="px-6 py-2 text-right">{currencyFormat(grp.d)}</td>
                                                     <td className="px-6 py-2 text-right">{currencyFormat(grp.final)}</td>
                                                 </tr>
-                                            </>
+                                            </React.Fragment>
                                         ))}
 
                                         {/* CLASS TOTAL */}
@@ -293,7 +292,7 @@ export default function GeneralLedgerPage() {
                                             <td className="px-6 py-3 text-right">{currencyFormat(cls.d)}</td>
                                             <td className="px-6 py-3 text-right">{currencyFormat(cls.final)}</td>
                                         </tr>
-                                    </>
+                                    </React.Fragment>
                                 ))
                             )}
                         </tbody>

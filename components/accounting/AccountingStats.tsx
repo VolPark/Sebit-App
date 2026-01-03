@@ -52,9 +52,8 @@ export function AccountingStats() {
             // Let's count *Documents* that are NOT fully mapped.
             supabase.from('accounting_documents')
                 .select('id, amount, amount_czk, currency, mappings:accounting_mappings(id, amount)')
-                // Maybe just all time? Or current year. Current year is safer.
-                .gte('issue_date', start)
-                .lte('issue_date', end)
+                // Unmapped documents are a "todo" list, so we should show them regardless of year
+                // to prevent missing tasks from previous periods.
                 .neq('status', 'cancelled')
         ]);
 

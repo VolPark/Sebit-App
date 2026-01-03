@@ -11,13 +11,25 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
-        const year = searchParams.get('year') || new Date().getFullYear().toString();
+        const yearParam = searchParams.get('year') || new Date().getFullYear().toString();
+        const year = Number(yearParam);
 
-        // 1. Fetch all journal entries for the year
+        // Determine Cutoff Date
+        const currentYear = new Date().getFullYear();
+        // If selecting a past year, cutoff is Dec 31 of that year.
+        // If selecting current year (or future), cutoff is Today (or just no upper bound? Let's use End of Today to be safe/standard).
+        // Actually, user said "V aktuálním roce to bude od pořátku věku až k dnešnímu dni".
+        const isPastYear = year < currentYear;
+        const cutoffDate = isPastYear
+            ? `${year}-12-31`
+            : new Date().toISOString().split('T')[0]; // Today YYYY-MM-DD
+
+        // 1. Fetch all journal entries from beginning of time up to cutoff
+        // We do NOT filter by fiscal_year='2025' anymore. We fetch everything where date <= cutoff.
         const { data: entries, error } = await supabaseAdmin
             .from('accounting_journal')
-            .select('account_md, account_d, amount')
-            .eq('fiscal_year', year);
+            .select('account_md, account_d, amount, date')
+            .lte('date', cutoffDate);
 
         if (error) throw error;
 
@@ -32,17 +44,43 @@ export async function GET(req: Request) {
         });
 
         // 2. Aggregate Balances
-        const balances: Record<string, { md: number; d: number }> = {};
+        // Balances: { account: { md: 0, d: 0 } }
+        // Special Handling:
+        // - Class 0-4 + 9: Accumulate normally.
+        // - Class 5, 6: 
+        //   - If entry.date is in Selected Year: Accumulate to Class 5/6 (for Current Profit calc).
+        //   - If entry.date < Selected Year: Accumulate to "Retained Earnings" (Virtual 428/429).
 
-        const addBalance = (account: string, amount: number, side: 'md' | 'd') => {
+        const balances: Record<string, { md: number; d: number }> = {};
+        const RETAINED_EARNINGS_ACCOUNT = '428xxx'; // Virtual account for previous years' profit
+
+        const addBalance = (account: string, amount: number, side: 'md' | 'd', date: string) => {
             if (!account) return;
-            if (!balances[account]) balances[account] = { md: 0, d: 0 };
-            balances[account][side] += amount;
+
+            const firstChar = account.charAt(0);
+            const entryYear = new Date(date).getFullYear();
+
+            let targetAccount = account;
+
+            // Logic for Retained Earnings (Profit from previous years)
+            if ((firstChar === '5' || firstChar === '6') && entryYear < year) {
+                // This is an expense/revenue from a previous closed year.
+                // It should be rolled into Retained Earnings.
+                // Expenses (Debit) reduce Retained Earnings (Debit side of 428? Or Credit side of 429? Equity is Liability side).
+                // Profit = Credit - Debit. 
+                // Expenses (Debit) -> Debit 428. Revenue (Credit) -> Credit 428.
+                // Actually 428 is "Nerozdělený zisk minulých let". (Passive/Liability).
+                // If we treat it as a single equity account, specific MD/D works.
+                targetAccount = RETAINED_EARNINGS_ACCOUNT;
+            }
+
+            if (!balances[targetAccount]) balances[targetAccount] = { md: 0, d: 0 };
+            balances[targetAccount][side] += amount;
         };
 
         entries?.forEach(entry => {
-            if (entry.account_md) addBalance(entry.account_md, Number(entry.amount), 'md');
-            if (entry.account_d) addBalance(entry.account_d, Number(entry.amount), 'd');
+            if (entry.account_md) addBalance(entry.account_md, Number(entry.amount), 'md', entry.date);
+            if (entry.account_d) addBalance(entry.account_d, Number(entry.amount), 'd', entry.date);
         });
 
         // 3. Helper to get net balance (MD - D)
@@ -62,15 +100,17 @@ export async function GET(req: Request) {
             'D': { id: 'D', name: 'D. Časové rozlišení (Pasiva)', accounts: [] as any[], balance: 0 }
         };
 
-        let expenseSum = 0; // Class 5
-        let revenueSum = 0; // Class 6 (Credit balance usually)
+        let expenseSum = 0; // Class 5 (Current Year)
+        let revenueSum = 0; // Class 6 (Current Year)
 
         Object.keys(balances).forEach(account => {
             const net = getNet(account);
             const firstChar = account.charAt(0);
             const firstTwo = account.substring(0, 2);
-            // Fallback: Try full account, then first 3 digits
-            const name = accountNames[account] || accountNames[account.substring(0, 3)] || '';
+
+            // Name resolution
+            let name = accountNames[account] || accountNames[account.substring(0, 3)] || '';
+            if (account === RETAINED_EARNINGS_ACCOUNT) name = 'Nerozdělený zisk minulých let';
 
             // Skip zero balance accounts? Or keep them? Usually keep if movement exists.
             if (Math.abs(net) < 0.01 && balances[account].md === 0 && balances[account].d === 0) return;
@@ -79,6 +119,12 @@ export async function GET(req: Request) {
                 expenseSum += net;
             } else if (firstChar === '6') {
                 revenueSum += net;
+            } else if (account === RETAINED_EARNINGS_ACCOUNT) {
+                // Retained Earnings (Equity)
+                // Credit balance (Negative Net) -> Liability A.
+                // Debit balance (Positive Net aka Loss) -> Liability A (Negative).
+                liabilitiesGroups['A'].accounts.push({ account: '428/429', name, balance: -net }); // Invert because Liabilities are Credit
+                liabilitiesGroups['A'].balance += -net;
             } else if (['0', '1', '2', '3', '4', '9'].includes(firstChar)) {
                 // Determine Active/Passive side and Group
 
@@ -138,7 +184,6 @@ export async function GET(req: Request) {
         // Profit = Revenue (Credit) - Expense (Debit)
         // Revenue (Class 6) net is usually negative (Credit). Expense (Class 5) net is positive (Debit).
         // Profit = -(RevenueNet + ExpenseNet)
-        // Example: Rev -1000, Exp +800. Net Sum = -200. Profit = 200.
         const sum5and6 = expenseSum + revenueSum;
         const currentYearProfit = -sum5and6;
 

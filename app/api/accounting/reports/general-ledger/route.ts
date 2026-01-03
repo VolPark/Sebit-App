@@ -11,13 +11,21 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
-        const year = searchParams.get('year') || new Date().getFullYear().toString();
+        const yearParam = searchParams.get('year') || new Date().getFullYear().toString();
+        const year = Number(yearParam);
 
-        // 1. Fetch entries
+        // Determine Cutoff Date
+        const currentYear = new Date().getFullYear();
+        const isPastYear = year < currentYear;
+        const cutoffDate = isPastYear
+            ? `${year}-12-31`
+            : new Date().toISOString().split('T')[0]; // Today YYYY-MM-DD
+
+        // 1. Fetch entries from beginning of time up to cutoff
         const { data: entries, error } = await supabaseAdmin
             .from('accounting_journal')
             .select('*')
-            .eq('fiscal_year', year)
+            .lte('date', cutoffDate)
             .order('date', { ascending: true }); // Chronological for ledger
 
         if (error) throw error;
@@ -48,7 +56,7 @@ export async function GET(req: Request) {
                 ledger[acc] = {
                     account: acc,
                     name: accountNames[acc] || accountNames[acc.substring(0, 3)] || '',
-                    initial: 0, // In future: fetch from previous year closing
+                    initial: 0,
                     md: 0,
                     d: 0,
                     final: 0,
@@ -58,36 +66,65 @@ export async function GET(req: Request) {
             return ledger[acc];
         };
 
+        // Process entries for Initial Balance vs Turnover
         entries?.forEach(entry => {
             const amount = Number(entry.amount);
+            const entryYear = new Date(entry.date).getFullYear();
+            const isPriorYear = entryYear < year;
 
-            // MD Side
-            if (entry.account_md) {
-                const acc = getAccountEntry(entry.account_md);
-                acc.md += amount;
-                acc.transactions.push({ ...entry, side: 'md' });
-            }
+            // Helper to process line
+            const processLine = (accCode: string, side: 'md' | 'd') => {
+                const firstChar = accCode.charAt(0);
 
-            // D Side
-            if (entry.account_d) {
-                const acc = getAccountEntry(entry.account_d);
-                acc.d += amount;
-                acc.transactions.push({ ...entry, side: 'd' });
-            }
+                // PL Accounts (5-6):
+                // - Prior Year -> IGNORE (Closed to Equity in reality, implies 0 initial for this year)
+                // - Current Year -> Add to Turnover
+                if (['5', '6'].includes(firstChar) && isPriorYear) {
+                    return;
+                }
+
+                const acc = getAccountEntry(accCode);
+
+                // Add to transactions list regardless of year (User request: show all details)
+                // For PL accounts, we already filtered out prior years above, so this only adds current year PL + all BS history.
+                if (side === 'md') {
+                    acc.transactions.push({ ...entry, side: 'md' });
+                } else {
+                    acc.transactions.push({ ...entry, side: 'd' });
+                }
+
+                if (isPriorYear) {
+                    // BS Account Prior -> Initial Balance
+                    // If side is 'md', +amount. If 'd', -amount.
+                    if (side === 'md') acc.initial += amount;
+                    else acc.initial -= amount;
+                } else {
+                    // Current Year -> Turnover
+                    if (side === 'md') {
+                        acc.md += amount;
+                    } else {
+                        acc.d += amount;
+                    }
+                }
+            };
+
+            if (entry.account_md) processLine(entry.account_md, 'md');
+            if (entry.account_d) processLine(entry.account_d, 'd');
         });
 
-        // 4. Calculate Final Balances
-        const result = Object.values(ledger).map(acc => {
-            // Logic for Balance Calculation depends on Account Type usually,
-            // but simplified: Active Accounts = Init + MD - D, Passive = Init + D - MD.
-            // For universal view, we can just return MD and D sums, but Final Balance is tricky without knowing Type.
-            // However, usually Ledger displays just "Balance" which is signed, or separate Active/Passive columns.
-            // Let's use simple Net Balance: MD - D.
-            // If Net is positive => Debit balance. If negative => Credit balance.
-
-            acc.final = acc.initial + acc.md - acc.d;
-            return acc;
-        }).sort((a, b) => a.account.localeCompare(b.account));
+        // 4. Calculate Final Balances and Filter Zeros
+        const result = Object.values(ledger)
+            .map(acc => {
+                acc.final = acc.initial + acc.md - acc.d;
+                return acc;
+            })
+            // Filter out accounts that are effectively zero everywhere
+            .filter(acc => {
+                const isZero = (val: number) => Math.abs(val) < 0.01;
+                const empty = isZero(acc.initial) && isZero(acc.md) && isZero(acc.d);
+                return !empty;
+            })
+            .sort((a, b) => a.account.localeCompare(b.account));
 
         return NextResponse.json({
             items: result,

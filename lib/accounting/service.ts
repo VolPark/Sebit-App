@@ -50,9 +50,11 @@ export class AccountingService {
             const journalCount = await this.syncAccountingJournal();
             const { count: accountsCount } = await this.syncBankAccountsMetadata();
             await this.syncAccounts();
+            const receivablesCount = await this.syncReceivables();
+            const payablesCount = await this.syncPayables();
 
             await this.completeLog(logId, 'success');
-            return { sales: salesCount, purchase: purchaseCount, movements: movementsCount, journal: journalCount, accounts: accountsCount };
+            return { sales: salesCount, purchase: purchaseCount, movements: movementsCount, journal: journalCount, accounts: accountsCount, receivables: receivablesCount, payables: payablesCount };
         } catch (e: any) {
             console.error('Sync failed', e);
             await this.completeLog(logId, 'error', e.message);
@@ -457,5 +459,209 @@ export class AccountingService {
         }
         console.log(`Bank Accounts Metadata Sync Complete. Synced ${syncedCount} accounts.`);
         return { count: syncedCount, items: syncedItems };
+    }
+
+    async syncReceivables() {
+        console.log('Starting Receivables (Payment Status) Sync...');
+        let page = 1;
+        let hasNext = true;
+        let totalSynced = 0;
+
+        while (hasNext) {
+            console.log(`Fetching Receivables page ${page}`);
+            try {
+                const res = await this.uolClient.getReceivables(page, 100);
+                const items = res.items || [];
+
+                if (items.length === 0) break;
+
+                for (const item of items) {
+                    // Item contains invoice_public_id (e.g. 2025000005) which matches our accounting_documents.number
+                    // It also contains paid_amount and paid_amount_in_currency (if foreign).
+                    // We need to update existing documents in our DB.
+
+                    const invoiceNumber = String(item.invoice_public_id || item.variable_symbol);
+                    if (!invoiceNumber) continue;
+
+                    // Parse paid amount
+                    // API returns "paid_amount": "64432.5" as string
+                    const paidAmount = parseFloat(item.paid_amount || '0');
+
+                    // We only update if the document exists. We assume syncSalesInvoices created it.
+                    // If not, we skip creating it here as we might miss other details.
+
+                    const { error } = await supabaseAdmin
+                        .from('accounting_documents')
+                        .update({
+                            paid_amount: paidAmount,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('provider_id', this.providerId)
+                        .eq('type', 'sales_invoice') // Receivables are sales invoices
+                        .eq('number', invoiceNumber); // Match by number (VS)
+
+                    if (error) {
+                        console.error(`Error updating payment status for invoice ${invoiceNumber}`, error);
+                    } else {
+                        totalSynced++;
+                    }
+                }
+
+                if (res._meta.pagination?.next) {
+                    page++;
+                } else {
+                    hasNext = false;
+                }
+            } catch (e) {
+                console.error(`Error syncing receivables page ${page}`, e);
+                // Break loop or continue? Let's break to avoid infinite loops on error
+                break;
+            }
+        }
+
+        console.log(`Receivables Sync Complete.Updated ${totalSynced} records.`);
+        return totalSynced;
+    }
+
+    async syncPayables() {
+        console.log('Starting Payables Sync (Smart Local Calculation)...');
+
+        // 1. Fetch all Purchase Invoices (Active)
+        const { data: invoices, error: invError } = await supabaseAdmin
+            .from('accounting_documents')
+            .select('id, number, external_id, amount, paid_amount, issue_date, due_date, currency')
+            .eq('provider_id', this.providerId)
+            .eq('type', 'purchase_invoice');
+
+        if (invError) throw invError;
+        if (!invoices || invoices.length === 0) return 0;
+
+        // 2. Fetch all Bank Movements (Outgoing only)
+        // We select ID and Date for smart matching
+        const { data: movements, error: movError } = await supabaseAdmin
+            .from('accounting_bank_movements')
+            .select('id, amount, variable_symbol, date, raw_data, currency')
+            .lt('amount', 0); // Outgoing payments only
+
+        if (movError) throw movError;
+
+        let totalUpdated = 0;
+
+        // Track which movements have been "consumed" to prevent double-counting 
+        // (though in reality one movement could pay multiple, let's assume 1:1 for fuzzy matches to be safe)
+        const usedMovementIds = new Set<number>();
+
+        // Temporary map to store calculate paid amount per invoice
+        const invoicePaidAmounts: { [key: string]: number } = {};
+
+        // Helper to add paid amount
+        const addPayment = (invoiceId: string, amount: number, movementId: number) => {
+            invoicePaidAmounts[invoiceId] = (invoicePaidAmounts[invoiceId] || 0) + amount;
+            usedMovementIds.add(movementId);
+        };
+
+        // --- PASS 1: Strict Link (Linked Doc Number) ---
+        movements?.forEach(m => {
+            const absAmount = Math.abs(m.amount);
+            const rd = m.raw_data as any;
+            let matched = false;
+
+            if (rd?.items && Array.isArray(rd.items)) {
+                rd.items.forEach((item: any) => {
+                    const linkedId = item.linked_doc?.linked_doc_number;
+                    if (linkedId) {
+                        const strId = String(linkedId);
+                        // Find invoice with this external_id based on assumption that linked_doc_number maps to it
+                        // Or we can try to map it to our invoices array
+                        const inv = invoices.find(i => i.external_id === strId);
+                        if (inv) {
+                            addPayment(inv.id, absAmount, m.id);
+                            matched = true;
+                        }
+                    }
+                });
+            }
+        });
+
+        // --- PASS 2: Variable Symbol Match (Fallback) ---
+        // Only use movements not yet strictly linked? 
+        // Actually, a movement might be split. But for simplicity, if a movement matched by Link, we trust that Link.
+        // If it didn't match by Link, we try VS.
+        movements?.forEach(m => {
+            if (usedMovementIds.has(m.id)) return; // Already fully used? (Simplification: yes)
+
+            if (m.variable_symbol) {
+                const vs = String(m.variable_symbol).replace(/^0+/, ''); // Normalize
+                // Find invoice with this VS (check 'number' field? Assuming invoice.number IS the VS often?)
+                // Or sometimes 'number' is e.g. 2023001 and VS is 2023001.
+                const inv = invoices.find(i => i.number === vs || i.number?.endsWith(vs)); // rudimentary match
+                if (inv) {
+                    addPayment(inv.id, Math.abs(m.amount), m.id);
+                }
+            }
+        });
+
+        // --- PASS 3: Fuzzy Match (Amount + Date) ---
+        // "Ještě mne napadlo... zkuste datum a částku"
+        invoices.forEach(inv => {
+            const currentPaid = invoicePaidAmounts[inv.id] || 0;
+            const remaining = inv.amount - currentPaid;
+
+            // Only try fuzzy match if significantly unpaid
+            // And if the calculated paid amount is less than total amount (to avoid overpaying)
+            if (remaining > 1) {
+                const issueDate = new Date(inv.issue_date || '2000-01-01').getTime();
+
+                // Find candidates in UNUSED movements
+                const candidates = movements?.filter(m => {
+                    if (usedMovementIds.has(m.id)) return false;
+
+                    // 1. Amount Match (Exact or very close)
+                    const absAmount = Math.abs(m.amount);
+                    if (Math.abs(absAmount - remaining) > 1.0) return false; // Tolerance 1 CZK
+
+                    // 2. Currency Match (if available)
+                    if (inv.currency && m.currency && inv.currency !== m.currency) return false;
+
+                    // 3. Date Match (Movement must be AFTER Issue Date, and reasonably close)
+                    const moveDate = new Date(m.date).getTime();
+                    // Allow payment 2 days before issue (sometimes happens) up to 60 days after
+                    const diffDays = (moveDate - issueDate) / (1000 * 60 * 60 * 24);
+                    return diffDays >= -2 && diffDays <= 60;
+                });
+
+                // Only apply if EXACTLY ONE candidate found to avoid false positives with recurring same-amount payments
+                if (candidates && candidates.length === 1) {
+                    const m = candidates[0];
+                    console.log(`[SmartMatch] Matched Invoice ${inv.number} (${inv.amount}) with Movement ${m.id} (${m.amount}) on Date ${m.date}`);
+                    addPayment(inv.id, Math.abs(m.amount), m.id);
+                }
+            }
+        });
+
+        // 4. Update Database
+        for (const inv of invoices) {
+            const newPaidAmount = invoicePaidAmounts[inv.id] || 0;
+
+            // Only update if changed significantly
+            if (Math.abs(newPaidAmount - (inv.paid_amount || 0)) > 0.1) {
+                const { error } = await supabaseAdmin
+                    .from('accounting_documents')
+                    .update({
+                        paid_amount: newPaidAmount,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', inv.id);
+
+                if (error) {
+                    console.error(`Error updating payable status for ${inv.number}`, error);
+                } else {
+                    totalUpdated++;
+                }
+            }
+        }
+
+        console.log(`Payables Sync Complete. Smart matched/updated ${totalUpdated} records.`);
+        return totalUpdated;
     }
 }
