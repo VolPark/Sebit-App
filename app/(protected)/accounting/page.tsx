@@ -10,6 +10,7 @@ import { ProviderSettingsModal } from '@/components/accounting/ProviderSettingsM
 import { AccountingStats } from '@/components/accounting/AccountingStats';
 import { BankAccountsTile } from '@/components/accounting/reports/BankAccountsTile';
 import { GeneralLedgerTile } from '@/components/accounting/reports/GeneralLedgerTile';
+import { JournalTile } from '@/components/accounting/reports/JournalTile';
 import { BalanceSheetTile } from '@/components/accounting/reports/BalanceSheetTile';
 import { ProfitLossTile } from '@/components/accounting/reports/ProfitLossTile';
 import { ReceivablesTile } from '@/components/accounting/reports/ReceivablesTile';
@@ -180,6 +181,11 @@ function AccountingContent() {
                                 {/* General Ledger Tile */}
                                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
                                     <GeneralLedgerTile />
+                                </div>
+
+                                {/* Journal Tile */}
+                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
+                                    <JournalTile />
                                 </div>
                             </div>
                         </div>
