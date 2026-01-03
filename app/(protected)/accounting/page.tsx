@@ -8,6 +8,7 @@ import { DocumentsTable } from '@/components/accounting/DocumentsTable';
 import { toast } from 'sonner';
 import { ProviderSettingsModal } from '@/components/accounting/ProviderSettingsModal';
 import { AccountingStats } from '@/components/accounting/AccountingStats';
+import { BankAccountsTile } from '@/components/accounting/reports/BankAccountsTile';
 
 export default function AccountingPage() {
     const router = useRouter();
@@ -98,12 +99,20 @@ export default function AccountingPage() {
                 {/* Tab Content */}
                 <div className="mt-4">
                     {activeTab === 'overview' && (
-                        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-950 dark:text-slate-50 shadow-sm">
-                            <div className="flex flex-col space-y-1.5 p-6">
-                                <h3 className="font-semibold leading-none tracking-tight">Rychlý přehled</h3>
+                        <div className="flex flex-col gap-6">
+                            {/* Quick Overview (Stats) */}
+                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-950 dark:text-slate-50 shadow-sm">
+                                <div className="flex flex-col space-y-1.5 p-6">
+                                    <h3 className="font-semibold leading-none tracking-tight">Rychlý přehled</h3>
+                                </div>
+                                <div className="p-6 pt-0">
+                                    <AccountingStats />
+                                </div>
                             </div>
-                            <div className="p-6 pt-0">
-                                <AccountingStats />
+
+                            {/* Bank Accounts (Full Width) */}
+                            <div className="h-full min-h-[16rem]">
+                                <BankAccountsTile />
                             </div>
                         </div>
                     )}

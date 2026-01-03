@@ -36,6 +36,16 @@ export async function GET() {
         const list = await client.getBankAccounts();
         const items = list.items || [];
 
+        // 1b. Fetch Custom Names from DB
+        const { data: customNames } = await supabaseAdmin
+            .from('accounting_bank_accounts')
+            .select('bank_account_id, custom_name');
+
+        const nameMap: Record<string, string> = {};
+        customNames?.forEach((row: any) => {
+            nameMap[row.bank_account_id] = row.custom_name;
+        });
+
         // 2. Fetch Details and Calculate Balance from DB Cache
         const accountsWithDetails = await Promise.all(items.map(async (acc: any) => {
             try {
@@ -74,7 +84,9 @@ export async function GET() {
                 return {
                     ...acc,
                     ...detail,
-                    balance: currentBalance
+                    ...detail,
+                    balance: currentBalance,
+                    custom_name: nameMap[acc.bank_account_id] || null
                 };
             } catch (e) {
                 console.error(`Failed to fetch details/movements for account ${acc.bank_account_id}`, e);

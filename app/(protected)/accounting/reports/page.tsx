@@ -1,6 +1,5 @@
 'use client';
 
-import { BankAccountsTile } from '@/components/accounting/reports/BankAccountsTile';
 import { GeneralLedgerTile } from '@/components/accounting/reports/GeneralLedgerTile';
 import { BalanceSheetTile } from '@/components/accounting/reports/BalanceSheetTile';
 import { ProfitLossTile } from '@/components/accounting/reports/ProfitLossTile';
@@ -28,10 +27,7 @@ export default function AccountingReportsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {/* Bank Accounts Tile (Live Data) */}
-                <div className="md:col-span-2 lg:col-span-2 xl:col-span-2 min-h-[16rem]">
-                    <BankAccountsTile />
-                </div>
+
 
                 {/* Placeholders for Future Reports */}
                 {/* Balance Sheet Tile */}

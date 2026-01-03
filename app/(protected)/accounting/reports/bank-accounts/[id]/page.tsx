@@ -70,7 +70,7 @@ export default function BankAccountDetailPage({ params }: { params: Promise<{ id
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link href="/accounting/reports" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                    <Link href="/accounting" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
                         <ArrowLeft className="w-5 h-5 text-slate-500" />
                     </Link>
                     <div>

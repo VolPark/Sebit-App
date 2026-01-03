@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { RefreshCw, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Wallet, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -9,6 +9,11 @@ export function BankAccountsTile() {
     const [accounts, setAccounts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    // Edit State
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editValue, setEditValue] = useState('');
+    const [saving, setSaving] = useState(false);
 
     const fetchAccounts = async (isRefresh = false) => {
         if (isRefresh) setRefreshing(true);
@@ -33,6 +38,48 @@ export function BankAccountsTile() {
     useEffect(() => {
         fetchAccounts();
     }, []);
+
+    const startEditing = (acc: any) => {
+        setEditingId(acc.bank_account_id || acc.id);
+        setEditValue(acc.custom_name || acc.name || acc.bank_account || '');
+    };
+
+    const cancelEditing = () => {
+        setEditingId(null);
+        setEditValue('');
+    };
+
+    const saveName = async (acc: any) => {
+        setSaving(true);
+        const id = acc.bank_account_id || acc.id;
+        try {
+            // Optimistic Update
+            setAccounts(prev => prev.map(a =>
+                (a.bank_account_id || a.id) === id
+                    ? { ...a, custom_name: editValue }
+                    : a
+            ));
+
+            const res = await fetch('/api/accounting/bank-accounts/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bank_account_id: id,
+                    custom_name: editValue
+                })
+            });
+
+            if (!res.ok) throw new Error('Failed to update');
+            toast.success('Název účtu uložen');
+            setEditingId(null);
+
+        } catch (e: any) {
+            toast.error('Chyba při ukládání: ' + e.message);
+            fetchAccounts(true); // Revert
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const currencyFormat = (val: number, curr: any) => {
         let currencyCode = 'CZK';
@@ -86,17 +133,63 @@ export function BankAccountsTile() {
                         {accounts.map((acc: any) => {
                             const balance = Number(acc.balance || acc.opening_balance || 0);
                             const isPositive = balance >= 0;
+                            const isEditing = editingId === (acc.bank_account_id || acc.id);
+                            // Prefer custom_name if set
+                            const displayName = acc.custom_name || acc.name || acc.bank_account || 'Bankovní účet';
 
                             return (
                                 <div key={acc.bank_account_id || acc.id} className="group relative hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all duration-200">
-                                    <Link href={`/accounting/reports/bank-accounts/${acc.bank_account_id || acc.id}`} className="absolute inset-0 z-10" />
+                                    {/* Link covers whole card unless editing */}
+                                    {!isEditing && (
+                                        <Link href={`/accounting/reports/bank-accounts/${acc.bank_account_id || acc.id}`} className="absolute inset-0 z-10" />
+                                    )}
 
-                                    <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-0">
+                                    <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-20 pointer-events-none">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-3 mb-1">
-                                                <span className="font-semibold text-slate-900 dark:text-white truncate text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                                    {acc.name || acc.bank_account || 'Bankovní účet'}
-                                                </span>
+                                                {isEditing ? (
+                                                    <div className="flex items-center gap-2 w-full max-w-xs z-20 pointer-events-auto">
+                                                        <input
+                                                            type="text"
+                                                            value={editValue}
+                                                            onChange={(e) => setEditValue(e.target.value)}
+                                                            className="flex-1 h-8 px-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                                                            autoFocus
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); saveName(acc); }}
+                                                            disabled={saving}
+                                                            className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                                                        >
+                                                            <Check className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); cancelEditing(); }}
+                                                            className="p-1 text-slate-500 hover:bg-slate-100 rounded"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <span className="font-semibold text-slate-900 dark:text-white truncate text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                                            {displayName}
+                                                        </span>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation(); // Prevent link click
+                                                                startEditing(acc);
+                                                            }}
+                                                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-blue-600 transition-opacity z-20 relative pointer-events-auto"
+                                                            title="Přejmenovat"
+                                                        >
+                                                            <Pencil className="w-3 h-3" />
+                                                        </button>
+                                                    </>
+                                                )}
+
                                                 {acc.currency?.currency_id && (
                                                     <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
                                                         {acc.currency.currency_id}
@@ -129,7 +222,7 @@ export function BankAccountsTile() {
                 )}
             </div>
 
-            {/* Footer with last update info if needed */}
+            {/* Footer */}
             {accounts.length > 0 && (
                 <div className="bg-slate-50 dark:bg-slate-800/30 px-6 py-3 border-t border-slate-100 dark:border-slate-800">
                     <p className="text-[10px] text-slate-400 text-center uppercase tracking-wider font-semibold">
