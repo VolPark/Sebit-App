@@ -48,6 +48,7 @@ export class AccountingService {
             const purchaseCount = await this.syncPurchaseInvoices();
             const movementsCount = await this.syncBankMovements();
             const journalCount = await this.syncAccountingJournal();
+            await this.syncAccounts();
 
             await this.completeLog(logId, 'success');
             return { sales: salesCount, purchase: purchaseCount, movements: movementsCount, journal: journalCount };
@@ -404,5 +405,12 @@ export class AccountingService {
 
         console.log(`Journal Sync Complete. Synced ${totalSynced} records.`);
         return totalSynced;
+    }
+
+    async syncAccounts() {
+        // Currently accounts are seeded via SQL migration (15_accounting_accounts.sql).
+        // In the future, if UOL provides an API for Chart of Accounts, we can implement it here.
+        console.log('Accounts: Using seeded Chart of Accounts.');
+        return 0;
     }
 }

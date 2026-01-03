@@ -2,6 +2,8 @@
 
 import { BankAccountsTile } from '@/components/accounting/reports/BankAccountsTile';
 import { GeneralLedgerTile } from '@/components/accounting/reports/GeneralLedgerTile';
+import { BalanceSheetTile } from '@/components/accounting/reports/BalanceSheetTile';
+import { ProfitLossTile } from '@/components/accounting/reports/ProfitLossTile';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -32,24 +34,21 @@ export default function AccountingReportsPage() {
                 </div>
 
                 {/* Placeholders for Future Reports */}
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 flex flex-col justify-center items-center text-center opacity-60">
-                    <div className="font-semibold mb-2">Rozvaha</div>
-                    <div className="text-xs text-slate-500">Bude implementováno</div>
+                {/* Balance Sheet Tile */}
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
+                    <BalanceSheetTile />
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 flex flex-col justify-center items-center text-center opacity-60">
-                    <div className="font-semibold mb-2">Výsledovka</div>
-                    <div className="text-xs text-slate-500">Bude implementováno</div>
+                {/* Profit & Loss Tile (Výsledovka) */}
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
+                    <ProfitLossTile />
                 </div>
                 {/* General Ledger Tile */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
                     <GeneralLedgerTile />
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 flex flex-col justify-center items-center text-center opacity-60">
-                    <div className="font-semibold mb-2">Výsledovka</div>
-                    <div className="text-xs text-slate-500">Bude implementováno</div>
-                </div>
+
             </div>
         </div>
     );
