@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { UolClient } from '@/lib/accounting/uol-client';
+import { AccountingService } from '@/lib/accounting/service';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseAdmin = createClient(
@@ -9,92 +9,85 @@ const supabaseAdmin = createClient(
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
-        const { data: provider, error } = await supabaseAdmin
-            .from('accounting_providers')
-            .select('config')
-            .eq('code', 'uol')
-            .single();
+        const { searchParams } = new URL(req.url);
+        const forceRefresh = searchParams.get('refresh') === 'true';
 
-        if (error || !provider) {
-            return NextResponse.json({ error: "UOL configuration not found" }, { status: 404 });
-        }
+        // 1. Check DB first (unless forced refresh)
+        if (!forceRefresh) {
+            const { data: cachedAccounts, error: dbError } = await supabaseAdmin
+                .from('accounting_bank_accounts')
+                .select('*')
+                .order('name'); // or custom_name
 
-        const config = provider.config as any;
-        if (!config?.email || !config?.apiKey) {
-            return NextResponse.json({ error: "UOL credentials missing in DB config" }, { status: 401 });
-        }
+            if (!dbError && cachedAccounts && cachedAccounts.length > 0) {
+                // Calculate balances using cached movements
+                const accounts = await Promise.all(cachedAccounts.map(async (acc) => {
+                    // Get sum of movements
+                    // Try RPC first, fallback to manual sum if migration not run yet? 
+                    // Let's assume migration is run or use safe JS sum.
 
-        const client = new UolClient({
-            baseUrl: config.baseUrl || 'https://api.uol.cz',
-            email: config.email,
-            apiKey: config.apiKey
-        });
+                    const { data: movements } = await supabaseAdmin
+                        .from('accounting_bank_movements')
+                        .select('amount')
+                        .eq('bank_account_id', acc.bank_account_id);
 
-        // 1. Fetch List from UOL (to get current accounts presence and opening balances)
-        const list = await client.getBankAccounts();
-        const items = list.items || [];
+                    const dbSum = movements?.reduce((sum, m) => sum + (Number(m.amount) || 0), 0) || 0;
+                    const opening = Number(acc.opening_balance || 0);
 
-        // 1b. Fetch Custom Names from DB
-        const { data: customNames } = await supabaseAdmin
-            .from('accounting_bank_accounts')
-            .select('bank_account_id, custom_name');
+                    return {
+                        ...acc,
+                        // Compatibility with frontend expectation
+                        id: acc.bank_account_id,
+                        balance: opening + dbSum,
+                        bank_account: acc.account_number,
+                        // Ensure currency object or string matches frontend
+                        currency: acc.currency ? { currency_id: acc.currency } : 'CZK'
+                    };
+                }));
 
-        const nameMap: Record<string, string> = {};
-        customNames?.forEach((row: any) => {
-            nameMap[row.bank_account_id] = row.custom_name;
-        });
-
-        // 2. Fetch Details and Calculate Balance from DB Cache
-        const accountsWithDetails = await Promise.all(items.map(async (acc: any) => {
-            try {
-                if (!acc.bank_account_id) return acc;
-
-                // Fetch detail from UOL for opening balance
-                // Optimization: Maybe store this in DB too? For now UOL is fast for single items.
-                const detail = await client.getBankAccountDetail(acc.bank_account_id);
-
-                // Calculate movements sum from DB
-                // This is much faster than fetching full history from UOL
-                const { data: movementsSum, error: sumError } = await supabaseAdmin
-                    .rpc('get_bank_movements_sum', { account_id: acc.bank_account_id });
-
-                // If RPC doesn't exist, we might need to select and sum in JS (slower but works without RPC)
-                // Let's fallback to select sum.
-                let dbSum = 0;
-
-                // Supabase doesn't have direct .sum() in JS client easily without grouping.
-                // We can fetch all amounts (lightweight) or creating an RPC is better.
-                // Let's create RPC in the migration or just fetch all amounts.
-                // Fetching 5000 amounts is better than 5000 full objects from external API.
-
-                const { data: amounts } = await supabaseAdmin
-                    .from('accounting_bank_movements')
-                    .select('amount')
-                    .eq('bank_account_id', acc.bank_account_id);
-
-                if (amounts) {
-                    dbSum = amounts.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-                }
-
-                const openingBalance = parseFloat(detail.opening_balance || '0');
-                const currentBalance = openingBalance + dbSum;
-
-                return {
-                    ...acc,
-                    ...detail,
-                    ...detail,
-                    balance: currentBalance,
-                    custom_name: nameMap[acc.bank_account_id] || null
-                };
-            } catch (e) {
-                console.error(`Failed to fetch details/movements for account ${acc.bank_account_id}`, e);
-                return acc; // Fallback to basic info
+                return NextResponse.json({ items: accounts, source: 'cache' });
             }
+        }
+
+        // 2. Sync from UOL (If refresh or empty DB)
+        const service = await AccountingService.init('uol');
+        const { items: syncedItems } = await service.syncBankAccountsMetadata();
+
+        // After sync, re-fetch from DB to ensure consistent return structure from cache logic
+        const { data: cachedAccountsAfterSync } = await supabaseAdmin
+            .from('accounting_bank_accounts')
+            .select('*')
+            .order('name');
+
+        // Fallback: If DB fetch returned empty (e.g. migration missing), use the items we just synced in memory
+        const sourceData = (cachedAccountsAfterSync && cachedAccountsAfterSync.length > 0)
+            ? cachedAccountsAfterSync
+            : syncedItems;
+
+        const accountsWithDetails = await Promise.all((sourceData || []).map(async (acc) => {
+            const { data: movements } = await supabaseAdmin
+                .from('accounting_bank_movements')
+                .select('amount')
+                .eq('bank_account_id', acc.bank_account_id);
+
+            const dbSum = movements?.reduce((sum, m) => sum + (Number(m.amount) || 0), 0) || 0;
+            const opening = Number(acc.opening_balance || 0);
+
+            return {
+                ...acc,
+                id: acc.bank_account_id,
+                balance: opening + dbSum,
+                bank_account: acc.account_number,
+                currency: acc.currency ? { currency_id: acc.currency } : 'CZK',
+                // Return UOL structure compatibility if needed, but UI seems to prioritize DB fields now
+                bank_account_id: acc.bank_account_id
+            };
         }));
 
-        return NextResponse.json({ ...list, items: accountsWithDetails });
+        // Return mostly compatible structure
+        return NextResponse.json({ items: accountsWithDetails, source: 'network' });
     } catch (e: any) {
         console.error('Error fetching bank accounts:', e);
         return NextResponse.json({ error: e.message }, { status: 500 });

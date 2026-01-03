@@ -48,10 +48,11 @@ export class AccountingService {
             const purchaseCount = await this.syncPurchaseInvoices();
             const movementsCount = await this.syncBankMovements();
             const journalCount = await this.syncAccountingJournal();
+            const { count: accountsCount } = await this.syncBankAccountsMetadata();
             await this.syncAccounts();
 
             await this.completeLog(logId, 'success');
-            return { sales: salesCount, purchase: purchaseCount, movements: movementsCount, journal: journalCount };
+            return { sales: salesCount, purchase: purchaseCount, movements: movementsCount, journal: journalCount, accounts: accountsCount };
         } catch (e: any) {
             console.error('Sync failed', e);
             await this.completeLog(logId, 'error', e.message);
@@ -412,5 +413,49 @@ export class AccountingService {
         // In the future, if UOL provides an API for Chart of Accounts, we can implement it here.
         console.log('Accounts: Using seeded Chart of Accounts.');
         return 0;
+    }
+
+    async syncBankAccountsMetadata() {
+        console.log('Starting Bank Accounts Metadata Sync...');
+        const accountsRes = await this.uolClient.getBankAccounts();
+        const items = accountsRes.items || [];
+        let syncedCount = 0;
+        const syncedItems: any[] = [];
+
+        for (const acc of items) {
+            if (!acc.bank_account_id) continue;
+
+            try {
+                const detail = await this.uolClient.getBankAccountDetail(acc.bank_account_id);
+
+                // Prepare data for DB
+                const dbData = {
+                    bank_account_id: acc.bank_account_id,
+                    name: detail.name || acc.name, // Original name
+                    account_number: detail.bank_account || acc.bank_account,
+                    bank_code: detail.bank_code || acc.bank_code,
+                    currency: (typeof detail.currency === 'object' ? detail.currency?.currency_id : detail.currency) || 'CZK',
+                    opening_balance: parseFloat(detail.opening_balance || '0'),
+                    last_synced_at: new Date().toISOString()
+                };
+
+                syncedItems.push(dbData);
+
+                // Upsert
+                const { error } = await supabaseAdmin
+                    .from('accounting_bank_accounts')
+                    .upsert(dbData, { onConflict: 'bank_account_id', ignoreDuplicates: false });
+
+                if (error) {
+                    console.error(`Error upserting bank account metadata for ${acc.bank_account_id}`, error);
+                } else {
+                    syncedCount++;
+                }
+            } catch (e) {
+                console.error(`Failed to sync metadata for account ${acc.bank_account_id}`, e);
+            }
+        }
+        console.log(`Bank Accounts Metadata Sync Complete. Synced ${syncedCount} accounts.`);
+        return { count: syncedCount, items: syncedItems };
     }
 }
