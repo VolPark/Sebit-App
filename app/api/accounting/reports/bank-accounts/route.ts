@@ -21,7 +21,10 @@ export async function GET(req: Request) {
                 .select('*')
                 .order('name'); // or custom_name
 
-            if (!dbError && cachedAccounts && cachedAccounts.length > 0) {
+            // Start check: Ensure we have at least one account AND that it has the expected schema (account_number)
+            const isCacheValid = cachedAccounts && cachedAccounts.length > 0 && cachedAccounts[0].account_number !== undefined;
+
+            if (!dbError && isCacheValid) {
                 // Calculate balances using cached movements
                 const accounts = await Promise.all(cachedAccounts.map(async (acc) => {
                     // Get sum of movements
@@ -61,8 +64,11 @@ export async function GET(req: Request) {
             .select('*')
             .order('name');
 
-        // Fallback: If DB fetch returned empty (e.g. migration missing), use the items we just synced in memory
-        const sourceData = (cachedAccountsAfterSync && cachedAccountsAfterSync.length > 0)
+        // Fallback: If DB fetch returned empty or INCOMPLETE data (e.g. valid rows but missing columns due to migration issues), 
+        // use the items we just synced in memory.
+        const cachedHasData = cachedAccountsAfterSync && cachedAccountsAfterSync.length > 0 && cachedAccountsAfterSync[0].account_number !== undefined;
+
+        const sourceData = cachedHasData
             ? cachedAccountsAfterSync
             : syncedItems;
 

@@ -53,7 +53,7 @@ export default function GeneralLedgerPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <Link href="/accounting/reports" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                    <Link href="/accounting?tab=reports" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
                         <ArrowLeft className="w-5 h-5 text-slate-500" />
                     </Link>
                     <div>
@@ -76,8 +76,8 @@ export default function GeneralLedgerPage() {
                                 key={y}
                                 onClick={() => setYear(y)}
                                 className={`px-3 py-1 text-sm font-medium rounded-md transition-all whitespace-nowrap ${year === y
-                                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                     }`}
                             >
                                 {y}

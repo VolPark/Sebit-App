@@ -45,7 +45,7 @@ export default function ProfitLossPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
                 <div className="flex items-center gap-4">
-                    <Link href="/accounting/reports" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                    <Link href="/accounting?tab=reports" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
                         <ArrowLeft className="w-5 h-5 text-slate-500" />
                     </Link>
                     <div>
@@ -94,8 +94,8 @@ export default function ProfitLossPage() {
 
             {/* Profit Summary */}
             <div className={`p-6 rounded-xl border flex flex-col items-center justify-center gap-2 ${data?.totals.profit >= 0
-                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
-                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
                 }`}>
                 <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Hospodářský výsledek</div>
                 <div className={`text-4xl font-bold ${data?.totals.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'

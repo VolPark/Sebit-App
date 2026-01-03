@@ -2,19 +2,31 @@
 
 import { useEffect, useState } from 'react';
 import { CompanyConfig } from '@/lib/companyConfig';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { RefreshCw, Settings } from 'lucide-react';
 import { DocumentsTable } from '@/components/accounting/DocumentsTable';
 import { toast } from 'sonner';
 import { ProviderSettingsModal } from '@/components/accounting/ProviderSettingsModal';
 import { AccountingStats } from '@/components/accounting/AccountingStats';
 import { BankAccountsTile } from '@/components/accounting/reports/BankAccountsTile';
+import { GeneralLedgerTile } from '@/components/accounting/reports/GeneralLedgerTile';
+import { BalanceSheetTile } from '@/components/accounting/reports/BalanceSheetTile';
+import { ProfitLossTile } from '@/components/accounting/reports/ProfitLossTile';
 
 export default function AccountingPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [isSyncing, setIsSyncing] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    // Initialize tab from URL or default to overview
     const [activeTab, setActiveTab] = useState('overview');
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         if (!CompanyConfig.features.enableAccounting) {
@@ -88,10 +100,10 @@ export default function AccountingPage() {
                             Přijaté faktury
                         </button>
                         <button
-                            onClick={() => router.push('/accounting/reports')}
-                            className="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2"
+                            onClick={() => setActiveTab('reports')}
+                            className={`${activeTab === 'reports' ? 'border-slate-900 text-slate-900 dark:border-white dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'} whitespace-nowrap py-4 px-2 border-b-2 font-medium text-sm flex items-center gap-2`}
                         >
-                            Reporty <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">NOVÉ</span>
+                            Reporty <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full">NOVÉ</span>
                         </button>
                     </nav>
                 </div>
@@ -135,6 +147,27 @@ export default function AccountingPage() {
                             </div>
                             <div className="p-6 pt-0">
                                 <DocumentsTable type="purchase_invoice" />
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'reports' && (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {/* Balance Sheet Tile */}
+                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
+                                    <BalanceSheetTile />
+                                </div>
+
+                                {/* Profit & Loss Tile (Výsledovka) */}
+                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
+                                    <ProfitLossTile />
+                                </div>
+
+                                {/* General Ledger Tile */}
+                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
+                                    <GeneralLedgerTile />
+                                </div>
                             </div>
                         </div>
                     )}

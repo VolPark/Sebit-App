@@ -198,7 +198,11 @@ export function BankAccountsTile() {
                                             </div>
 
                                             <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 font-mono">
-                                                <span>{acc.bank_code ? `${acc.bank_account?.split('/')[0]}/${acc.bank_code}` : acc.bank_account}</span>
+                                                <span>
+                                                    {(acc.bank_account || acc.account_number)
+                                                        ? (acc.bank_code ? `${(acc.bank_account || acc.account_number)?.split('/')[0]}/${acc.bank_code}` : (acc.bank_account || acc.account_number))
+                                                        : <span className="text-slate-300 italic">Číslo účtu nedostupné</span>}
+                                                </span>
                                             </div>
                                         </div>
 
