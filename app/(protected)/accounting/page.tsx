@@ -105,9 +105,9 @@ function AccountingContent() {
                         </button>
                         <button
                             onClick={() => setActiveTab('reports')}
-                            className={`${activeTab === 'reports' ? 'border-slate-900 text-slate-900 dark:border-white dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'} whitespace-nowrap py-4 px-2 border-b-2 font-medium text-sm flex items-center gap-2`}
+                            className={`${activeTab === 'reports' ? 'border-slate-900 text-slate-900 dark:border-white dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                         >
-                            Reporty <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full">NOVÉ</span>
+                            Reporty
                         </button>
                     </nav>
                 </div>
