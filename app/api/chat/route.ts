@@ -8,52 +8,52 @@ import { z } from 'zod';
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-    const { messages } = await req.json();
+  const { messages } = await req.json();
 
-    // Use SERVICE_ROLE key to bypass RLS for AI context
-    const supabaseInfo = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+  // Use SERVICE_ROLE key to bypass RLS for AI context
+  const supabaseInfo = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
-    // 1. Fetch COMPELTE Data (No limits, proper relation IDs)
-    const { data: klienti } = await supabaseInfo.from('klienti').select('*');
-    const { data: pracovnici } = await supabaseInfo.from('pracovnici').select('*');
-    const { data: akce } = await supabaseInfo.from('akce').select('*');
-    const { data: prace } = await supabaseInfo.from('prace').select('*');
-    const { data: mzdy } = await supabaseInfo.from('mzdy').select('*');
-    const { data: fixed_costs } = await supabaseInfo.from('fixed_costs').select('*');
-    const { data: divisions } = await supabaseInfo.from('divisions').select('*');
-    const { data: worker_divisions } = await supabaseInfo.from('worker_divisions').select('*');
-    const { data: nabidky } = await supabaseInfo.from('nabidky').select('*');
-    const { data: nabidky_stavy } = await supabaseInfo.from('nabidky_stavy').select('*');
-    const { data: polozky_nabidky } = await supabaseInfo.from('polozky_nabidky').select('*');
-    const { data: polozky_typy } = await supabaseInfo.from('polozky_typy').select('*');
-    const { data: finance } = await supabaseInfo.from('finance').select('*');
-    const { data: profiles } = await supabaseInfo.from('profiles').select('*');
-    const { data: organizations } = await supabaseInfo.from('organizations').select('*');
-    const { data: organization_members } = await supabaseInfo.from('organization_members').select('*');
-    const { data: app_admins } = await supabaseInfo.from('app_admins').select('*');
-    const { data: accounting_providers } = await supabaseInfo.from('accounting_providers').select('*');
-    const { data: accounting_documents } = await supabaseInfo.from('accounting_documents').select('*');
-    const { data: accounting_mappings } = await supabaseInfo.from('accounting_mappings').select('*');
-    const { data: accounting_sync_logs } = await supabaseInfo.from('accounting_sync_logs').select('*');
-    const { data: currency_rates } = await supabaseInfo.from('currency_rates').select('*');
-    const { data: accounting_journal } = await supabaseInfo.from('accounting_journal').select('*');
-    const { data: accounting_bank_movements } = await supabaseInfo.from('accounting_bank_movements').select('*');
-    const { data: accounting_accounts } = await supabaseInfo.from('accounting_accounts').select('*');
-    const { data: accounting_bank_accounts } = await supabaseInfo.from('accounting_bank_accounts').select('*');
+  // 1. Fetch COMPELTE Data (No limits, proper relation IDs)
+  const { data: klienti } = await supabaseInfo.from('klienti').select('*');
+  const { data: pracovnici } = await supabaseInfo.from('pracovnici').select('*');
+  const { data: akce } = await supabaseInfo.from('akce').select('*');
+  const { data: prace } = await supabaseInfo.from('prace').select('*');
+  const { data: mzdy } = await supabaseInfo.from('mzdy').select('*');
+  const { data: fixed_costs } = await supabaseInfo.from('fixed_costs').select('*');
+  const { data: divisions } = await supabaseInfo.from('divisions').select('*');
+  const { data: worker_divisions } = await supabaseInfo.from('worker_divisions').select('*');
+  const { data: nabidky } = await supabaseInfo.from('nabidky').select('*');
+  const { data: nabidky_stavy } = await supabaseInfo.from('nabidky_stavy').select('*');
+  const { data: polozky_nabidky } = await supabaseInfo.from('polozky_nabidky').select('*');
+  const { data: polozky_typy } = await supabaseInfo.from('polozky_typy').select('*');
+  const { data: finance } = await supabaseInfo.from('finance').select('*');
+  const { data: profiles } = await supabaseInfo.from('profiles').select('*');
+  const { data: organizations } = await supabaseInfo.from('organizations').select('*');
+  const { data: organization_members } = await supabaseInfo.from('organization_members').select('*');
+  const { data: app_admins } = await supabaseInfo.from('app_admins').select('*');
+  const { data: accounting_providers } = await supabaseInfo.from('accounting_providers').select('*');
+  const { data: accounting_documents } = await supabaseInfo.from('accounting_documents').select('*');
+  const { data: accounting_mappings } = await supabaseInfo.from('accounting_mappings').select('*');
+  const { data: accounting_sync_logs } = await supabaseInfo.from('accounting_sync_logs').select('*');
+  const { data: currency_rates } = await supabaseInfo.from('currency_rates').select('*');
+  const { data: accounting_journal } = await supabaseInfo.from('accounting_journal').select('*');
+  const { data: accounting_bank_movements } = await supabaseInfo.from('accounting_bank_movements').select('*');
+  const { data: accounting_accounts } = await supabaseInfo.from('accounting_accounts').select('*');
+  const { data: accounting_bank_accounts } = await supabaseInfo.from('accounting_bank_accounts').select('*');
 
-    // 2. Fetch Calculated Stats (Dashboard View)
-    // We use the same function as the dashboard to ensure consistency
-    let dashboardStats = null;
-    try {
-        dashboardStats = await getDashboardData('last12months', {}, supabaseInfo);
-    } catch (e) {
-        console.error("Failed to fetch dashboard stats for AI context", e);
-    }
+  // 2. Fetch Calculated Stats (Dashboard View)
+  // We use the same function as the dashboard to ensure consistency
+  let dashboardStats = null;
+  try {
+    dashboardStats = await getDashboardData('last12months', {}, supabaseInfo);
+  } catch (e) {
+    console.error("Failed to fetch dashboard stats for AI context", e);
+  }
 
-    const erDiagram = `
+  const erDiagram = `
     erDiagram
   ORGANIZATIONS {
     uuid id PK
@@ -413,7 +413,7 @@ export async function POST(req: Request) {
   ACCOUNTING_BANK_ACCOUNTS ||--o{ ACCOUNTING_BANK_MOVEMENTS : "bank_account_id -> bank_account_id"
     }`;
 
-    const systemPrompt = `
+  const systemPrompt = `
     Jsi AI finanční, účetní, daňový a provozní analytik pro firmu "${process.env.NEXT_PUBLIC_COMPANY_NAME || 'Interiéry Horyna'}".
     Tvým úkolem je odpovídat na dotazy majitele na základě poskytnuté databáze a vysvětlovat kontext, případně porovnávat s benchmarkem.
     
@@ -422,15 +422,15 @@ export async function POST(req: Request) {
     --- DASHBOARD STATISTIKY ---
     Toto jsou oficiální čísla, která vidí uživatel v grafu. Používej je jako referenci pro souhrnné dotazy (zisk, tržby, náklady).
     ${JSON.stringify({
-        celkove_trzby: dashboardStats?.totalRevenue,
-        celkove_naklady: dashboardStats?.totalCosts,
-        hruby_zisk: dashboardStats?.grossProfit,
-        naklady_prace: dashboardStats?.totalLaborCost,
-        naklady_material: dashboardStats?.totalMaterialCost,
-        naklady_rezie: dashboardStats?.totalOverheadCost,
-        vydelecne_akce: dashboardStats?.topClients, // Top clients usually drive revenue
-        top_pracovnici: dashboardStats?.topWorkers
-    }, null, 2)}
+    celkove_trzby: dashboardStats?.totalRevenue,
+    celkove_naklady: dashboardStats?.totalCosts,
+    hruby_zisk: dashboardStats?.grossProfit,
+    naklady_prace: dashboardStats?.totalLaborCost,
+    naklady_material: dashboardStats?.totalMaterialCost,
+    naklady_rezie: dashboardStats?.totalOverheadCost,
+    vydelecne_akce: dashboardStats?.topClients, // Top clients usually drive revenue
+    top_pracovnici: dashboardStats?.topWorkers
+  }, null, 2)}
 
     SCHEMA (ER DIAGRAM):
     ${erDiagram}
@@ -539,7 +539,8 @@ export async function POST(req: Request) {
        - Načítej a používej data z tabulek bez ohledu na stav ukončení.
        - Nikdy nepoužívej technické názvy atributů v tabulkách, používej čitelné názvy.
        - Nikdy nepoužívej technické názvy tabulek, používej čitelné názvy.
-    4. Pokud se ptám na zisk/tržby za rok, podívej se primárně do "DASHBOARD STATISTIKY", jsou nejpřesnější.
+    4. Pokud se ptám na zisk/tržby za rok, podívej se primárně do účetních dat a teprve pak do "DASHBOARD STATISTIKY".
+      - Když se bude volat tool get_dashboard_stats, nebo get_detailed_stats se explicitně zeptej za jaké období se ptá. (např. posledních 12 měsíců, minulý rok, tento rok) a dle toho správněj volej tool.
     5. NIKDY nepoužívej formátování kódu (backticky) pro finanční částky. Částky piš normálně tučně nebo v textu (např. **100 000 CZK**).
     6. Analýzy prováděj důkladně.
     7. Vždy zkontroluj jaký je aktuální datum dle obecné funkce (nespoléhat na info z ai modelu), aby tvé analýzy byli relevantní zárovn toto datum ber jako součást analýzy.
@@ -575,8 +576,8 @@ export async function POST(req: Request) {
         - Příklad:
           \`\`\`json
           [
-            { "id": 1, "jmeno": "Jan Novák", "pozice": "Truhlář" },
-            { "id": 2, "jmeno": "Petr Svoboda", "pozice": "Lakýrník" }
+            { "jmeno": "Jan Novák", "pozice": "Truhlář" },
+            { "jmeno": "Petr Svoboda", "pozice": "Lakýrník" }
           ]
           \`\`\`
 
@@ -589,203 +590,203 @@ export async function POST(req: Request) {
         - Účetní deník (Journal): [Zobrazit Deník](/accounting/reports/journal)
         - Pohledávky (Receivables): [Zobrazit Pohledávky](/accounting/reports/receivables)
         - Závazky (Payables): [Zobrazit Závazky](/accounting/reports/payables)
-        - Bankovní účty (Bank Accounts): [Zobrazit Bankovní účty](/accounting/reports/bank-accounts)
+        - Bankovní účty (Bank Accounts): [Zobrazit Bankovní účty](/accounting/bank-accounts)
 
         Použij syntaxi Markdown pro odkaz: \`[Text odkazu](URL)\`.
   `;
 
-    // DEFINICE MODELŮ: 
-    // Klíče jsou vaše preferované názvy (jak jste zadal).
-    // Hodnoty jsou technická ID, která vyžaduje Google API (aby to nepadalo na 404).
-    const models = [
-        'gemini-3-flash-preview',     // "gemini-3-flash" equivalent (latest experimental)
-        'gemini-2.5-flash',           // "gemini-2.5-flash" equivalent (high performant)
-        'gemini-2.5-flash-lite',         // "gemini-flash" (standard fast)
-        'gemini-flash'       // "gemini-2.5-flash-lite" (cheapest/fastest fallback)
-    ];
+  // DEFINICE MODELŮ: 
+  // Klíče jsou vaše preferované názvy (jak jste zadal).
+  // Hodnoty jsou technická ID, která vyžaduje Google API (aby to nepadalo na 404).
+  const models = [
+    'gemini-3-flash-preview',     // "gemini-3-flash" equivalent (latest experimental)
+    'gemini-2.5-flash',           // "gemini-2.5-flash" equivalent (high performant)
+    'gemini-2.5-flash-lite',         // "gemini-flash" (standard fast)
+    'gemini-flash'       // "gemini-2.5-flash-lite" (cheapest/fastest fallback)
+  ];
 
-    let lastError = null;
-    const attemptLogs: string[] = [];
+  let lastError = null;
+  const attemptLogs: string[] = [];
 
-    for (let i = 0; i < models.length; i++) {
-        const userModelName = models[i];
-        const attemptNum = i + 1;
-        let controller: AbortController | null = null;
-        let timeoutId: NodeJS.Timeout | null = null;
-        const startTime = Date.now();
+  for (let i = 0; i < models.length; i++) {
+    const userModelName = models[i];
+    const attemptNum = i + 1;
+    let controller: AbortController | null = null;
+    let timeoutId: NodeJS.Timeout | null = null;
+    const startTime = Date.now();
 
-        try {
-            console.log(`[AI Fallback] [ATTEMPT ${attemptNum}/${models.length}] Trying model: ${userModelName}`);
-
-            // Create a controller for the connection timeout
-            controller = new AbortController();
-
-            // Set a timeout for the INITIAL connection/response
-            // If the model doesn't start streaming within 30 seconds, we kill it and try next.
-            timeoutId = setTimeout(() => {
-                const duration = Date.now() - startTime;
-                console.warn(`[AI Fallback] [TIMEOUT] Model ${userModelName} timed out after ${duration}ms (limit 30s). Aborting.`);
-                controller?.abort();
-            }, 30000);
-
-            let result;
-            try {
-                result = await streamText({
-                    model: google(userModelName),
-                    messages,
-                    system: systemPrompt,
-                    // @ts-ignore
-                    maxSteps: 5,
-                    maxRetries: 0,
-                    abortSignal: controller.signal,
-                    // @ts-ignore
-                    tools: {
-                        get_dashboard_stats: tool({
-                            description: 'Získá souhrnné statistiky (tržby, náklady, zisk) za určité období.',
-                            parameters: z.object({
-                                period: z.enum(['last12months', 'thisYear', 'lastYear']).describe('Období pro statistiky. Default: last12months'),
-                                divisionId: z.number().optional().describe('ID divize pro filtrování. Nevyplňuj pro celou firmu.'),
-                                klientId: z.number().optional().describe('ID klienta pro filtrování.'),
-                                pracovnikId: z.number().optional().describe('ID pracovníka pro filtrování.')
-                            }),
-                            execute: async ({ period, divisionId, klientId, pracovnikId }: { period?: 'last12months' | 'thisYear' | 'lastYear', divisionId?: number, klientId?: number, pracovnikId?: number }) => {
-                                console.log('[AI Tool] get_dashboard_stats calling...', { period, divisionId, klientId, pracovnikId });
-                                const currentYear = new Date().getFullYear();
-                                let periodArg: 'last12months' | { year: number } = 'last12months';
-                                if (period === 'thisYear') periodArg = { year: currentYear };
-                                if (period === 'lastYear') periodArg = { year: currentYear - 1 };
-                                if (period === 'last12months') periodArg = 'last12months';
-
-                                return await getDashboardData(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null }, supabaseInfo);
-                            }
-                        }),
-                        get_detailed_stats: tool({
-                            description: 'Získá detailní měsíční rozpad a grafy pro tržby, náklady a zisk.',
-                            parameters: z.object({
-                                period: z.enum(['last12months', 'thisYear', 'lastYear']).describe('Období pro statistiky. Default: last12months'),
-                                divisionId: z.number().optional().describe('ID divize pro filtrování.'),
-                                klientId: z.number().optional().describe('ID klienta pro filtrování.'),
-                                pracovnikId: z.number().optional().describe('ID pracovníka pro filtrování.')
-                            }),
-                            execute: async ({ period, divisionId, klientId, pracovnikId }: { period?: 'last12months' | 'thisYear' | 'lastYear', divisionId?: number, klientId?: number, pracovnikId?: number }) => {
-                                console.log('[AI Tool] get_detailed_stats calling...', { period, divisionId, klientId, pracovnikId });
-                                try {
-                                    const currentYear = new Date().getFullYear();
-                                    let periodArg: 'last12months' | { year: number } = 'last12months';
-                                    if (period === 'thisYear') periodArg = { year: currentYear };
-                                    if (period === 'lastYear') periodArg = { year: currentYear - 1 };
-                                    if (period === 'last12months') periodArg = 'last12months';
-
-                                    const stats = await getDetailedStats(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null }, supabaseInfo);
-
-                                    return stats;
-                                } catch (error) {
-                                    console.error('[(AI Tool] get_detailed_stats FAILED:', error);
-                                    return {
-                                        error: "Failed to fetch detailed stats.",
-                                        details: error instanceof Error ? error.message : String(error)
-                                    };
-                                }
-                            }
-                        })
-                    }
-                });
-            } catch (err: any) {
-                // Determine if it was our timeout or a real API error
-                if (err.name === 'AbortError' || controller.signal.aborted) {
-                    throw new Error(`Connection timed out`);
-                }
-                throw err;
-            }
-
-            // Note: streamText might return, but the stream itself might fail immediately.
-            const stream = result.textStream;
-            const iterator = stream[Symbol.asyncIterator]();
-
-            // This await will throw if the timeout fires before data arrives
-            let firstChunk;
-            try {
-                firstChunk = await iterator.next();
-            } catch (err: any) {
-                if (err.name === 'AbortError' || controller.signal.aborted) {
-                    throw new Error(`Connection timed out during stream init`);
-                }
-                throw err;
-            }
-
-            // Clear timeout immediately after getting first byte - connection is established
-            if (timeoutId) clearTimeout(timeoutId);
-
-            if (firstChunk.done) {
-                throw new Error("Stream finished immediately (received empty response)");
-            }
-
-            const cleanStream = new ReadableStream({
-                async start(controller) {
-                    controller.enqueue(firstChunk.value);
-                    try {
-                        for await (const chunk of { [Symbol.asyncIterator]: () => iterator }) {
-                            controller.enqueue(chunk);
-                        }
-                        controller.close();
-                    } catch (error) {
-                        // This catches streaming errors *after* a successful start
-                        console.error(`[AI Fallback] [STREAM ERROR] Model ${userModelName} failed mid-stream:`, error);
-                        controller.error(error);
-                    }
-                }
-            });
-
-            console.log(`[AI Fallback] [SUCCESS] Model ${userModelName} responded successfully in ${Date.now() - startTime}ms.`);
-            return new Response(cleanStream, {
-                status: 200,
-                headers: {
-                    'Content-Type': 'text/plain; charset=utf-8',
-                }
-            });
-
-        } catch (error: any) {
-            // Ensure timeout is cleared if error occurs
-            if (timeoutId) clearTimeout(timeoutId);
-
-            const duration = Date.now() - startTime;
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            const isTimeout = errorMessage.includes("timed out");
-
-            // Format log nicely
-            const failureLog = `[AI Fallback] [FAILURE] Model ${userModelName} failed after ${duration}ms. Reason: ${errorMessage}`;
-            console.warn(failureLog);
-            attemptLogs.push(failureLog);
-
-            // Log to file for persistence
-            try {
-                const fs = await import('fs');
-                const path = await import('path');
-                fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] ${failureLog}\nStack: ${error.stack || 'No stack'}\n\n`);
-            } catch (fsError) {
-                // ignore logging errors
-            }
-
-            lastError = error;
-            if (i < models.length - 1) {
-                console.log(`[AI Fallback] ... switching to next backup model ...`);
-            }
-        }
-    }
-
-    console.error(`[AI Fallback] [CRITICAL] All ${models.length} models failed. Returning 503.`);
-
-    // Log final summary to file
     try {
+      console.log(`[AI Fallback] [ATTEMPT ${attemptNum}/${models.length}] Trying model: ${userModelName}`);
+
+      // Create a controller for the connection timeout
+      controller = new AbortController();
+
+      // Set a timeout for the INITIAL connection/response
+      // If the model doesn't start streaming within 30 seconds, we kill it and try next.
+      timeoutId = setTimeout(() => {
+        const duration = Date.now() - startTime;
+        console.warn(`[AI Fallback] [TIMEOUT] Model ${userModelName} timed out after ${duration}ms (limit 30s). Aborting.`);
+        controller?.abort();
+      }, 30000);
+
+      let result;
+      try {
+        result = await streamText({
+          model: google(userModelName),
+          messages,
+          system: systemPrompt,
+          // @ts-ignore
+          maxSteps: 5,
+          maxRetries: 0,
+          abortSignal: controller.signal,
+          // @ts-ignore
+          tools: {
+            get_dashboard_stats: tool({
+              description: 'Získá souhrnné statistiky (tržby, náklady, zisk) za určité období.',
+              parameters: z.object({
+                period: z.enum(['last12months', 'thisYear', 'lastYear']).describe('Období pro statistiky. Default: last12months'),
+                divisionId: z.number().optional().describe('ID divize pro filtrování. Nevyplňuj pro celou firmu.'),
+                klientId: z.number().optional().describe('ID klienta pro filtrování.'),
+                pracovnikId: z.number().optional().describe('ID pracovníka pro filtrování.')
+              }),
+              execute: async ({ period, divisionId, klientId, pracovnikId }: { period?: 'last12months' | 'thisYear' | 'lastYear', divisionId?: number, klientId?: number, pracovnikId?: number }) => {
+                console.log('[AI Tool] get_dashboard_stats calling...', { period, divisionId, klientId, pracovnikId });
+                const currentYear = new Date().getFullYear();
+                let periodArg: 'last12months' | { year: number } = 'last12months';
+                if (period === 'thisYear') periodArg = { year: currentYear };
+                if (period === 'lastYear') periodArg = { year: currentYear - 1 };
+                if (period === 'last12months') periodArg = 'last12months';
+
+                return await getDashboardData(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null }, supabaseInfo);
+              }
+            }),
+            get_detailed_stats: tool({
+              description: 'Získá detailní měsíční rozpad a grafy pro tržby, náklady a zisk.',
+              parameters: z.object({
+                period: z.enum(['last12months', 'thisYear', 'lastYear']).describe('Období pro statistiky. Default: last12months'),
+                divisionId: z.number().optional().describe('ID divize pro filtrování.'),
+                klientId: z.number().optional().describe('ID klienta pro filtrování.'),
+                pracovnikId: z.number().optional().describe('ID pracovníka pro filtrování.')
+              }),
+              execute: async ({ period, divisionId, klientId, pracovnikId }: { period?: 'last12months' | 'thisYear' | 'lastYear', divisionId?: number, klientId?: number, pracovnikId?: number }) => {
+                console.log('[AI Tool] get_detailed_stats calling...', { period, divisionId, klientId, pracovnikId });
+                try {
+                  const currentYear = new Date().getFullYear();
+                  let periodArg: 'last12months' | { year: number } = 'last12months';
+                  if (period === 'thisYear') periodArg = { year: currentYear };
+                  if (period === 'lastYear') periodArg = { year: currentYear - 1 };
+                  if (period === 'last12months') periodArg = 'last12months';
+
+                  const stats = await getDetailedStats(periodArg, { divisionId: divisionId || null, klientId: klientId || null, pracovnikId: pracovnikId || null }, supabaseInfo);
+
+                  return stats;
+                } catch (error) {
+                  console.error('[(AI Tool] get_detailed_stats FAILED:', error);
+                  return {
+                    error: "Failed to fetch detailed stats.",
+                    details: error instanceof Error ? error.message : String(error)
+                  };
+                }
+              }
+            })
+          }
+        });
+      } catch (err: any) {
+        // Determine if it was our timeout or a real API error
+        if (err.name === 'AbortError' || controller.signal.aborted) {
+          throw new Error(`Connection timed out`);
+        }
+        throw err;
+      }
+
+      // Note: streamText might return, but the stream itself might fail immediately.
+      const stream = result.textStream;
+      const iterator = stream[Symbol.asyncIterator]();
+
+      // This await will throw if the timeout fires before data arrives
+      let firstChunk;
+      try {
+        firstChunk = await iterator.next();
+      } catch (err: any) {
+        if (err.name === 'AbortError' || controller.signal.aborted) {
+          throw new Error(`Connection timed out during stream init`);
+        }
+        throw err;
+      }
+
+      // Clear timeout immediately after getting first byte - connection is established
+      if (timeoutId) clearTimeout(timeoutId);
+
+      if (firstChunk.done) {
+        throw new Error("Stream finished immediately (received empty response)");
+      }
+
+      const cleanStream = new ReadableStream({
+        async start(controller) {
+          controller.enqueue(firstChunk.value);
+          try {
+            for await (const chunk of { [Symbol.asyncIterator]: () => iterator }) {
+              controller.enqueue(chunk);
+            }
+            controller.close();
+          } catch (error) {
+            // This catches streaming errors *after* a successful start
+            console.error(`[AI Fallback] [STREAM ERROR] Model ${userModelName} failed mid-stream:`, error);
+            controller.error(error);
+          }
+        }
+      });
+
+      console.log(`[AI Fallback] [SUCCESS] Model ${userModelName} responded successfully in ${Date.now() - startTime}ms.`);
+      return new Response(cleanStream, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+        }
+      });
+
+    } catch (error: any) {
+      // Ensure timeout is cleared if error occurs
+      if (timeoutId) clearTimeout(timeoutId);
+
+      const duration = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isTimeout = errorMessage.includes("timed out");
+
+      // Format log nicely
+      const failureLog = `[AI Fallback] [FAILURE] Model ${userModelName} failed after ${duration}ms. Reason: ${errorMessage}`;
+      console.warn(failureLog);
+      attemptLogs.push(failureLog);
+
+      // Log to file for persistence
+      try {
         const fs = await import('fs');
         const path = await import('path');
-        fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] ALL MODELS FAILED. Summary:\n${attemptLogs.join('\n')}\n\n`);
-    } catch (e) { }
+        fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] ${failureLog}\nStack: ${error.stack || 'No stack'}\n\n`);
+      } catch (fsError) {
+        // ignore logging errors
+      }
 
-    return new Response(JSON.stringify({
-        error: {
-            message: "AI services are currently overloaded or unavailable. Please try again later.",
-            details: attemptLogs
-        }
-    }), { status: 503 });
+      lastError = error;
+      if (i < models.length - 1) {
+        console.log(`[AI Fallback] ... switching to next backup model ...`);
+      }
+    }
+  }
+
+  console.error(`[AI Fallback] [CRITICAL] All ${models.length} models failed. Returning 503.`);
+
+  // Log final summary to file
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] ALL MODELS FAILED. Summary:\n${attemptLogs.join('\n')}\n\n`);
+  } catch (e) { }
+
+  return new Response(JSON.stringify({
+    error: {
+      message: "AI services are currently overloaded or unavailable. Please try again later.",
+      details: attemptLogs
+    }
+  }), { status: 503 });
 }
