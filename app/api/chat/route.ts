@@ -34,6 +34,15 @@ export async function POST(req: Request) {
     const { data: organizations } = await supabaseInfo.from('organizations').select('*');
     const { data: organization_members } = await supabaseInfo.from('organization_members').select('*');
     const { data: app_admins } = await supabaseInfo.from('app_admins').select('*');
+    const { data: accounting_providers } = await supabaseInfo.from('accounting_providers').select('*');
+    const { data: accounting_documents } = await supabaseInfo.from('accounting_documents').select('*');
+    const { data: accounting_mappings } = await supabaseInfo.from('accounting_mappings').select('*');
+    const { data: accounting_sync_logs } = await supabaseInfo.from('accounting_sync_logs').select('*');
+    const { data: currency_rates } = await supabaseInfo.from('currency_rates').select('*');
+    const { data: accounting_journal } = await supabaseInfo.from('accounting_journal').select('*');
+    const { data: accounting_bank_movements } = await supabaseInfo.from('accounting_bank_movements').select('*');
+    const { data: accounting_accounts } = await supabaseInfo.from('accounting_accounts').select('*');
+    const { data: accounting_bank_accounts } = await supabaseInfo.from('accounting_bank_accounts').select('*');
 
     // 2. Fetch Calculated Stats (Dashboard View)
     // We use the same function as the dashboard to ensure consistency
@@ -46,140 +55,362 @@ export async function POST(req: Request) {
 
     const erDiagram = `
     erDiagram
-    organizations ||--o{ klienti : "owns"
-    organizations ||--o{ pracovnici : "employs"
-    organizations ||--o{ akce : "manages"
-    organizations ||--o{ fixed_costs : "tracks"
-    organizations ||--o{ divisions : "has"
-    organizations ||--o{ nabidky : "issues"
-    organizations ||--o{ finance : "records"
-    organizations ||--o{ organization_members : "has members"
+  ORGANIZATIONS {
+    uuid id PK
+    text name
+    text slug
+    timestamptz created_at
+  }
 
-    divisions ||--o{ akce : "categorizes"
-    divisions ||--o{ prace : "categorizes"
-    divisions ||--o{ fixed_costs : "allocated to"
-    divisions ||--o{ worker_divisions : "staffed by"
-    divisions ||--o{ nabidky : "categorizes"
-    divisions ||--o{ finance : "categorizes"
+  DIVISIONS {
+    int8 id PK
+    text nazev
+    uuid organization_id FK
+    timestamptz created_at
+  }
 
-    klienti ||--o{ akce : "requested by"
-    klienti ||--o{ prace : "billed for"
-    klienti ||--o{ nabidky : "receives"
+  APP_ADMINS {
+    uuid user_id PK FK_auth_users
+  }
 
-    pracovnici ||--o{ prace : "logs"
-    pracovnici ||--o{ mzdy : "earns"
-    pracovnici ||--o{ worker_divisions : "belongs to"
-    
-    akce ||--o{ prace : "composed of"
-    akce ||--o{ nabidky : "related to"
+  PROFILES {
+    uuid id PK FK_auth_users
+    app_role role
+    text full_name
+    timestamptz updated_at
+  }
 
-    nabidky ||--o{ polozky_nabidky : "contains"
-    nabidky }|--|| nabidky_stavy : "has status"
-    
-    profiles ||--o{ organization_members : "is member of"
+  ORGANIZATION_MEMBERS {
+    uuid id PK
+    uuid organization_id FK
+    uuid user_id FK_auth_users
+    text role
+    timestamptz created_at
+  }
 
-    klienti {
-        bigint id PK
-        text nazev
-        numeric sazba
-    }
+  PRACOVNICI {
+    int8 id PK
+    text jmeno
+    numeric hodinova_mzda
+    text telefon
+    bool is_active
+    uuid organization_id FK
+    uuid user_id FK_auth_users
+    text role
+  }
 
-    pracovnici {
-        bigint id PK
-        text jmeno
-        numeric hodinova_mzda
-    }
+  KLIENTI {
+    int8 id PK
+    text nazev
+    numeric sazba
+    text email
+    text poznamka
+    uuid organization_id FK
+    text ico
+    text dic
+    text address
+  }
 
-    akce {
-        bigint id PK
-        text nazev
-        date datum
-        numeric cena_klient
-        numeric material_klient
-        numeric material_my
-        bigint klient_id FK
-    }
+  AKCE {
+    int8 id PK
+    text nazev
+    date datum
+    int8 klient_id FK
+    numeric cena_klient
+    numeric material_klient
+    numeric material_my
+    numeric odhad_hodin
+    timestamptz created_at
+    bool is_completed
+    uuid organization_id FK
+    int8 division_id FK
+    text project_type
+  }
 
-    prace {
-        bigint id PK
-        date datum
-        numeric pocet_hodin
-        bigint pracovnik_id FK
-        bigint akce_id FK
-    }
+  NABIDKY_STAVY {
+    int8 id PK
+    text nazev
+    text color
+    int4 poradi
+  }
 
-    mzdy {
-        bigint id PK
-        integer mesic
-        integer rok
-        numeric celkova_castka
-        bigint pracovnik_id FK
-    }
+  NABIDKY {
+    int8 id PK
+    timestamptz created_at
+    text nazev
+    int8 klient_id FK
+    numeric celkova_cena
+    text stav
+    text poznamka
+    int8 akce_id FK
+    int8 stav_id FK
+    text cislo
+    date platnost_do
+    int8 division_id FK
+  }
 
-    fixed_costs {
-        bigint id PK
-        text nazev
-        numeric castka
-        int4 mesic
-        int4 rok
-        bigint division_id FK
-    }
+  POLOZKY_NABIDKY {
+    int8 id PK
+    int8 nabidka_id FK
+    text nazev
+    text typ
+    numeric mnozstvi
+    numeric cena_ks
+    numeric celkem
+    text popis
+    text obrazek_url
+    numeric sazba_dph
+  }
 
-    divisions {
-        bigint id PK
-        text nazev
-    }
-    
-    worker_divisions {
-        bigint id PK
-        bigint worker_id FK
-        bigint division_id FK
-    }
+  POLOZKY_TYPY {
+    int8 id PK
+    text nazev
+    timestamptz created_at
+  }
 
-    nabidky {
-        bigint id PK
-        text nazev
-        numeric celkova_cena
-        bigint stav_id FK
-        bigint klient_id FK
-        bigint division_id FK
-    }
+  FINANCE {
+    int8 id PK
+    date datum
+    text typ
+    numeric castka
+    text poznamka
+    text popis
+    uuid organization_id FK
+    int8 division_id FK
+    int8 akce_id FK
+    text variable_symbol
+    text invoice_number
+    date due_date
+    text supplier_ico
+    text supplier_name
+    text payment_method
+    text category
+  }
 
-    nabidky_stavy {
-        bigint id PK
-        text nazev
-        text color
-    }
+  FIXED_COSTS {
+    int8 id PK
+    text nazev
+    numeric castka
+    int4 rok
+    int4 mesic
+    timestamptz created_at
+    uuid organization_id FK
+    int8 division_id FK
+  }
 
-    polozky_nabidky {
-        bigint id PK
-        bigint nabidka_id FK
-        text nazev
-        numeric mnozstvi
-        numeric cena_ks
-        numeric celkem
-    }
+  MZDY {
+    int8 id PK
+    int8 pracovnik_id FK
+    int4 mesic
+    int4 rok
+    numeric hruba_mzda
+    numeric faktura
+    numeric priplatek
+    timestamptz created_at
+    uuid organization_id FK
+    numeric celkova_castka
+  }
 
-    finance {
-        bigint id PK
-        date datum
-        text typ "Příjem/Výdej"
-        numeric castka
-        text popis
-        bigint division_id FK
-    }
+  PRACE {
+    int8 id PK
+    date datum
+    text popis
+    numeric pocet_hodin
+    int8 klient_id FK
+    int8 pracovnik_id FK
+    int8 akce_id FK
+    uuid organization_id FK
+    int8 division_id FK
+  }
 
-    profiles {
-        uuid id PK
-        text full_name
-        text role
-    }
-    
-    organization_members {
-        uuid id PK
-        uuid user_id FK
-        uuid organization_id FK
-        text role
+  WORKER_DIVISIONS {
+    int8 id PK
+    int8 worker_id FK
+    int8 division_id FK
+    uuid organization_id FK
+    timestamptz created_at
+  }
+
+  ACCOUNTING_PROVIDERS {
+    int8 id PK
+    text code
+    text name
+    bool is_enabled
+    jsonb config
+    timestamptz created_at
+  }
+
+  ACCOUNTING_DOCUMENTS {
+    int8 id PK
+    int8 provider_id FK
+    text external_id
+    text type
+    text number
+    text supplier_name
+    text supplier_ico
+    numeric amount
+    text currency
+    date issue_date
+    date due_date
+    date tax_date
+    text description
+    text status
+    jsonb raw_data
+    timestamptz created_at
+    timestamptz updated_at
+    text supplier_dic
+    numeric paid_amount
+    numeric amount_czk
+    numeric exchange_rate
+  }
+
+  ACCOUNTING_MAPPINGS {
+    int8 id PK
+    int8 document_id FK
+    int8 akce_id FK
+    int8 pracovnik_id FK
+    int8 division_id FK
+    text cost_category
+    numeric amount
+    text note
+    timestamptz created_at
+    numeric amount_czk
+  }
+
+  ACCOUNTING_SYNC_LOGS {
+    int8 id PK
+    int8 provider_id FK
+    timestamptz started_at
+    timestamptz ended_at
+    text status
+    int4 records_processed
+    text error_message
+  }
+
+  CURRENCY_RATES {
+    date date PK
+    text currency PK
+    numeric rate
+    numeric amount
+    timestamptz created_at
+  }
+
+  ACCOUNTING_JOURNAL {
+    int8 id PK
+    text uol_id
+    date date
+    text account_md
+    text account_d
+    numeric amount
+    text currency
+    text text
+    int4 fiscal_year
+    timestamptz created_at
+  }
+
+  ACCOUNTING_BANK_MOVEMENTS {
+    int8 id PK
+    text bank_account_id
+    text movement_id
+    date date
+    numeric amount
+    text currency
+    text variable_symbol
+    text description
+    jsonb raw_data
+    timestamptz created_at
+  }
+
+  ACCOUNTING_ACCOUNTS {
+    int8 id PK
+    text code
+    text name
+    text type
+    bool active
+    timestamptz created_at
+  }
+
+  ACCOUNTING_BANK_ACCOUNTS {
+    text bank_account_id PK
+    text custom_name
+    timestamptz created_at
+    timestamptz updated_at
+    text account_number
+    text bank_code
+    text currency
+    numeric opening_balance
+    text name
+    timestamptz last_synced_at
+  }
+
+  %% Foreign key relationships
+  DIVISIONS ||--o{ ORGANIZATIONS : "organization_id -> id"
+  DIVISIONS ||--o{ ACCOUNTING_MAPPINGS : "division_id -> id"
+  DIVISIONS ||--o{ PRACE : "division_id -> id"
+  DIVISIONS ||--o{ WORKER_DIVISIONS : "division_id -> id"
+  DIVISIONS ||--o{ NABIDKY : "division_id -> id"
+  DIVISIONS ||--o{ AKCE : "division_id -> id"
+  DIVISIONS ||--o{ FINANCE : "division_id -> id"
+  DIVISIONS ||--o{ FIXED_COSTS : "division_id -> id"
+
+  ORGANIZATIONS ||--o{ DIVISIONS : "id -> organization_id"
+  ORGANIZATIONS ||--o{ WORKER_DIVISIONS : "id -> organization_id"
+  ORGANIZATIONS ||--o{ PRACE : "id -> organization_id"
+  ORGANIZATIONS ||--o{ MZDY : "id -> organization_id"
+  ORGANIZATIONS ||--o{ FIXED_COSTS : "id -> organization_id"
+  ORGANIZATIONS ||--o{ FINANCE : "id -> organization_id"
+  ORGANIZATIONS ||--o{ AKCE : "id -> organization_id"
+  ORGANIZATIONS ||--o{ KLIENTI : "id -> organization_id"
+  ORGANIZATIONS ||--o{ PRACOVNICI : "id -> organization_id"
+  ORGANIZATIONS ||--o{ ORGANIZATION_MEMBERS : "id -> organization_id"
+
+  PRACOVNICI ||--o{ WORKER_DIVISIONS : "id -> worker_id"
+  PRACOVNICI ||--o{ PRACE : "id -> pracovnik_id"
+  PRACOVNICI ||--o{ MZDY : "id -> pracovnik_id"
+  PRACOVNICI ||--o{ ACCOUNTING_MAPPINGS : "id -> pracovnik_id"
+
+  KLIENTI ||--o{ PRACE : "id -> klient_id"
+  KLIENTI ||--o{ AKCE : "id -> klient_id"
+  KLIENTI ||--o{ NABIDKY : "id -> klient_id"
+
+  AKCE ||--o{ FINANCE : "id -> akce_id"
+  AKCE ||--o{ ACCOUNTING_MAPPINGS : "id -> akce_id"
+  AKCE ||--o{ NABIDKY : "id -> akce_id"
+  AKCE ||--o{ PRACE : "id -> akce_id"
+
+  NABIDKY_STAVY ||--o{ NABIDKY : "id -> stav_id"
+
+  NABIDKY ||--o{ POLOZKY_NABIDKY : "id -> nabidka_id"
+
+  ACCOUNTING_PROVIDERS ||--o{ ACCOUNTING_SYNC_LOGS : "id -> provider_id"
+  ACCOUNTING_PROVIDERS ||--o{ ACCOUNTING_DOCUMENTS : "id -> provider_id"
+
+  ACCOUNTING_DOCUMENTS ||--o{ ACCOUNTING_MAPPINGS : "id -> document_id"
+
+  ACCOUNTING_MAPPINGS ||--o{ DIVISIONS : "division_id -> id"
+  ACCOUNTING_MAPPINGS ||--o{ PRACOVNICI : "pracovnik_id -> id"
+  ACCOUNTING_MAPPINGS ||--o{ AKCE : "akce_id -> id"
+  ACCOUNTING_MAPPINGS ||--o{ ACCOUNTING_DOCUMENTS : "document_id -> id"
+
+  ACCOUNTING_SYNC_LOGS ||--o{ ACCOUNTING_PROVIDERS : "provider_id -> id"
+
+  MZDY ||--o{ PRACOVNICI : "pracovnik_id -> id"
+
+  PRACE ||--o{ PRACOVNICI : "pracovnik_id -> id"
+  PRACE ||--o{ KLIENTI : "klient_id -> id"
+  PRACE ||--o{ AKCE : "akce_id -> id"
+
+  WORKER_DIVISIONS ||--o{ PRACOVNICI : "worker_id -> id"
+  WORKER_DIVISIONS ||--o{ DIVISIONS : "division_id -> id"
+
+  FINANCE ||--o{ ORGANIZATIONS : "organization_id -> id"
+  FINANCE ||--o{ DIVISIONS : "division_id -> id"
+  FINANCE ||--o{ AKCE : "akce_id -> id"
+
+  FIXED_COSTS ||--o{ ORGANIZATIONS : "organization_id -> id"
+  FIXED_COSTS ||--o{ DIVISIONS : "division_id -> id"
+
+  ACCOUNTING_BANK_ACCOUNTS ||--o{ ACCOUNTING_BANK_MOVEMENTS : "bank_account_id -> bank_account_id"
     }`;
 
     const systemPrompt = `
@@ -256,6 +487,33 @@ export async function POST(req: Request) {
 
     --- APP ADMINI (app_admins) ---
     ${JSON.stringify(app_admins)}
+
+    --- ÚČETNÍ POSKYTOVATELÉ (accounting_providers) ---
+    ${JSON.stringify(accounting_providers)}
+
+    --- ÚČETNÍ DOKLADY (accounting_documents) ---
+    ${JSON.stringify(accounting_documents)}
+
+    --- ÚČETNÍ MAPOVÁNÍ (accounting_mappings) ---
+    ${JSON.stringify(accounting_mappings)}
+
+    --- LOGY SYNCHRONIZACE (accounting_sync_logs) ---
+    ${JSON.stringify(accounting_sync_logs)}
+
+    --- KURZOVNÍ LÍSTEK (currency_rates) ---
+    ${JSON.stringify(currency_rates)}
+
+    --- ÚČETNÍ DENÍK (accounting_journal) ---
+    ${JSON.stringify(accounting_journal)}
+
+    --- BANKOVNÍ POHYBY (accounting_bank_movements) ---
+    ${JSON.stringify(accounting_bank_movements)}
+
+    --- ÚČTOVÝ ROZVRH (accounting_accounts) ---
+    ${JSON.stringify(accounting_accounts)}
+
+    --- BANKOVNÍ ÚČTY (accounting_bank_accounts) ---
+    ${JSON.stringify(accounting_bank_accounts)}
 
 
     PRAVIDLA:
