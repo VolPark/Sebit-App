@@ -70,11 +70,11 @@ export async function POST(req: Request) {
   }
 
   APP_ADMINS {
-    uuid user_id PK FK_auth_users
+    uuid user_id PK FK "auth_users"
   }
 
   PROFILES {
-    uuid id PK FK_auth_users
+    uuid id PK FK "auth_users"
     app_role role
     text full_name
     timestamptz updated_at
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
   ORGANIZATION_MEMBERS {
     uuid id PK
     uuid organization_id FK
-    uuid user_id FK_auth_users
+    uuid user_id FK "auth_users"
     text role
     timestamptz created_at
   }
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
     text telefon
     bool is_active
     uuid organization_id FK
-    uuid user_id FK_auth_users
+    uuid user_id FK "auth_users"
     text role
   }
 
