@@ -219,7 +219,7 @@ export class AccountingService {
 
         const { data: existing, error: fetchError } = await supabaseAdmin
             .from('accounting_documents')
-            .select('id')
+            .select('id, manually_paid')
             .eq('provider_id', this.providerId)
             .eq('type', type) // Ensure we don't mix types if IDs overlap
             .eq('external_id', payload.external_id)
@@ -231,6 +231,11 @@ export class AccountingService {
         }
 
         if (existing) {
+            // We MUST NOT overwrite paid_amount if manually_paid is true.
+            if (existing.manually_paid) {
+                delete payload.paid_amount;
+            }
+
             const { error } = await supabaseAdmin
                 .from('accounting_documents')
                 .update(payload)
@@ -643,8 +648,8 @@ export class AccountingService {
         for (const inv of invoices) {
             const newPaidAmount = invoicePaidAmounts[inv.id] || 0;
 
-            // Only update if changed significantly
-            if (Math.abs(newPaidAmount - (inv.paid_amount || 0)) > 0.1) {
+            // Only update if changed significantly AND not manually paid
+            if (Math.abs(newPaidAmount - (inv.paid_amount || 0)) > 0.1 && !inv.manually_paid) {
                 const { error } = await supabaseAdmin
                     .from('accounting_documents')
                     .update({

@@ -12,6 +12,7 @@ export async function markInvoiceAsPaid(documentId: number, amount: number) {
         .from('accounting_documents')
         .update({
             paid_amount: amount,
+            manually_paid: true,
             updated_at: new Date().toISOString()
         })
         .eq('id', documentId);

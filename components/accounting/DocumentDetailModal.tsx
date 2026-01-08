@@ -13,6 +13,7 @@ interface DocumentDetailModalProps {
 
 export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDetailModalProps) {
     const [activeTab, setActiveTab] = useState<'detail' | 'mapping' | 'raw'>('detail');
+    const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
 
     if (!open) return null;
 
@@ -36,12 +37,7 @@ export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDe
                     <div className="flex items-center gap-2">
                         {document.type === 'purchase_invoice' && (document.amount - (document.paid_amount || 0)) > 1 && (
                             <button
-                                onClick={async () => {
-                                    if (confirm('Opravdu chcete označit tuto fakturu jako uhrazenou?')) {
-                                        await markInvoiceAsPaid(document.id, document.amount);
-                                        onOpenChange(false);
-                                    }
-                                }}
+                                onClick={() => setShowPaymentConfirm(true)}
                                 className="px-3 py-1.5 text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50 rounded-lg transition-colors mr-2"
                             >
                                 Označit jako uhrazeno
@@ -238,6 +234,36 @@ export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDe
                     )}
                 </div>
             </div>
+            {showPaymentConfirm && (
+                <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl w-full max-w-sm shadow-2xl p-6 space-y-4 scale-100 animate-in zoom-in-95 duration-200">
+                        <div className="space-y-2 text-center">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Potvrzení úhrady</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                Opravdu chcete označit tuto fakturu jako uhrazenou? Tato akce ručně nastaví stav "Uhrazeno".
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 pt-2">
+                            <button
+                                onClick={() => setShowPaymentConfirm(false)}
+                                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                            >
+                                Zrušit
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    await markInvoiceAsPaid(document.id, document.amount);
+                                    setShowPaymentConfirm(false);
+                                    onOpenChange(false);
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-brand-primary-foreground bg-brand-primary hover:bg-brand-primary/90 dark:text-slate-900 rounded-lg transition-colors shadow-lg shadow-brand-primary/20"
+                            >
+                                Potvrdit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

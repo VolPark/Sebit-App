@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, RefreshCw, Printer } from 'lucide-react';
 import { toast } from 'sonner';
@@ -117,9 +117,9 @@ export default function BalanceSheetPage() {
                                     <tr><td colSpan={2} className="px-4 py-8 text-center text-slate-500">Žádná aktiva</td></tr>
                                 ) : (
                                     data?.assets.map((group: any) => (
-                                        <>
+                                        <Fragment key={group.id}>
                                             {/* Group Header */}
-                                            <tr key={group.id} className="bg-slate-50/80 dark:bg-slate-800/50 font-semibold">
+                                            <tr className="bg-slate-50/80 dark:bg-slate-800/50 font-semibold">
                                                 <td className="px-4 py-2 text-slate-900 dark:text-white">
                                                     {group.name}
                                                 </td>
@@ -138,7 +138,7 @@ export default function BalanceSheetPage() {
                                                     </td>
                                                 </tr>
                                             ))}
-                                        </>
+                                        </Fragment>
                                     ))
                                 )}
                             </tbody>
@@ -169,9 +169,9 @@ export default function BalanceSheetPage() {
                                     <tr><td colSpan={2} className="px-4 py-8 text-center text-slate-500">Žádná pasiva</td></tr>
                                 ) : (
                                     data?.liabilities.map((group: any) => (
-                                        <>
+                                        <Fragment key={group.id}>
                                             {/* Group Header */}
-                                            <tr key={group.id} className="bg-slate-50/80 dark:bg-slate-800/50 font-semibold">
+                                            <tr className="bg-slate-50/80 dark:bg-slate-800/50 font-semibold">
                                                 <td className="px-4 py-2 text-slate-900 dark:text-white">
                                                     {group.name}
                                                 </td>
@@ -190,7 +190,7 @@ export default function BalanceSheetPage() {
                                                     </td>
                                                 </tr>
                                             ))}
-                                        </>
+                                        </Fragment>
                                     ))
                                 )}
                             </tbody>

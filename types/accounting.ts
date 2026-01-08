@@ -9,6 +9,7 @@ export interface AccountingDocument {
     supplier_dic: string | null;
     amount: number;
     paid_amount?: number; // Fetched from receivables/payables
+    manually_paid?: boolean;
     currency: string;
     issue_date: string;
     due_date: string;
