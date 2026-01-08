@@ -16,31 +16,60 @@ export async function POST(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // 1. Fetch COMPELTE Data (No limits, proper relation IDs)
+  // 1. Fetch Data - OPTIMIZED: Only fetch recent history (Current Year + Last Year)
+  const currentYear = new Date().getFullYear();
+  const startYear = currentYear - 1;
+  const startDateIso = `${startYear}-01-01`;
+
   const { data: klienti } = await supabaseInfo.from('klienti').select('*');
   const { data: pracovnici } = await supabaseInfo.from('pracovnici').select('*');
-  const { data: akce } = await supabaseInfo.from('akce').select('*');
-  const { data: prace } = await supabaseInfo.from('prace').select('*');
-  const { data: mzdy } = await supabaseInfo.from('mzdy').select('*');
-  const { data: fixed_costs } = await supabaseInfo.from('fixed_costs').select('*');
+  const { data: akce } = await supabaseInfo.from('akce').select('*').gte('created_at', startDateIso).or(`is_completed.eq.false`); // Keep active projects regardless of date
+  const { data: prace } = await supabaseInfo.from('prace').select('*').gte('datum', startDateIso);
+  const { data: mzdy } = await supabaseInfo.from('mzdy').select('*').gte('rok', startYear);
+  const { data: fixed_costs } = await supabaseInfo.from('fixed_costs').select('*').gte('rok', startYear);
   const { data: divisions } = await supabaseInfo.from('divisions').select('*');
   const { data: worker_divisions } = await supabaseInfo.from('worker_divisions').select('*');
-  const { data: nabidky } = await supabaseInfo.from('nabidky').select('*');
+  const { data: nabidky } = await supabaseInfo.from('nabidky').select('*').gte('created_at', startDateIso);
   const { data: nabidky_stavy } = await supabaseInfo.from('nabidky_stavy').select('*');
-  const { data: polozky_nabidky } = await supabaseInfo.from('polozky_nabidky').select('*');
+  const { data: polozky_nabidky } = await supabaseInfo.from('polozky_nabidky').select('*'); // Should ideally filter by nabidka_id from fetched nabidky, but fetching all for now is safer for relations if not huge
   const { data: polozky_typy } = await supabaseInfo.from('polozky_typy').select('*');
-  const { data: finance } = await supabaseInfo.from('finance').select('*');
+  const { data: finance } = await supabaseInfo.from('finance').select('*').gte('datum', startDateIso);
   const { data: profiles } = await supabaseInfo.from('profiles').select('*');
   const { data: organizations } = await supabaseInfo.from('organizations').select('*');
   const { data: organization_members } = await supabaseInfo.from('organization_members').select('*');
   const { data: app_admins } = await supabaseInfo.from('app_admins').select('*');
   const { data: accounting_providers } = await supabaseInfo.from('accounting_providers').select('*');
-  const { data: accounting_documents } = await supabaseInfo.from('accounting_documents').select('*');
-  const { data: accounting_mappings } = await supabaseInfo.from('accounting_mappings').select('*');
-  const { data: accounting_sync_logs } = await supabaseInfo.from('accounting_sync_logs').select('*');
-  const { data: currency_rates } = await supabaseInfo.from('currency_rates').select('*');
-  const { data: accounting_journal } = await supabaseInfo.from('accounting_journal').select('*');
-  const { data: accounting_bank_movements } = await supabaseInfo.from('accounting_bank_movements').select('*');
+
+  // HEAVY TABLES: Filter by date & Exclude raw_data
+  const { data: accounting_documents } = await supabaseInfo
+    .from('accounting_documents')
+    .select('id, provider_id, external_id, type, number, supplier_name, supplier_ico, amount, currency, issue_date, due_date, tax_date, description, status, updated_at, supplier_dic, paid_amount, amount_czk, exchange_rate, created_at')
+    .gte('issue_date', startDateIso);
+
+  const { data: accounting_mappings } = await supabaseInfo
+    .from('accounting_mappings')
+    .select('*')
+    .gte('created_at', startDateIso);
+
+  const { data: accounting_sync_logs } = await supabaseInfo
+    .from('accounting_sync_logs')
+    .select('*')
+    .gte('started_at', startDateIso)
+    .order('started_at', { ascending: false })
+    .limit(50); // Limit logs
+
+  const { data: currency_rates } = await supabaseInfo.from('currency_rates').select('*').gte('date', startDateIso);
+
+  const { data: accounting_journal } = await supabaseInfo
+    .from('accounting_journal')
+    .select('*')
+    .gte('date', startDateIso);
+
+  const { data: accounting_bank_movements } = await supabaseInfo
+    .from('accounting_bank_movements')
+    .select('id, bank_account_id, movement_id, date, amount, currency, variable_symbol, description, created_at') // Exclude raw_data
+    .gte('date', startDateIso);
+
   const { data: accounting_accounts } = await supabaseInfo.from('accounting_accounts').select('*');
   const { data: accounting_bank_accounts } = await supabaseInfo.from('accounting_bank_accounts').select('*');
 
@@ -417,7 +446,8 @@ export async function POST(req: Request) {
     Jsi AI finanční, účetní, daňový a provozní analytik pro firmu "${process.env.NEXT_PUBLIC_COMPANY_NAME || 'Interiéry Horyna'}".
     Tvým úkolem je odpovídat na dotazy majitele na základě poskytnuté databáze a vysvětlovat kontext, případně porovnávat s benchmarkem.
     
-    Máš k dispozici KOMPLETNÍ data z databáze ve formátu JSON a také PŘEDPOČÍTANÉ STATISTIKY z dashboardu.
+    Máš k dispozici data z databáze (FILTROVÁNO: POUZE AKTUÁLNÍ A MINULÝ ROK - ${startYear} a ${currentYear}) a také PŘEDPOČÍTANÉ STATISTIKY z dashboardu.
+    Pokud uživatel vyžaduje straší data, upozorni ho, že vidíš detailně pouze poslední 2 roky, ale můžeš se pokusit odpovědět z obecných statistik pokud jsou dostupné.
     
     --- DASHBOARD STATISTIKY ---
     Toto jsou oficiální čísla, která vidí uživatel v grafu. Používej je jako referenci pro souhrnné dotazy (zisk, tržby, náklady).
