@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AccountingDocument } from '@/types/accounting';
 import { DocumentDetailModal } from '@/components/accounting/DocumentDetailModal';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { PdfDownloadButton } from '@/components/accounting/reports/PdfDownloadButton';
+import { ReceivablesPdf } from '@/components/accounting/reports/ReceivablesPdf';
 
 interface GroupedReceivables {
     supplier_name: string;
@@ -133,10 +135,13 @@ export function ReceivablesReport() {
                     </div>
 
                     <div className="flex flex-col items-end gap-4">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900 rounded-lg text-sm font-medium transition-colors hover:bg-slate-800 dark:hover:bg-slate-200 shadow-sm">
-                            <Printer className="w-4 h-4" />
-                            Vytisknout PDF
-                        </button>
+                        {groupedData.length > 0 && (
+                            <PdfDownloadButton
+                                document={<ReceivablesPdf data={groupedData} />}
+                                fileName={`Pohledavky_${new Date().toLocaleDateString('cs-CZ')}.pdf`}
+                                label="Vytisknout PDF"
+                            />
+                        )}
                         <div className="text-right space-y-2 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
                             <div className="flex justify-between gap-8 text-sm text-slate-500">
                                 <span>Počet dlužníků:</span>
