@@ -27,11 +27,11 @@ const Bar = ({ value, maxValue, label, color }: { value: number, maxValue: numbe
 
 interface BarChartProps {
   data: MonthlyData[];
-  onMonthClick: (monthData: MonthlyData) => void;
-  selectedMonth: MonthlyData | null;
+  onMonthClick: (monthData: MonthlyData, isMultiSelect: boolean) => void;
+  selectedMonths: MonthlyData[];
 }
 
-export default function BarChart({ data, onMonthClick, selectedMonth }: BarChartProps) {
+export default function BarChart({ data, onMonthClick, selectedMonths }: BarChartProps) {
   const maxValue = useMemo(() => {
     return Math.max(...data.map(d => d.totalRevenue), ...data.map(d => d.totalCosts));
   }, [data]);
@@ -41,12 +41,12 @@ export default function BarChart({ data, onMonthClick, selectedMonth }: BarChart
       <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase mb-4">Měsíční přehled (Příjmy vs. Náklady)</h3>
       <div className="flex-grow flex items-end gap-2 sm:gap-4 overflow-x-auto pb-2">
         {data.map((monthData) => {
-          const isSelected = selectedMonth?.month === monthData.month && selectedMonth?.year === monthData.year;
+          const isSelected = selectedMonths.some(m => m.month === monthData.month && m.year === monthData.year);
           return (
             <div
               key={monthData.month + monthData.year}
               className={`h-full w-full flex flex-col items-center cursor-pointer p-2 rounded-lg transition-colors ${isSelected ? 'bg-gray-100 dark:bg-slate-800' : 'hover:bg-gray-50 dark:hover:bg-slate-800/50'}`}
-              onClick={() => onMonthClick(monthData)}
+              onClick={(e) => onMonthClick(monthData, e.ctrlKey || e.metaKey)}
             >
               <div className="relative w-full h-full flex justify-center items-end gap-1">
                 {/* Revenue Bar */}

@@ -120,11 +120,66 @@ const DashboardControls = ({ filters, setFilters, workers, clients, divisions, s
   );
 };
 
-const DashboardKpiGrid = ({ data, selectedMonth }: { data: DashboardData, selectedMonth: MonthlyData | null | undefined }) => {
-  const kpiData = selectedMonth ?? data;
+const DashboardKpiGrid = ({ data, selectedMonths }: { data: DashboardData, selectedMonths: MonthlyData[] }) => {
+  // Aggregate data if months are selected
+  const kpiData = useMemo(() => {
+    if (!selectedMonths || selectedMonths.length === 0) return data;
+
+    // Aggregation Logic
+    const agg = {
+      totalRevenue: 0,
+      totalCosts: 0,
+      grossProfit: 0,
+      materialProfit: 0,
+      totalMaterialCost: 0,
+      totalLaborCost: 0,
+      totalOverheadCost: 0,
+      totalHours: 0,
+      totalEstimatedHours: 0,
+      averageHourlyWage: 0,
+      avgCompanyRate: 0,
+    };
+
+    selectedMonths.forEach(m => {
+      agg.totalRevenue += m.totalRevenue;
+      agg.totalCosts += m.totalCosts;
+      agg.grossProfit += m.grossProfit;
+      agg.materialProfit += m.materialProfit;
+      agg.totalMaterialCost += m.totalMaterialCost;
+      agg.totalLaborCost += m.totalLaborCost;
+      agg.totalOverheadCost += m.totalOverheadCost;
+      agg.totalHours += m.totalHours;
+      agg.totalEstimatedHours += m.totalEstimatedHours;
+    });
+
+    // Recalculate Ratios
+    agg.averageHourlyWage = agg.totalHours > 0 ? agg.totalLaborCost / agg.totalHours : 0;
+    agg.avgCompanyRate = agg.totalHours > 0 ? (agg.totalRevenue - (agg.totalMaterialCost + agg.materialProfit)) / agg.totalHours : 0; // Approx logic matching Dashboard
+
+    // Note: Dashboard logic for avgCompanyRate is (Revenue - Material) / Hours. 
+    // MaterialCost + MaterialProfit = TotalMaterial (Price to client).
+    // Let's use the same logic as dashboard.ts: (totalRevenue - totalMaterialKlient) / totalHours
+    // But we don't have totalMaterialKlient in agg yet.
+    // Let's simpler way: Weighted average? No, simple division of sums is correct for rates.
+    // We need totalMaterialKlient to be accurate.
+    let totalMaterialKlient = 0;
+    selectedMonths.forEach(m => totalMaterialKlient += m.totalMaterialKlient);
+
+    agg.avgCompanyRate = agg.totalHours > 0 ? (agg.totalRevenue - totalMaterialKlient) / agg.totalHours : 0;
+
+    return agg;
+  }, [data, selectedMonths]);
+
+
   const currency = new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 });
-  const titleSuffix = selectedMonth ? `(${selectedMonth.month}) ` : '';
-  const helpText = selectedMonth ? `Data za ${selectedMonth.month} ${selectedMonth.year}` : "Data za celé období";
+
+  const titleSuffix = selectedMonths.length > 0
+    ? `(${selectedMonths.length === 1 ? selectedMonths[0].month : `${selectedMonths.length} měsíců`}) `
+    : '';
+
+  const helpText = selectedMonths.length > 0
+    ? `Data za vybrané období: ${selectedMonths.map(m => m.month).join(', ')}`
+    : "Data za celé období";
 
   const costsPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.totalCosts / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
   const profitPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.grossProfit / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
@@ -600,7 +655,7 @@ function DashboardContent() {
   const [workers, setWorkers] = useState<FilterOption[]>([]);
   const [clients, setClients] = useState<FilterOption[]>([]);
   const [divisions, setDivisions] = useState<FilterOption[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<MonthlyData | null>(null);
+  const [selectedMonths, setSelectedMonths] = useState<MonthlyData[]>([]);
   const [selectedAction, setSelectedAction] = useState<ActionStats | null>(null);
   const [selectedWorker, setSelectedWorker] = useState<WorkerStats | null>(null);
 
@@ -643,7 +698,7 @@ function DashboardContent() {
       setDetailedStats(stats);
       setExperimentalData(expStats);
 
-      setSelectedMonth(null);
+      setSelectedMonths([]);
       setLoading(false);
     }
     loadDashboard();
@@ -651,13 +706,57 @@ function DashboardContent() {
 
   const currency = useMemo(() => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }), []);
 
-  const handleMonthClick = (monthData: MonthlyData) => {
-    if (selectedMonth && selectedMonth.month === monthData.month && selectedMonth.year === monthData.year) {
-      setSelectedMonth(null);
+  const handleMonthClick = (monthData: MonthlyData, isMultiSelect: boolean) => {
+    if (isMultiSelect) {
+      // Toggle
+      const exists = selectedMonths.some(m => m.month === monthData.month && m.year === monthData.year);
+      if (exists) {
+        setSelectedMonths(selectedMonths.filter(m => !(m.month === monthData.month && m.year === monthData.year)));
+      } else {
+        setSelectedMonths([...selectedMonths, monthData]);
+      }
     } else {
-      setSelectedMonth(monthData);
+      // Single Select Logic
+      if (selectedMonths.length === 1 && selectedMonths[0].month === monthData.month && selectedMonths[0].year === monthData.year) {
+        // Deselect if clicking the same single selected month
+        setSelectedMonths([]);
+      } else {
+        // Replace selection
+        setSelectedMonths([monthData]);
+      }
     }
   };
+
+  // Helper to aggregate top lists filter
+  const aggregatedTopClients = useMemo(() => {
+    if (selectedMonths.length === 0) return data?.topClients || [];
+
+    const map = new Map<number, { klient_id: number; nazev: string; total: number }>();
+    selectedMonths.forEach(m => {
+      m.topClients.forEach(c => {
+        const curr = map.get(c.klient_id) || { klient_id: c.klient_id, nazev: c.nazev, total: 0 };
+        curr.total += c.total;
+        map.set(c.klient_id, curr);
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 5);
+  }, [data, selectedMonths]);
+
+  const aggregatedTopWorkers = useMemo(() => {
+    if (selectedMonths.length === 0) return data?.topWorkers || [];
+
+    const map = new Map<number, { pracovnik_id: number; jmeno: string; total: number }>();
+    selectedMonths.forEach(m => {
+      m.topWorkers.forEach(w => {
+        const curr = map.get(w.pracovnik_id) || { pracovnik_id: w.pracovnik_id, jmeno: w.jmeno, total: 0 };
+        curr.total += w.total;
+        map.set(w.pracovnik_id, curr);
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 5);
+  }, [data, selectedMonths]);
 
   return (
     <div className="w-full px-4 md:px-6 mx-auto">
@@ -729,35 +828,35 @@ function DashboardContent() {
                 <BarChart
                   data={data.monthlyData}
                   onMonthClick={handleMonthClick}
-                  selectedMonth={selectedMonth}
+                  selectedMonths={selectedMonths}
                 />
-                <DashboardKpiGrid data={data} selectedMonth={selectedMonth} />
+                <DashboardKpiGrid data={data} selectedMonths={selectedMonths} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
-                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">TOP Klienti {selectedMonth ? `(${selectedMonth.month})` : ''}</h3>
+                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">TOP Klienti {selectedMonths.length > 0 ? '(Vybrané období)' : ''}</h3>
                   <ul className="mt-3 space-y-2">
-                    {(selectedMonth ? selectedMonth.topClients : data.topClients).map(c => (
+                    {aggregatedTopClients.map(c => (
                       <li key={c.klient_id} className="flex justify-between items-center text-sm">
                         <span className="font-medium dark:text-white">{c.nazev}</span>
                         <span className="font-bold dark:text-gray-200">{currency.format(c.total)}</span>
                       </li>
                     ))}
-                    {(selectedMonth ? selectedMonth.topClients : data.topClients).length === 0 && <li className="text-sm text-gray-400">Žádná data</li>}
+                    {aggregatedTopClients.length === 0 && <li className="text-sm text-gray-400">Žádná data</li>}
                   </ul>
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
-                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">TOP Pracovníci {selectedMonth ? `(${selectedMonth.month})` : ''}</h3>
+                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">TOP Pracovníci {selectedMonths.length > 0 ? '(Vybrané období)' : ''}</h3>
                   <ul className="mt-3 space-y-2">
-                    {(selectedMonth ? selectedMonth.topWorkers : data.topWorkers).map(w => (
+                    {aggregatedTopWorkers.map(w => (
                       <li key={w.pracovnik_id} className="flex justify-between items-center text-sm">
                         <span className="font-medium dark:text-white">{w.jmeno}</span>
                         <span className="font-bold dark:text-gray-200">{w.total.toLocaleString('cs-CZ')} h</span>
                       </li>
                     ))}
-                    {(selectedMonth ? selectedMonth.topWorkers : data.topWorkers).length === 0 && <li className="text-sm text-gray-400">Žádná data</li>}
+                    {aggregatedTopWorkers.length === 0 && <li className="text-sm text-gray-400">Žádná data</li>}
                   </ul>
                 </div>
               </div>
@@ -767,9 +866,14 @@ function DashboardContent() {
                 <CompanyActionsTable
                   data={
                     (detailedStats?.clients.flatMap(c => c.actions) || []).filter(a => {
-                      if (!selectedMonth) return true;
-                      const key = `${selectedMonth.year}-${selectedMonth.monthIndex}`;
-                      return a.activeMonths?.includes(key);
+                      if (selectedMonths.length === 0) return true;
+
+                      const matches = selectedMonths.some(m => {
+                        const key = `${m.year}-${m.monthIndex}`;
+                        return a.activeMonths?.includes(key);
+                      });
+
+                      return matches;
                     })
                   }
                   onActionClick={setSelectedAction}
