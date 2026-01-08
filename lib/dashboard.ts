@@ -1388,14 +1388,8 @@ export async function getDetailedStats(
 
   const clientStats: ClientStats[] = clients.map((c: any) => {
     const cAkce = akce.filter((a: any) => a.klient_id === c.id);
-    const revenue = cAkce.reduce((sum: number, a: any) => sum + (Number(a.cena_klient) || 0), 0);
-    const materialCost = cAkce.reduce((sum: number, a: any) => sum + (Number(a.material_my) || 0), 0);
-    const laborCost = clientLaborCosts.get(c.id) || 0;
-    const overheadCost = clientOverheadCosts.get(c.id) || 0;
-    const totalCost = materialCost + laborCost + overheadCost;
 
-    if (revenue === 0 && totalCost === 0 && cAkce.length === 0) return null;
-
+    // 1. Calculate Actions First
     const actions: ActionStats[] = cAkce.map((a: any) => {
       let aRevenue = 0;
       const actionDate = new Date(a.datum);
@@ -1432,18 +1426,7 @@ export async function getDetailedStats(
       const aLaborCost = actionLaborCosts.get(a.id) || 0;
       const aOverheadCost = actionOverheadCosts.get(a.id) || 0;
       const aTotalCost = aMaterialCost + aLaborCost + aOverheadCost + (accStats?.cost ? (accStats.cost - accStats.materialCost) : 0);
-      // Note: accStats.cost includes material. We added material separately to aMaterialCost. 
-      // So detailed breakdown:
-      // Material = akce.material + mapped.material
-      // Labor = calculated labor (from hours)
-      // Overhead = calculated overhead
-      // Other = mapped.cost (non-material)?
-      // If mapped.cost includes material, we shouldn't double add.
-      // logic: totalCost = calculatedLabor + calculatedOverhead + akce.material + mapped.cost
-      // But we want to breakdown material. 
-      // aMaterialCost = akce.material + mapped.material.
-      // So remaining mapped cost = mapped.cost - mapped.material.
-      // Result: aTotalCost = aLaborCost + aOverheadCost + aMaterialCost + (accStats.cost - accStats.materialCost)
+
       const aProfit = aRevenue - aTotalCost;
       const aMargin = aRevenue > 0 ? ((aRevenue - aTotalCost) / aRevenue) * 100 : 0;
 
@@ -1487,6 +1470,20 @@ export async function getDetailedStats(
         workers: actionWorkers
       };
     }).sort((a: any, b: any) => b.revenue - a.revenue);
+
+    // 2. Aggregate Client Totals from Actions
+    // For Revenue and MaterialCost, we trust the Action calculation (which handles T&M, Mappings, etc.)
+    const revenue = actions.reduce((sum, a) => sum + a.revenue, 0);
+    const materialCost = actions.reduce((sum, a) => sum + a.materialCost, 0);
+
+    // For Labor and Overhead, use Client Maps to include "orphaned" logs
+    const laborCost = clientLaborCosts.get(c.id) || 0;
+    const overheadCost = clientOverheadCosts.get(c.id) || 0;
+
+    // Note: totalCost might slightly mismatched from sum(actions.totalCost) if there are orphans.
+    const totalCost = materialCost + laborCost + overheadCost;
+
+    if (revenue === 0 && totalCost === 0 && cAkce.length === 0) return null;
 
     return {
       id: c.id,
