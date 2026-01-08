@@ -53,19 +53,19 @@ export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDe
                 <div className="flex border-b dark:border-slate-700">
                     <button
                         onClick={() => setActiveTab('detail')}
-                        className={`flex-1 px-4 py-3 font-medium text-sm transition-colors ${activeTab === 'detail' ? 'border-b-2 border-brand-primary text-brand-primary bg-slate-50 dark:bg-slate-800/30' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+                        className={`flex-1 px-4 py-3 font-medium text-sm transition-colors ${activeTab === 'detail' ? 'border-b-2 border-brand-primary text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-800/30' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
                     >
                         Detail dokladu
                     </button>
                     <button
                         onClick={() => setActiveTab('mapping')}
-                        className={`flex-1 px-4 py-3 font-medium text-sm transition-colors ${activeTab === 'mapping' ? 'border-b-2 border-brand-primary text-brand-primary bg-slate-50 dark:bg-slate-800/30' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+                        className={`flex-1 px-4 py-3 font-medium text-sm transition-colors ${activeTab === 'mapping' ? 'border-b-2 border-brand-primary text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-800/30' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
                     >
                         Přiřazení k projektům
                     </button>
                     <button
                         onClick={() => setActiveTab('raw')}
-                        className={`flex-1 px-4 py-3 font-medium text-sm transition-colors ${activeTab === 'raw' ? 'border-b-2 border-brand-primary text-brand-primary bg-slate-50 dark:bg-slate-800/30' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+                        className={`flex-1 px-4 py-3 font-medium text-sm transition-colors ${activeTab === 'raw' ? 'border-b-2 border-brand-primary text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-800/30' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
                     >
                         Raw Data
                     </button>
@@ -87,7 +87,7 @@ export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDe
                                         <p>{document.supplier_ico && <>IČO: {document.supplier_ico}</>}</p>
                                         <p>{document.supplier_dic && <>DIČ: {document.supplier_dic}</>}</p>
                                         {document.supplier_dic && rd.vat_document && (
-                                            <p className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                            <p className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-primary text-brand-primary-foreground shadow-sm">
                                                 Plátce DPH
                                             </p>
                                         )}
@@ -134,10 +134,12 @@ export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDe
                                     <span className="block text-xs text-gray-500 mb-1">DUZP</span>
                                     <span className="font-medium">{document.tax_date ? new Date(document.tax_date).toLocaleDateString('cs-CZ') : (rd.tax_payment_date ? new Date(rd.tax_payment_date).toLocaleDateString('cs-CZ') : (rd.tax_date ? new Date(rd.tax_date).toLocaleDateString('cs-CZ') : '-'))}</span>
                                 </div>
-                                <div className="text-right">
+                                <div className="text-right flex flex-col items-end justify-center">
                                     <span className="block text-xs text-gray-500 mb-1">Celkem k úhradě</span>
                                     {/* Using total_amount from raw_data as the final payment amount (with VAT) */}
-                                    <span className="font-bold text-xl text-brand-primary">{formatMoney(rd.total_amount)}</span>
+                                    <span className="font-bold text-lg px-3 py-1 bg-brand-primary text-brand-primary-foreground rounded-lg shadow-sm whitespace-nowrap">
+                                        {formatMoney(rd.total_amount)}
+                                    </span>
                                 </div>
                             </div>
 
