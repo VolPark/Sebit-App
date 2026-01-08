@@ -534,7 +534,7 @@ export class AccountingService {
         // 1. Fetch all Purchase Invoices (Active)
         const { data: invoices, error: invError } = await supabaseAdmin
             .from('accounting_documents')
-            .select('id, number, external_id, amount, paid_amount, issue_date, due_date, currency')
+            .select('id, number, external_id, amount, paid_amount, issue_date, due_date, currency, manually_paid')
             .eq('provider_id', this.providerId)
             .eq('type', 'purchase_invoice');
 
