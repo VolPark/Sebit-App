@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Search, RefreshCw, Filter, Calendar, Printer } from 'lucide-react';
+import { ArrowLeft, Search, RefreshCw, Filter, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { PdfDownloadButton } from '@/components/accounting/reports/PdfDownloadButton';
+import { GeneralLedgerPdf } from '@/components/accounting/reports/GeneralLedgerPdf';
 
 export default function GeneralLedgerPage() {
     const [accounts, setAccounts] = useState<any[]>([]);
@@ -128,13 +130,13 @@ export default function GeneralLedgerPage() {
                     >
                         <RefreshCw className={`w-5 h-5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
                     </button>
-                    <button
-                        onClick={() => window.print()}
-                        className="p-2 border border-slate-200 dark:border-slate-800 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                        title="Tisk"
-                    >
-                        <Printer className="w-5 h-5 text-slate-500" />
-                    </button>
+                    {groupedData.length > 0 && (
+                        <PdfDownloadButton
+                            document={<GeneralLedgerPdf data={groupedData} year={year} />}
+                            fileName={`HlavniKniha_${year}.pdf`}
+                            label=""
+                        />
+                    )}
                 </div>
             </div>
 

@@ -2,8 +2,10 @@
 
 import { useState, useEffect, Fragment } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, RefreshCw, Printer } from 'lucide-react';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { PdfDownloadButton } from '@/components/accounting/reports/PdfDownloadButton';
+import { BalanceSheetPdf } from '@/components/accounting/reports/BalanceSheetPdf';
 
 export default function BalanceSheetPage() {
     // State
@@ -82,13 +84,13 @@ export default function BalanceSheetPage() {
                     >
                         <RefreshCw className={`w-5 h-5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
                     </button>
-                    <button
-                        onClick={() => window.print()}
-                        className="p-2 border border-slate-200 dark:border-slate-800 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                        title="Tisk"
-                    >
-                        <Printer className="w-5 h-5 text-slate-500" />
-                    </button>
+                    {data && (
+                        <PdfDownloadButton
+                            document={<BalanceSheetPdf data={data} year={year} />}
+                            fileName={`Rozvaha_${year}.pdf`}
+                            label=""
+                        />
+                    )}
                 </div>
             </div>
 
