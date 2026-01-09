@@ -6,6 +6,9 @@ import { getMaterialConfig } from '@/lib/material-config';
 import CreatableComboBox, { ComboBoxItem } from '@/components/CreatableCombobox';
 import { compressImage } from '@/lib/utils/image-utils';
 
+import { CatalogBrowser } from '@/components/suppliers/CatalogBrowser';
+import { Package } from 'lucide-react';
+
 interface AddOfferItemFormProps {
     nabidkaId: number;
     onAdded: () => void;
@@ -13,6 +16,7 @@ interface AddOfferItemFormProps {
 
 export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFormProps) {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isCatalogOpen, setIsCatalogOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
     // Form State
@@ -24,6 +28,8 @@ export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFor
     const [popis, setPopis] = useState('');
     const [sazbaDph, setSazbaDph] = useState(21);
     const [imageFile, setImageFile] = useState<File | null>(null);
+    // Added imageUrl state to handle catalog images
+    const [catalogImageUrl, setCatalogImageUrl] = useState<string | null>(null);
 
     useEffect(() => {
         loadTypes();
@@ -52,11 +58,29 @@ export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFor
         }
     };
 
+    const handleCatalogSelect = (item: any) => {
+        setNazev(item.name);
+        setCenaKs(item.price.toString());
+        setPopis(item.description || '');
+        if (item.image_url) {
+            setCatalogImageUrl(item.image_url);
+        }
+        // Attempt to match category/type
+        if (item.category) {
+            const foundType = availableTypes.find(t => t.name.toLowerCase() === item.category.toLowerCase());
+            if (foundType) setTyp(foundType);
+        }
+
+        setIsCatalogOpen(false);
+        setIsExpanded(true); // Ensure form is open
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            let imageUrl = undefined;
+            let imageUrl = catalogImageUrl; // Default to catalog image if set
+
             if (imageFile) {
                 try {
                     const uploadedUrl = await uploadOfferImage(imageFile);
@@ -85,6 +109,7 @@ export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFor
             setPopis('');
             setSazbaDph(21);
             setImageFile(null);
+            setCatalogImageUrl(null);
 
             // Clean file input
             const fileInput = document.getElementById('offer-item-image') as HTMLInputElement;
@@ -103,20 +128,39 @@ export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFor
 
     if (!isExpanded) {
         return (
-            <button
-                onClick={() => setIsExpanded(true)}
-                className="w-full py-3 bg-gray-50 dark:bg-slate-900 hover:bg-gray-100 dark:hover:bg-slate-800 border border-dashed border-gray-300 dark:border-slate-700 text-gray-500 dark:text-gray-400 font-medium rounded-2xl transition-all flex items-center justify-center gap-2"
-            >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                Přidat položku
-            </button>
+            <div className="flex gap-4">
+                <button
+                    onClick={() => setIsExpanded(true)}
+                    className="flex-1 py-3 bg-gray-50 dark:bg-slate-900 hover:bg-gray-100 dark:hover:bg-slate-800 border border-dashed border-gray-300 dark:border-slate-700 text-gray-500 dark:text-gray-400 font-medium rounded-2xl transition-all flex items-center justify-center gap-2"
+                >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    Přidat položku
+                </button>
+                <button
+                    onClick={() => setIsCatalogOpen(true)}
+                    className="px-6 py-3 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 border border-dashed border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 font-medium rounded-2xl transition-all flex items-center justify-center gap-2"
+                >
+                    <Package className="w-5 h-5" />
+                    Katalog
+                </button>
+                <CatalogBrowser open={isCatalogOpen} onOpenChange={setIsCatalogOpen} onSelect={handleCatalogSelect} />
+            </div>
         );
     }
 
     return (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5 transition-all animate-in fade-in slide-in-from-top-2">
             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Nová položka</h3>
+                <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Nová položka</h3>
+                    <button
+                        type="button"
+                        onClick={() => setIsCatalogOpen(true)}
+                        className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-md hover:bg-purple-100 transition-colors flex items-center gap-1"
+                    >
+                        <Package className="w-3 h-3" /> Z katalogu
+                    </button>
+                </div>
                 <button
                     onClick={() => setIsExpanded(false)}
                     className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -124,6 +168,8 @@ export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFor
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
             </div>
+
+            <CatalogBrowser open={isCatalogOpen} onOpenChange={setIsCatalogOpen} onSelect={handleCatalogSelect} />
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
@@ -167,6 +213,13 @@ export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFor
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                     <div className="md:col-span-4">
                         <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Obrázek (Vizualizace)</label>
+                        {catalogImageUrl && !imageFile && (
+                            <div className="mb-2 p-2 border border-slate-200 rounded flex items-center gap-2">
+                                <img src={catalogImageUrl} alt="Catalog" className="w-8 h-8 object-cover rounded" />
+                                <span className="text-xs text-slate-500">Použit obrázek z katalogu</span>
+                                <button type="button" onClick={() => setCatalogImageUrl(null)} className="ml-auto text-slate-400 hover:text-red-500"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+                            </div>
+                        )}
                         <input
                             id="offer-item-image"
                             type="file"

@@ -58,7 +58,7 @@ const NAVIGATION: NavGroup[] = [
     {
         title: 'Administrace',
         items: [
-            { name: 'Uživatelé', href: '/administrace', icon: Icons.UserGroup },
+            { name: 'Nastavení', href: '/administrace', icon: Icons.UserGroup },
             { name: 'Akce', href: '/akce', icon: Icons.Action },
             { name: 'Klienti', href: '/klienti', icon: Icons.Users },
             { name: 'Pracovníci', href: '/pracovnici', icon: Icons.UserGroup },
@@ -111,7 +111,7 @@ export default function AppSidebar() {
 
         // Only owner and admin can see 'Uživatelé'
         if (role !== 'owner' && role !== 'admin') {
-            items = items.filter(item => item.name !== 'Uživatelé');
+            items = items.filter(item => item.name !== 'Nastavení');
         }
 
         if (items.length === 0) return null;
@@ -132,7 +132,7 @@ export default function AppSidebar() {
         }
 
         if (group.title === 'Administrace') {
-            if (!CompanyConfig.features.enableAdminUsers) items = items.filter(i => i.name !== 'Uživatelé');
+            if (!CompanyConfig.features.enableAdminUsers) items = items.filter(i => i.name !== 'Nastavení');
             if (!CompanyConfig.features.enableAdminActions) items = items.filter(i => i.name !== 'Akce');
             if (!CompanyConfig.features.enableAdminClients) items = items.filter(i => i.name !== 'Klienti');
             if (!CompanyConfig.features.enableAdminWorkers) items = items.filter(i => i.name !== 'Pracovníci');
