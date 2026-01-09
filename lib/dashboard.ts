@@ -89,6 +89,9 @@ export async function getDashboardData(
   let endDate: Date;
   const isLast12Months = period === 'last12months';
 
+  // Define Filter Mode early
+  const useFilterMode = !!(filters.klientId || filters.divisionId);
+
   if (isLast12Months) {
     startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
     const limitDate = new Date(APP_START_YEAR, 0, 1);
@@ -418,7 +421,50 @@ export async function getDashboardData(
                 // Only count as "Company Overhead" if NOT linked to a project.
                 // Project-linked overheads are Direct Costs.
                 if (!m.akce_id) {
-                  bucket.totalOverheadCost += val;
+                  // CHANGED: Do NOT add here directly. 
+                  // If it is an unlinked overhead, it acts as "Fixed Cost" and is distributed via Overhead Rate.
+                  // We add it to 'bucket.totalOverheadCost' ONLY if we are in Global Mode (Implicitly via rate? No, via Rate Summation or Direct?).
+                  // Wait, 'bucket.totalOverheadCost' in simple mode is just a sum.
+                  // But 'bucket.totalCosts' DOES need it?
+                  // If we treat it as Rate, it will be added to totalCosts via Labor Loop (TotalItemCost).
+                  // So we MUST NOT add it here to totalCosts either if we want to avoid double counting for the "Distributed" logic.
+
+                  // BUT: In "Global View" without rate logic (Simple Mode), we DO need to add it?
+                  // We are trying to UNIFY logic.
+                  // If we use 'Distributed Logic' for everything, then 'totalCosts' will include it via 'overheadCost' component of labor loop (if Filter Mode).
+                  // What about NO Filter Mode?
+                  // In NO Filter Mode, we iterate workerMonthTotalCost (Labor) + filteredPraceData (Hours).
+                  // In existing code (Simple Mode), we sum LaborCost + Material + "Overhead from bucket"?
+                  // Let's look at lines 585+ (Simple Mode).
+                  // It sums LaborCost. It sums Material (via previous loop).
+                  // It does NOT explicitly sum OverheadRate * Hours.
+                  // So in Simple Mode, we rely on 'bucket.totalOverheadCost' being populated HERE.
+
+                  // PROBLEM: If we populate it HERE, it is NOT distributed.
+                  // Solution: We should populate it here (for Simple Global View matching), BUT...
+                  // The user wants distribution even for Global View? (To match sum of Divisions).
+                  // If we want Sum(Divisions) == Global, then Global View must ALSO use Distributed Logic?
+                  // Or at least, the "bucket.totalOverheadCost" should be equal to "Total Rate * Total Hours".
+                  // Theoretically, Total Rate * Total Hours == Total Fixed Costs.
+                  // So sticking to "Add to Bucket" here is mathematically equivalent to "Rate * Hours" (if Hours cover everything).
+
+                  // CRITICAL: If we are in Filter Mode, we MUST SKIP adding it here, because it will be added via Rate.
+                  // If we are in Global Mode (Simple Mode), we can add it here.
+
+                  if (!useFilterMode) {
+                    bucket.totalOverheadCost += val;
+                    // bucket.totalCosts += val; // Wait, totalCosts is sum of all components.
+                    // If we add it here, we are good.
+                  } else {
+                    // In Filter Mode: We SKIP adding it here.
+                    // It will be added via 'overheadCost' in the Labor Loop.
+                    // IMPORTANT: We must NOT add it to 'bucket.totalCosts' here either in Filter Mode.
+                    bucket.totalCosts -= val; // Hack? No.
+                    // Just don't add it.
+                    // But we already added 'val' to 'bucket.totalCosts' above (line 411).
+                    // So we need to subtract it if we are skipping.
+                    bucket.totalCosts -= val;
+                  }
                 }
               }
             }
@@ -489,8 +535,8 @@ export async function getDashboardData(
   const monthlyGlobalFixedCosts = new Map<string, number>();
   const monthlySpecificFixedCosts = new Map<string, number>();
 
-  // Optimize Filter Mode check
-  const useFilterMode = !!(filters.klientId || filters.divisionId);
+  // Optimize Filter Mode check (Declared at top)
+  // const useFilterMode = !!(filters.klientId || filters.divisionId);
 
   fixedCostsData.forEach((fc: any) => {
     const key = `${fc.rok}-${fc.mesic - 1}`;
@@ -520,6 +566,36 @@ export async function getDashboardData(
       monthlyGlobalFixedCosts.set(key, (monthlyGlobalFixedCosts.get(key) || 0) + amount);
     }
   });
+
+  // Pre-Process Invoice Overheads for Rates
+  // Iterate accountingDocs again (unfiltered by our main loops, but filtered by date/division logic?)
+  // We need "Global" Invoice Overheads.
+  // The accountingDocs array contains docs in the DATE range.
+  if (CompanyConfig.features.enableAccounting && accountingDocs.length > 0) {
+    for (const doc of accountingDocs) {
+      // Only Purchase Invoices
+      if (doc.type === 'purchase_invoice' && doc.mappings && doc.mappings.length > 0) {
+        const d = new Date(doc.tax_date || doc.issue_date);
+        const key = `${d.getFullYear()}-${d.getMonth()}`; // Matches fixedCosts key format (YYYY-M, 0-indexed month)
+
+        for (const m of doc.mappings) {
+          // We care about "overhead" that is unlinked (no akce_id)
+          if (m.cost_category === 'overhead' && !m.akce_id) {
+            let val = Number(m.amount_czk);
+            if (!val) val = Number(m.amount) * (doc.currency === 'EUR' ? 25 : doc.currency === 'USD' ? 23 : 1);
+
+            if (m.division_id) {
+              // Specific Division Overhead
+              monthlySpecificFixedCosts.set(key, (monthlySpecificFixedCosts.get(key) || 0) + val);
+            } else {
+              // Global Overhead
+              monthlyGlobalFixedCosts.set(key, (monthlyGlobalFixedCosts.get(key) || 0) + val);
+            }
+          }
+        }
+      }
+    }
+  }
 
   // B. Separate Hours
   // Global Hours: use `allPraceRes` (which is period wide). 
@@ -586,7 +662,7 @@ export async function getDashboardData(
 
   // Aggregate Labor
   // If ANY filter is active (Client OR Division), we MUST use "Filter Mode" (Iterate Prace)
-  // const useFilterMode = !!(filters.klientId || filters.divisionId); // Defined above
+  // const useFilterMode = !!(filters.klientId || filters.divisionId); // Moved to top // Defined above
 
   if (!useFilterMode) {
     // Simple Mode: Sum Mzdy
