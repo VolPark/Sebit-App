@@ -489,19 +489,25 @@ export async function getDashboardData(
   const monthlyGlobalFixedCosts = new Map<string, number>();
   const monthlySpecificFixedCosts = new Map<string, number>();
 
+  // Optimize Filter Mode check
+  const useFilterMode = !!(filters.klientId || filters.divisionId);
+
   fixedCostsData.forEach((fc: any) => {
     const key = `${fc.rok}-${fc.mesic - 1}`;
     const amount = Number(fc.castka) || 0;
 
     // Explicit Overhead Tracking: Add Fixed Costs to bucket (ONCE)
-    const d = new Date(fc.rok, fc.mesic - 1, 1);
-    const bucketStartKey = getMonthKey(d);
-    const bucket = monthlyBuckets.get(bucketStartKey);
+    // ONLY in Global Mode. In Filter Mode, we add distributed overheads.
+    if (!useFilterMode) {
+      const d = new Date(fc.rok, fc.mesic - 1, 1);
+      const bucketStartKey = getMonthKey(d);
+      const bucket = monthlyBuckets.get(bucketStartKey);
 
-    // Only add if bucket exists and is in range
-    if (bucket) {
-      bucket.totalOverheadCost += amount;
-      bucket.totalCosts += amount;
+      // Only add if bucket exists and is in range
+      if (bucket) {
+        bucket.totalOverheadCost += amount;
+        bucket.totalCosts += amount;
+      }
     }
 
     if (fc.division_id) {
@@ -580,7 +586,7 @@ export async function getDashboardData(
 
   // Aggregate Labor
   // If ANY filter is active (Client OR Division), we MUST use "Filter Mode" (Iterate Prace)
-  const useFilterMode = !!(filters.klientId || filters.divisionId);
+  // const useFilterMode = !!(filters.klientId || filters.divisionId); // Defined above
 
   if (!useFilterMode) {
     // Simple Mode: Sum Mzdy
@@ -653,6 +659,7 @@ export async function getDashboardData(
       if (bucket) {
         bucket.totalHours += (p.pocet_hodin || 0);
         bucket.totalLaborCost += laborCost;
+        bucket.totalOverheadCost += overheadCost; // Accumulate distributed overhead
         bucket.totalCosts += totalItemCost;
       }
 
