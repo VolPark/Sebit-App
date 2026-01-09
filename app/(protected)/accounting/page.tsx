@@ -126,6 +126,16 @@ function AccountingContent() {
                                 </div>
                             </div>
 
+                            {/* Liabilities and Receivables Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
+                                    <ReceivablesTile />
+                                </div>
+                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
+                                    <PayablesTile />
+                                </div>
+                            </div>
+
                             {/* Bank Accounts (Full Width) */}
                             <div className="h-full min-h-[16rem]">
                                 <BankAccountsTile />
