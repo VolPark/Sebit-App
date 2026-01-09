@@ -40,21 +40,50 @@ export class AccountingService {
     }
 
     async syncAll() {
+        // 5 minutes hard limit to avoid Vercel 504 (timeout is usually 10s-500s, use 500s to be safe)
+        const deadline = Date.now() + 500000;
         const logId = await this.startLog();
+
         try {
             // await this.syncContacts(); // Contacts table not implemented yet
 
-            const salesCount = await this.syncSalesInvoices();
-            const purchaseCount = await this.syncPurchaseInvoices();
-            const movementsCount = await this.syncBankMovements();
-            const journalCount = await this.syncAccountingJournal();
-            const { count: accountsCount } = await this.syncBankAccountsMetadata();
-            await this.syncAccounts();
-            const receivablesCount = await this.syncReceivables();
-            const payablesCount = await this.syncPayables();
+            const salesCount = await this.syncSalesInvoices(deadline);
+            const purchaseCount = await this.syncPurchaseInvoices(deadline);
+            const movementsCount = await this.syncBankMovements(deadline);
 
-            await this.completeLog(logId, 'success');
-            return { sales: salesCount, purchase: purchaseCount, movements: movementsCount, journal: journalCount, accounts: accountsCount, receivables: receivablesCount, payables: payablesCount };
+            // Only continue if we have time
+            let journalCount = 0;
+            let accountsStats = { count: 0 };
+            let receivablesCount = 0;
+            let payablesCount = 0;
+
+            if (Date.now() < deadline) {
+                journalCount = await this.syncAccountingJournal(deadline);
+            }
+            if (Date.now() < deadline) {
+                accountsStats = await this.syncBankAccountsMetadata();
+                await this.syncAccounts();
+            }
+            if (Date.now() < deadline) {
+                receivablesCount = await this.syncReceivables(deadline);
+            }
+            if (Date.now() < deadline) {
+                payablesCount = await this.syncPayables(deadline);
+            }
+
+            const isPartial = Date.now() >= deadline;
+            await this.completeLog(logId, 'success', isPartial ? 'Time limit reached (Partial Sync)' : undefined);
+
+            return {
+                sales: salesCount,
+                purchase: purchaseCount,
+                movements: movementsCount,
+                journal: journalCount,
+                accounts: accountsStats.count,
+                receivables: receivablesCount,
+                payables: payablesCount,
+                partial: isPartial
+            };
         } catch (e: any) {
             console.error('Sync failed', e);
             await this.completeLog(logId, 'error', e.message);
@@ -79,14 +108,16 @@ export class AccountingService {
             .eq('id', id);
     }
 
-    private async syncSalesInvoices() {
+    private async syncSalesInvoices(deadline: number) {
         let page = 1;
         let hasNext = true;
         let total = 0;
 
         while (hasNext) {
+            if (Date.now() > deadline) break;
+
             console.log(`Fetching Sales Invoices page ${page}`);
-            const res = await this.uolClient.getSalesInvoices(page, 50); // Larger batch
+            const res = await this.uolClient.getSalesInvoices(page, 50);
             const items = res.items || [];
             console.log(`Fetched ${items.length} sales invoices`);
 
@@ -94,8 +125,12 @@ export class AccountingService {
 
             total += items.length;
 
-            for (const item of items) {
-                await this.upsertDocument(item, 'sales_invoice');
+            // Process in chunks of 5 for concurrency
+            const chunkSize = 5;
+            for (let i = 0; i < items.length; i += chunkSize) {
+                if (Date.now() > deadline) break;
+                const chunk = items.slice(i, i + chunkSize);
+                await Promise.all(chunk.map(item => this.upsertDocument(item, 'sales_invoice')));
             }
 
             if (res._meta.pagination?.next) {
@@ -107,12 +142,14 @@ export class AccountingService {
         return total;
     }
 
-    private async syncPurchaseInvoices() {
+    private async syncPurchaseInvoices(deadline: number) {
         let page = 1;
         let hasNext = true;
         let total = 0;
 
         while (hasNext) {
+            if (Date.now() > deadline) break;
+
             const res = await this.uolClient.getPurchaseInvoices(page, 50);
             const items = res.items || [];
 
@@ -120,8 +157,12 @@ export class AccountingService {
 
             total += items.length;
 
-            for (const item of items) {
-                await this.upsertDocument(item, 'purchase_invoice');
+            // Process in chunks of 5 for concurrency
+            const chunkSize = 5;
+            for (let i = 0; i < items.length; i += chunkSize) {
+                if (Date.now() > deadline) break;
+                const chunk = items.slice(i, i + chunkSize);
+                await Promise.all(chunk.map(item => this.upsertDocument(item, 'purchase_invoice')));
             }
 
             if (res._meta.pagination?.next) {
@@ -255,7 +296,7 @@ export class AccountingService {
         }
     }
 
-    async syncBankMovements() {
+    async syncBankMovements(deadline: number) {
         console.log('Starting Bank Movements Sync...');
         // 1. Get Accounts
         const accountsRes = await this.uolClient.getBankAccounts();
@@ -264,6 +305,7 @@ export class AccountingService {
         let totalSynced = 0;
 
         for (const acc of accounts) {
+            if (Date.now() > deadline) break;
             if (!acc.bank_account_id) continue;
 
             // 2. Get last synced date for this account
@@ -283,6 +325,7 @@ export class AccountingService {
             let hasNext = true;
 
             while (hasNext) {
+                if (Date.now() > deadline) break;
                 const params: any = { page, per_page: 50 };
                 if (lastDate) {
                     params.date_from = lastDate;
@@ -333,7 +376,7 @@ export class AccountingService {
         return totalSynced;
     }
 
-    async syncAccountingJournal() {
+    async syncAccountingJournal(deadline: number) {
         console.log('Starting General Ledger Sync...');
 
         // Sync from 2025 up to current year
@@ -342,6 +385,7 @@ export class AccountingService {
         let totalSynced = 0;
 
         for (let year = startYear; year <= currentYear; year++) {
+            if (Date.now() > deadline) break;
             console.log(`Syncing Journal for year ${year}...`);
             const start = `${year}-01-01`;
             const end = `${year}-12-31`;
@@ -350,6 +394,7 @@ export class AccountingService {
             let hasNext = true;
 
             while (hasNext) {
+                if (Date.now() > deadline) break;
                 // console.log(`Fetching Journal page ${page} for ${year}`);
                 const res = await this.uolClient.getAccountingRecords({
                     date_from: start,
@@ -466,13 +511,14 @@ export class AccountingService {
         return { count: syncedCount, items: syncedItems };
     }
 
-    async syncReceivables() {
+    async syncReceivables(deadline?: number) {
         console.log('Starting Receivables (Payment Status) Sync...');
         let page = 1;
         let hasNext = true;
         let totalSynced = 0;
 
         while (hasNext) {
+            if (deadline && Date.now() > deadline) break;
             console.log(`Fetching Receivables page ${page}`);
             try {
                 const res = await this.uolClient.getReceivables(page, 100);
@@ -528,7 +574,7 @@ export class AccountingService {
         return totalSynced;
     }
 
-    async syncPayables() {
+    async syncPayables(deadline?: number) {
         console.log('Starting Payables Sync (Smart Local Calculation)...');
 
         // 1. Fetch all Purchase Invoices (Active)
