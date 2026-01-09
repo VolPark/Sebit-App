@@ -40,8 +40,8 @@ export class AccountingService {
     }
 
     async syncAll() {
-        // 5 minutes hard limit to avoid Vercel 504 (timeout is usually 10s-500s, use 500s to be safe)
-        const deadline = Date.now() + 500000;
+        // 5 minutes hard limit to avoid Vercel 504 (timeout is usually 10s-280s, use 280s to be safe)
+        const deadline = Date.now() + 280000;
         const logId = await this.startLog();
 
         try {
