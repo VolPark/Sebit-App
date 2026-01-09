@@ -10,6 +10,7 @@ interface ProviderSettingsModalProps {
 }
 
 export function ProviderSettingsModal({ open, onOpenChange }: ProviderSettingsModalProps) {
+    const [serverType, setServerType] = useState<'production' | 'test'>('production');
     const [customerId, setCustomerId] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -39,12 +40,17 @@ export function ProviderSettingsModal({ open, onOpenChange }: ProviderSettingsMo
             setEmail(config.email || '');
             setPassword(config.apiKey || ''); // Start storing password in apiKey field
 
-            // Extract customerId from baseUrl
-            // baseUrl: https://{customerId}.ucetnictvi.uol.cz/api
+            // Detect server type and customerId
             if (config.baseUrl) {
-                const match = config.baseUrl.match(/https:\/\/(.+?)\.ucetnictvi\.uol\.cz\/api/);
-                if (match && match[1]) {
-                    setCustomerId(match[1]);
+                if (config.baseUrl.includes('test.demo.uol.cz')) {
+                    setServerType('test');
+                    setCustomerId('');
+                } else {
+                    setServerType('production');
+                    const match = config.baseUrl.match(/https:\/\/(.+?)\.ucetnictvi\.uol\.cz\/api/);
+                    if (match && match[1]) {
+                        setCustomerId(match[1]);
+                    }
                 }
             }
         }
@@ -55,8 +61,12 @@ export function ProviderSettingsModal({ open, onOpenChange }: ProviderSettingsMo
         e.preventDefault();
         setLoading(true);
 
+        const baseUrl = serverType === 'test'
+            ? 'https://test.demo.uol.cz/api'
+            : `https://${customerId}.ucetnictvi.uol.cz/api`;
+
         const newConfig = {
-            baseUrl: `https://${customerId}.ucetnictvi.uol.cz/api`,
+            baseUrl: baseUrl,
             email: email,
             apiKey: password
         };
@@ -124,17 +134,31 @@ export function ProviderSettingsModal({ open, onOpenChange }: ProviderSettingsMo
                     </div>
 
                     <div className="space-y-1">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Zákaznické ID (customerId)</label>
-                        <input
-                            type="text"
-                            value={customerId}
-                            onChange={e => setCustomerId(e.target.value)}
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Typ serveru</label>
+                        <select
+                            value={serverType}
+                            onChange={e => setServerType(e.target.value as 'production' | 'test')}
                             className="w-full bg-white dark:bg-slate-950 border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
-                            placeholder="např. sebitsolutio"
-                            required
-                        />
-                        <p className="text-xs text-gray-500">Část URL: https://{'<customerId>'}.ucetnictvi.uol.cz/api</p>
+                        >
+                            <option value="production">https://{'{customerId}'}.ucetnictvi.uol.cz/api - Production server</option>
+                            <option value="test">https://test.demo.uol.cz/api - DEMO server</option>
+                        </select>
                     </div>
+
+                    {serverType === 'production' && (
+                        <div className="space-y-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Zákaznické ID (customerId)</label>
+                            <input
+                                type="text"
+                                value={customerId}
+                                onChange={e => setCustomerId(e.target.value)}
+                                className="w-full bg-white dark:bg-slate-950 border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                                placeholder="např. sebitsolutio"
+                                required={serverType === 'production'}
+                            />
+                            <p className="text-xs text-gray-500">Část URL: https://{'<customerId>'}.ucetnictvi.uol.cz/api</p>
+                        </div>
+                    )}
 
                     <div className="space-y-1">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email (Uživatelské jméno)</label>
