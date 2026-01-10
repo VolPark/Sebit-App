@@ -57,7 +57,8 @@ export interface UolContactItem {
 
 export class UolClient {
     private config: UolConfig;
-    private rateLimiter = new RateLimiter(30, 10000); // 30 requests per 10 seconds
+    private rateLimiter = new RateLimiter(30, 10000); // 30 requests per 10 seconds (General)
+    private receivablesLimiter = new RateLimiter(10, 10000); // 10 requests per 10 seconds (Receivables)
 
     constructor(config: UolConfig) {
         this.config = config;
@@ -78,7 +79,12 @@ export class UolClient {
         while (attempt < maxRetries) {
             try {
                 // Rate Limiting
-                await this.rateLimiter.throttle();
+                // Check if endpoint relates to receivables
+                if (endpoint.includes('/receivables')) {
+                    await this.receivablesLimiter.throttle();
+                } else {
+                    await this.rateLimiter.throttle();
+                }
 
                 const res = await fetch(url, {
                     headers: {
@@ -88,8 +94,8 @@ export class UolClient {
                 });
 
                 if (res.status === 429) {
-                    console.warn(`[UOL Client] Rate limit exceeded (429) for ${url}. Waiting 30s...`);
-                    await new Promise(resolve => setTimeout(resolve, 31000)); // 31s wait
+                    console.warn(`[UOL Client] Rate limit exceeded (429) for ${url}. Waiting 10s...`);
+                    await new Promise(resolve => setTimeout(resolve, 11000)); // 11s wait
                     attempt++;
                     continue;
                 }
@@ -110,19 +116,19 @@ export class UolClient {
         throw new Error(`Failed to fetch ${url} after ${maxRetries} attempts`);
     }
 
-    async getSalesInvoices(page = 1, perPage = 20) {
+    async getSalesInvoices(page = 1, perPage = 50) {
         return this.fetchApi<{ items: UolSalesInvoiceItem[], _meta: UolMeta }>(`/v1/sales_invoices?page=${page}&per_page=${perPage}`);
     }
 
-    async getPurchaseInvoices(page = 1, perPage = 20) {
+    async getPurchaseInvoices(page = 1, perPage = 50) {
         return this.fetchApi<{ items: UolPurchaseInvoiceItem[], _meta: UolMeta }>(`/v1/purchase_invoices?page=${page}&per_page=${perPage}`);
     }
 
-    async getReceivables(page = 1, perPage = 20) {
+    async getReceivables(page = 1, perPage = 50) {
         return this.fetchApi<{ items: any[], _meta: UolMeta }>(`/v1/receivables?page=${page}&per_page=${perPage}`);
     }
 
-    async getPayables(page = 1, perPage = 20) {
+    async getPayables(page = 1, perPage = 50) {
         return this.fetchApi<{ items: any[], _meta: UolMeta }>(`/v1/payables?page=${page}&per_page=${perPage}`);
     }
 
@@ -137,7 +143,7 @@ export class UolClient {
         return this.fetchApi<any>(path);
     }
 
-    async getContacts(page = 1, perPage = 20) {
+    async getContacts(page = 1, perPage = 50) {
         // hidden=all included to get all relevant contacts? User used hidden=all in example.
         return this.fetchApi<{ items: UolContactItem[], _meta: UolMeta }>(`/v1/contacts?page=${page}&per_page=${perPage}&hidden=all&vat_payer=all&business_entity=all`);
     }
