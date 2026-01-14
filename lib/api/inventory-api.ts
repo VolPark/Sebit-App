@@ -18,6 +18,22 @@ export type InventoryItem = {
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    // Relations
+    stocks?: InventoryStock[];
+};
+
+export type InventoryCenter = {
+    id: number;
+    name: string;
+    color: string | null;
+};
+
+export type InventoryStock = {
+    id: number;
+    inventory_item_id: number;
+    center_id: number;
+    quantity: number;
+    centers?: InventoryCenter;
 };
 
 export type InventoryMovement = {
@@ -31,9 +47,13 @@ export type InventoryMovement = {
     note: string | null;
     action_id: number | null;
     user_id: string | null;
+    center_id: number | null;
+    target_center_id: number | null;
     created_at: string;
     // Joins
     inventory_items?: InventoryItem;
+    inventory_centers?: InventoryCenter;
+    target_centers?: InventoryCenter;
     akce?: { id: number; nazev: string };
     profiles?: { email: string };
 };
@@ -41,7 +61,7 @@ export type InventoryMovement = {
 export const getInventoryItems = async () => {
     const { data, error } = await supabase
         .from('inventory_items')
-        .select('*')
+        .select('*, stocks:inventory_stock(*)')
         .eq('is_active', true)
         .order('name');
 
@@ -49,10 +69,26 @@ export const getInventoryItems = async () => {
     return data as InventoryItem[];
 };
 
+export const getCenters = async () => {
+    const { data, error } = await supabase
+        .from('inventory_centers')
+        .select('*')
+        .order('name');
+
+    if (error) throw error;
+    return data as InventoryCenter[];
+};
+
 export const getInventoryItemById = async (id: number) => {
     const { data, error } = await supabase
         .from('inventory_items')
-        .select('*')
+        .select(`
+            *,
+            stocks:inventory_stock (
+                *,
+                centers:inventory_centers (name, color)
+            )
+        `)
         .eq('id', id)
         .single();
 
@@ -108,9 +144,11 @@ export const updateInventoryItem = async (id: number, updates: Partial<Inventory
 };
 
 // Movements
+// 1. Create Movement
+// Movements
 export const createMovement = async (movement: Partial<InventoryMovement>) => {
     // 1. Create Movement
-    const { data, error } = await supabase
+    const { data: movementData, error } = await supabase
         .from('inventory_movements')
         .insert([movement])
         .select()
@@ -118,44 +156,102 @@ export const createMovement = async (movement: Partial<InventoryMovement>) => {
 
     if (error) throw error;
 
-    // 2. Update Item Quantity (Trigger could do this, but doing it explicitly for now to ensure atomicity if no trigger)
-    // Actually, handling this in application logic is safer if no stored procedures.
-    // Calculate new quantity
-    if (movement.inventory_item_id && movement.quantity_change) {
-        // Fetch current to be safe? Or just atomic update?
-        // Supabase/Postgres atomic update: quantity = quantity + val
-        // But we need to update avg_price if it's a receipt... that's complex.
-        // For MVP, let's just update quantity.
+    // 2. Update Stock (Specific Center)
+    if (movement.inventory_item_id && movement.quantity_change && movement.center_id) {
+        // Upsert Stock Record
+        // First try to find existing stock
+        const { data: stock } = await supabase
+            .from('inventory_stock')
+            .select('*')
+            .eq('inventory_item_id', movement.inventory_item_id)
+            .eq('center_id', movement.center_id)
+            .single();
 
-        /* 
-           TODO: Valuation Logic (Weighted Average Cost)
-           If RECEIPT (quantity_change > 0):
-             NewAvg = ((OldQty * OldAvg) + (NewQty * BuyPrice)) / (OldQty + NewQty)
-        */
+        const currentQty = stock ? stock.quantity : 0;
+        const newQty = currentQty + movement.quantity_change;
 
-        // Simple increment for now
-        // We can use an RPC for this later.
+        // Upsert
+        const { error: stockError } = await supabase
+            .from('inventory_stock')
+            .upsert({
+                inventory_item_id: movement.inventory_item_id,
+                center_id: movement.center_id,
+                quantity: newQty
+            }, { onConflict: 'inventory_item_id, center_id' }); // Requires unique index
 
-        // Let's read the item first to calculate properly
-        const { data: item } = await supabase.from('inventory_items').select('quantity, avg_price').eq('id', movement.inventory_item_id).single();
+        if (stockError) throw stockError;
 
-        if (item) {
-            let updates: any = {
-                quantity: item.quantity + (movement.quantity_change || 0)
-            };
+        // 3. Update Item Average Price (Only on Receipt)
+        // We still need to update the main item's avg_price. The quantity on item is read-only (trigger), 
+        // but avg_price is calculated.
 
-            // Recalculate Average Price on RECEIPT
-            if (movement.type === 'RECEIPT' && movement.price && movement.quantity_change > 0) {
+        if (movement.type === 'RECEIPT' && movement.price && movement.quantity_change > 0) {
+            const { data: item } = await supabase.from('inventory_items').select('quantity, avg_price').eq('id', movement.inventory_item_id).single();
+
+            if (item) {
+                // IMPORTANT: 'item.quantity' here might be the OLD quantity before trigger, OR updated. 
+                // Using Formula: NewAvg = (CurrentTotalValue + IncomingValue) / NewTotalQty
+                // We know incoming. We know 'item.avg_price' (current avg).
+                // Careful: item.quantity contains the sum of all centers. 
+
+                // Let's assume item.quantity is the TOTAL across all centers.
                 const totalValue = (item.quantity * (item.avg_price || 0)) + (movement.quantity_change * movement.price);
-                const newQty = item.quantity + movement.quantity_change;
-                updates.avg_price = newQty > 0 ? totalValue / newQty : 0;
-            }
+                const totalQty = item.quantity + movement.quantity_change;
 
-            await supabase.from('inventory_items').update(updates).eq('id', movement.inventory_item_id);
+                await supabase.from('inventory_items').update({
+                    avg_price: totalQty > 0 ? totalValue / totalQty : 0
+                }).eq('id', movement.inventory_item_id);
+            }
         }
     }
 
-    return data;
+    return movementData;
+};
+
+export const transferStock = async (itemId: number, fromCenterId: number, toCenterId: number, quantity: number, userId?: string) => {
+    // 1. Create Movement (Transfer)
+    // We record one movement of type 'TRANSFER' with a negative quantity change for the source?? 
+    // Usually transfers are pairs, or a single movement with from/to.
+    // Our schema has 'center_id' and 'target_center_id'. 
+    // Let's make it simple: One movement record representing the transfer.
+    // But how to represent quantity change? It's neutral for the item globally.
+    // However, for center-specific history, we might need two records??
+    // Let's stick to the schema: 1 movement row. 
+    // But how do we update stock? We need to update two rows in inventory_stock.
+
+    const { data: movement, error } = await supabase
+        .from('inventory_movements')
+        .insert([{
+            inventory_item_id: itemId,
+            center_id: fromCenterId,
+            target_center_id: toCenterId,
+            type: 'TRANSFER',
+            quantity: quantity,
+            quantity_change: 0, // No global change
+            user_id: userId
+        }])
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    // 2. Decrement Source
+    const { data: sourceStock } = await supabase.from('inventory_stock').select('quantity').eq('inventory_item_id', itemId).eq('center_id', fromCenterId).single();
+    await supabase.from('inventory_stock').upsert({
+        inventory_item_id: itemId,
+        center_id: fromCenterId,
+        quantity: (sourceStock?.quantity || 0) - quantity
+    }, { onConflict: 'inventory_item_id, center_id' });
+
+    // 3. Increment Target
+    const { data: targetStock } = await supabase.from('inventory_stock').select('quantity').eq('inventory_item_id', itemId).eq('center_id', toCenterId).single();
+    await supabase.from('inventory_stock').upsert({
+        inventory_item_id: itemId,
+        center_id: toCenterId,
+        quantity: (targetStock?.quantity || 0) + quantity
+    }, { onConflict: 'inventory_item_id, center_id' });
+
+    return movement;
 };
 
 export const getMovements = async (itemId?: number, limit = 50) => {
@@ -165,6 +261,11 @@ export const getMovements = async (itemId?: number, limit = 50) => {
             *,
             inventory_items (name, unit),
             akce (nazev)
+            *,
+            inventory_items (name, unit),
+            akce (nazev),
+            inventory_centers (name),
+            target_centers:inventory_centers!target_center_id (name)
         `) // Note: user relation removed due to auth.users visibility issues
         .order('created_at', { ascending: false })
         .limit(limit);

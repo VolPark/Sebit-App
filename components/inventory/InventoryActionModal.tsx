@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, Fragment } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { Combobox, Transition } from '@headlessui/react';
 import ScannerModal from './ScannerModal';
-import { getInventoryItemByEan, createMovement, InventoryItem, createInventoryItem, updateInventoryItem, searchInventoryItems } from '@/lib/api/inventory-api';
+import { getInventoryItemByEan, createMovement, InventoryItem, createInventoryItem, updateInventoryItem, searchInventoryItems, getCenters, InventoryCenter } from '@/lib/api/inventory-api';
 
 type InventoryActionModalProps = {
     isOpen: boolean;
@@ -23,17 +23,35 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
     const [name, setName] = useState(''); // For new items
     const [price, setPrice] = useState<number>(0); // Purchase price
 
+    // Centers
+    const [centers, setCenters] = useState<InventoryCenter[]>([]);
+    const [selectedCenterId, setSelectedCenterId] = useState<number | null>(null);
+
+    // Load centers on open
+    const loadCenters = async () => {
+        try {
+            const data = await getCenters();
+            setCenters(data);
+            // Default to 'Hlavní sklad' if available and nothing selected, or just first one
+            if (!selectedCenterId && data.length > 0) {
+                const main = data.find(c => c.name === 'Hlavní sklad');
+                setSelectedCenterId(main ? main.id : data[0].id);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+
+
     // Search State
     const [searchTerm, setSearchTerm] = useState('');
     const [suggestions, setSuggestions] = useState<InventoryItem[]>([]);
 
     const handleSearch = async (term: string) => {
         setSearchTerm(term);
-        setItem(null); // Clear selection when searching to allow new input
-        if (term.length < 2) {
-            setSuggestions([]);
-            return;
-        }
+        setItem(null);
+        // Allow empty search to show all/recent items
         try {
             const results = await searchInventoryItems(term);
             setSuggestions(results);
@@ -41,6 +59,14 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
             console.error(e);
         }
     };
+
+    // Load initial suggestions and centers on open
+    useEffect(() => {
+        if (isOpen) {
+            loadCenters();
+            handleSearch(''); // Load default suggestions
+        }
+    }, [isOpen]);
 
     const selectItem = (selected: InventoryItem | null) => {
         if (selected) {
@@ -117,6 +143,7 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
             }
 
             if (!itemId) throw new Error("Failed to resolve item ID");
+            if (!selectedCenterId) throw new Error("Vyberte středisko");
 
             // 2. Create Movement
             await createMovement({
@@ -125,6 +152,7 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
                 quantity_change: type === 'RECEIPT' ? quantity : -quantity, // Positive for receipt, negative for issue
                 price: price,
                 quantity: quantity, // Absolute amount
+                center_id: selectedCenterId,
                 // user_id handled by RLS typically or backend default, but good to pass if we have context. 
                 // Since this is client side, RLS auth.uid() works.
             });
@@ -238,6 +266,20 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
                                         </button>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Středisko Selection */}
+                            <div>
+                                <label className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1 block">Středisko</label>
+                                <select
+                                    value={selectedCenterId || ''}
+                                    onChange={(e) => setSelectedCenterId(Number(e.target.value))}
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                                >
+                                    {centers.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             {/* Položka Info */}

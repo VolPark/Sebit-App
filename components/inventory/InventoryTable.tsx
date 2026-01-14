@@ -1,66 +1,133 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getInventoryItems, InventoryItem } from '@/lib/api/inventory-api';
+import { InventoryItem, InventoryCenter, getCenters } from '@/lib/api/inventory-api';
 import Link from 'next/link';
 
 type InventoryTableProps = {
-    onStatsCalculated?: (stats: { totalValue: number; totalItems: number }) => void;
+    items: InventoryItem[];
+    loading?: boolean;
+    onDataChanged: () => void;
+    onStatsCalculated?: (stats: { totalValue: number, totalItems: number }) => void;
+    onAction: (type: 'RECEIPT' | 'ISSUE') => void;
 };
 
-export default function InventoryTable({ onStatsCalculated }: InventoryTableProps) {
-    const [items, setItems] = useState<InventoryItem[]>([]);
-    const [loading, setLoading] = useState(true);
+export default function InventoryTable({ items, loading, onDataChanged, onStatsCalculated, onAction }: InventoryTableProps) {
+    const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null); // For future use (e.g. quick edit)
+
+    // Filters
     const [filter, setFilter] = useState('');
-    const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([]);
+    const [centers, setCenters] = useState<InventoryCenter[]>([]);
+    const [selectedCenterId, setSelectedCenterId] = useState<number | 'ALL'>('ALL');
+
+    // Filter Logic
+    const [filteredItems, setFilteredItems] = useState<InventoryItem[]>(items);
 
     useEffect(() => {
-        loadItems();
+        getCenters().then(setCenters).catch(console.error);
     }, []);
 
-    const loadItems = async () => {
-        try {
-            const data = await getInventoryItems();
-            setItems(data);
-            setFilteredItems(data); // Init filtered items
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
-        const lower = filter.toLowerCase();
-        const result = items.filter(i =>
-            i.name.toLowerCase().includes(lower) ||
-            (i.ean && i.ean.includes(filter)) ||
-            (i.sku && i.sku.toLowerCase().includes(lower))
-        );
+        let result = items;
+
+        // 1. Filter by Search Text
+        if (filter) {
+            const lowerFilter = filter.toLowerCase();
+            result = result.filter(item =>
+                item.name.toLowerCase().includes(lowerFilter) ||
+                (item.ean && item.ean.includes(filter)) ||
+                (item.sku && item.sku.toLowerCase().includes(lowerFilter))
+            );
+        }
+
+        // 2. Filter by Center
+        if (selectedCenterId !== 'ALL') {
+            result = result.filter(item => {
+                const stock = item.stocks?.find(s => s.center_id === Number(selectedCenterId));
+                return stock && stock.quantity > 0;
+            });
+        }
+
         setFilteredItems(result);
 
-        // Calculate and emit stats
-        if (onStatsCalculated) {
-            const totalValue = result.reduce((sum, i) => sum + (i.quantity * (i.avg_price || 0)), 0);
-            const totalItems = result.length;
-            onStatsCalculated({ totalValue, totalItems });
-        }
-    }, [items, filter, onStatsCalculated]);
+        // Calculate Stats
+        // IMPORTANT: If center is selected, we should calculate stats based on THAT center's quantity/value?
+        // Let's assume stats should reflect filter.
+        let val = 0;
+        let count = 0;
 
-    if (loading) return <div className="text-center py-10 text-gray-500">Načítám sklad...</div>;
+        result.forEach(item => {
+            let qty = item.quantity;
+            if (selectedCenterId !== 'ALL') {
+                const stock = item.stocks?.find(s => s.center_id === Number(selectedCenterId));
+                qty = stock ? stock.quantity : 0;
+            }
+            val += (qty * (item.avg_price || 0));
+            count += qty;
+        });
+
+        if (onStatsCalculated) {
+            onStatsCalculated({ totalValue: val, totalItems: count });
+        }
+
+    }, [items, filter, selectedCenterId, onStatsCalculated]);
+
+    // Helper to get displayed quantity
+    const getDisplayQuantity = (item: InventoryItem) => {
+        if (selectedCenterId === 'ALL') return item.quantity;
+        const stock = item.stocks?.find(s => s.center_id === Number(selectedCenterId));
+        return stock ? stock.quantity : 0;
+    };
+
+    if (loading && items.length === 0) return <div className="text-center py-10 text-gray-500">Načítám sklad...</div>;
+    if (items.length === 0 && !filter && selectedCenterId === 'ALL') return <div className="text-center py-10 text-gray-500">Sklad je prázdný</div>;
 
     return (
         <div className="space-y-4">
-            <div className="flex gap-4">
+            {/* Filters */}
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="relative flex-1">
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     <input
                         type="text"
-                        placeholder="Hledat položky (Název, EAN, SKU)..."
+                        placeholder="Hledat podle názvu, EAN, SKU..."
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                     />
+                    <svg className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+
+                {/* Center Filter */}
+                <div className="md:w-64">
+                    <select
+                        value={selectedCenterId}
+                        onChange={(e) => setSelectedCenterId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                        className="w-full pl-4 pr-10 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm appearance-none"
+                    >
+                        <option value="ALL">Všechna střediska</option>
+                        {centers.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => onAction('RECEIPT')}
+                        className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-500/20 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                        Příjem
+                    </button>
+                    <button
+                        onClick={() => onAction('ISSUE')}
+                        className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" /></svg>
+                        Výdej
+                    </button>
                 </div>
             </div>
 
@@ -92,17 +159,14 @@ export default function InventoryTable({ onStatsCalculated }: InventoryTableProp
                                             {item.ean && <span>EAN: {item.ean}</span>}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <span className={`font-bold ${item.quantity <= item.min_quantity ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
-                                            {item.quantity}
-                                        </span>
-                                        <span className="text-gray-400 text-xs ml-1">{item.unit}</span>
+                                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300 font-bold text-right">
+                                        {getDisplayQuantity(item)} {item.unit}
                                     </td>
-                                    <td className="px-6 py-4 text-right tabular-nums text-gray-600 dark:text-gray-400">
+                                    <td className="px-6 py-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
                                         {item.avg_price?.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK' })}
                                     </td>
-                                    <td className="px-6 py-4 text-right tabular-nums font-medium text-gray-900 dark:text-white">
-                                        {(item.quantity * item.avg_price)?.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK' })}
+                                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs text-right">
+                                        {((getDisplayQuantity(item)) * (item.avg_price || 0)).toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK' })}
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <Link href={`/inventory/${item.id}`} className="text-blue-600 hover:underline text-xs font-medium">
