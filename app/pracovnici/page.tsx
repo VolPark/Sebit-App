@@ -2,7 +2,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Menu, Transition } from '@headlessui/react'
-import { formatRate } from '@/lib/formatting'
+import { formatRate, getRateUnit, formatRateValue } from '@/lib/formatting'
 
 export default function PracovniciPage() {
   // Data state
@@ -399,7 +399,7 @@ export default function PracovniciPage() {
             <tr>
               <th className="p-3">Jméno</th>
               <th className="p-3">Role</th>
-              <th className="p-3">Sazba</th>
+              <th className="p-3">Sazba <span className="text-xs font-normal text-gray-500">({getRateUnit()})</span></th>
               <th className="p-3">Napárovaný uživatel</th>
               <th className="p-3">Divize</th>
               <th className="p-3 text-right">Akce</th>
@@ -466,7 +466,7 @@ export default function PracovniciPage() {
                   <tr className={`hover:bg-gray-50 dark:hover:bg-slate-800 text-black dark:text-gray-100 ${!p.is_active ? 'bg-gray-50 dark:bg-slate-800/50 text-gray-400 dark:text-gray-500' : ''}`}>
                     <td className={`p-3 font-medium ${!p.is_active ? 'line-through' : ''}`}>{p.jmeno}</td>
                     <td className="p-3">{p.role || '-'}</td>
-                    <td className="p-3">{formatRate(p.hodinova_mzda)}</td>
+                    <td className="p-3">{formatRateValue(p.hodinova_mzda)}</td>
                     <td className="p-3 text-sm text-gray-500">
                       {profiles.find(prof => prof.id === p.user_id)?.full_name || '-'}
                     </td>

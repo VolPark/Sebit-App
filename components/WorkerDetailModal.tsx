@@ -1,4 +1,5 @@
 import { WorkerStats } from '@/lib/dashboard';
+import { formatRate } from '@/lib/formatting';
 import { Fragment, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 
@@ -64,11 +65,11 @@ const WorkerDetailModal = ({ worker, onClose }: Props) => {
                                     </div>
                                     <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl">
                                         <div className="text-xs text-blue-600 dark:text-blue-400 uppercase tracking-wide font-bold">Reálná Sazba</div>
-                                        <div className="text-lg font-bold text-blue-700 dark:text-blue-300 mt-1">{currency(worker.realHourlyRate)}/h</div>
+                                        <div className="text-lg font-bold text-blue-700 dark:text-blue-300 mt-1">{formatRate(worker.realHourlyRate)}</div>
                                     </div>
                                     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
                                         <div className="text-xs text-slate-500 uppercase tracking-wide">Alokovaná Sazba</div>
-                                        <div className="text-lg font-bold text-slate-700 dark:text-slate-300 mt-1">{currency(worker.avgHourlyRate)}/h</div>
+                                        <div className="text-lg font-bold text-slate-700 dark:text-slate-300 mt-1">{formatRate(worker.avgHourlyRate)}</div>
                                     </div>
                                 </div>
 

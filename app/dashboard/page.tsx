@@ -13,7 +13,7 @@ import CompanyActionsTable from '@/components/CompanyActionsTable';
 import ActionDetailModal from '@/components/ActionDetailModal';
 import WorkerDetailModal from '@/components/WorkerDetailModal';
 import AiChat, { Message } from '@/components/AiChat';
-import { formatRate } from '@/lib/formatting';
+import { formatRate, getRateUnit, formatRateValue } from '@/lib/formatting';
 
 type FilterOption = { id: number; name: string };
 // ... (rest of imports)
@@ -296,8 +296,36 @@ const WorkersTable = ({ data, onWorkerClick }: { data: WorkerStats[], onWorkerCl
             <th className="p-4 whitespace-nowrap">Jméno</th>
             <th className="p-4 text-right whitespace-nowrap">Odpracováno</th>
             <th className="p-4 text-right whitespace-nowrap">Vyplaceno (Mzdy)</th>
-            <th className="p-4 text-right whitespace-nowrap" title="Na základě alokace nákladů na projekty">Prům. sazba (Alok.)</th>
-            <th className="p-4 text-right whitespace-nowrap font-bold text-gray-800 dark:text-gray-200" title="Vyplaceno / Odpracováno celkem">Reálná sazba</th>
+            <th className="p-4 text-right group relative cursor-help w-[180px]">
+              <div className="flex items-center justify-end gap-1">
+                <span>Prům. sazba <span className="font-normal text-xs text-slate-500 block">({getRateUnit()})</span></span>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gray-400 shrink-0">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+              </div>
+              <div className="invisible group-hover:visible absolute right-0 top-full mt-1 w-72 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-[100] font-normal text-left">
+                <p className="font-semibold mb-1 border-b border-slate-600 pb-1">Fakturovaná sazba</p>
+                <p className="mb-2 text-slate-300">Vážený průměr sjednaných sazeb na projektech.</p>
+                <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 font-mono text-[10px] text-slate-400">
+                  Příklad: (10h × 2000 Kč + 90h × 1000 Kč) / 100h = 1100 Kč/h
+                </div>
+              </div>
+            </th>
+            <th className="p-4 text-right font-bold text-gray-800 dark:text-gray-200 group relative cursor-help w-[180px]">
+              <div className="flex items-center justify-end gap-1">
+                <span>Reálná sazba <span className="font-normal text-xs text-slate-400 block">({getRateUnit()})</span></span>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gray-400 shrink-0">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+              </div>
+              <div className="invisible group-hover:visible absolute right-0 top-full mt-1 w-72 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-[100] font-normal text-left">
+                <p className="font-semibold mb-1 border-b border-slate-600 pb-1">Nákladová sazba</p>
+                <p className="mb-2 text-slate-300">Skutečné náklady na hodinu práce (včetně odvodů).</p>
+                <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 font-mono text-[10px] text-slate-400">
+                  Příklad: 80 000 Kč (Mzdy) / 160h (Odpracováno) = 500 Kč/h
+                </div>
+              </div>
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -306,8 +334,8 @@ const WorkersTable = ({ data, onWorkerClick }: { data: WorkerStats[], onWorkerCl
               <td className="p-4 font-medium text-gray-900 dark:text-white">{w.name}</td>
               <td className="p-4 text-right dark:text-gray-300">{w.totalHours.toLocaleString('cs-CZ')} h</td>
               <td className="p-4 text-right dark:text-gray-300">{w.totalWages.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</td>
-              <td className="p-4 text-right text-gray-500 dark:text-gray-400">{formatRate(w.avgHourlyRate)}</td>
-              <td className="p-4 text-right font-bold text-gray-900 dark:text-white">{formatRate(w.realHourlyRate || 0)}</td>
+              <td className="p-4 text-right text-gray-500 dark:text-gray-400">{formatRateValue(w.avgHourlyRate)}</td>
+              <td className="p-4 text-right font-bold text-gray-900 dark:text-white">{formatRateValue(w.realHourlyRate || 0)}</td>
             </tr>
           ))}
           {data.length === 0 && <tr><td colSpan={5} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
