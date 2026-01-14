@@ -4,10 +4,15 @@ import { useState, useEffect } from 'react';
 import { getInventoryItems, InventoryItem } from '@/lib/api/inventory-api';
 import Link from 'next/link';
 
-export default function InventoryTable() {
+type InventoryTableProps = {
+    onStatsCalculated?: (stats: { totalValue: number; totalItems: number }) => void;
+};
+
+export default function InventoryTable({ onStatsCalculated }: InventoryTableProps) {
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('');
+    const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([]);
 
     useEffect(() => {
         loadItems();
@@ -17,6 +22,7 @@ export default function InventoryTable() {
         try {
             const data = await getInventoryItems();
             setItems(data);
+            setFilteredItems(data); // Init filtered items
         } catch (e) {
             console.error(e);
         } finally {
@@ -24,11 +30,22 @@ export default function InventoryTable() {
         }
     };
 
-    const filteredItems = items.filter(i =>
-        i.name.toLowerCase().includes(filter.toLowerCase()) ||
-        (i.ean && i.ean.includes(filter)) ||
-        (i.sku && i.sku.includes(filter))
-    );
+    useEffect(() => {
+        const lower = filter.toLowerCase();
+        const result = items.filter(i =>
+            i.name.toLowerCase().includes(lower) ||
+            (i.ean && i.ean.includes(filter)) ||
+            (i.sku && i.sku.toLowerCase().includes(lower))
+        );
+        setFilteredItems(result);
+
+        // Calculate and emit stats
+        if (onStatsCalculated) {
+            const totalValue = result.reduce((sum, i) => sum + (i.quantity * (i.avg_price || 0)), 0);
+            const totalItems = result.length;
+            onStatsCalculated({ totalValue, totalItems });
+        }
+    }, [items, filter, onStatsCalculated]);
 
     if (loading) return <div className="text-center py-10 text-gray-500">Načítám sklad...</div>;
 

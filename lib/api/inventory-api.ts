@@ -13,6 +13,8 @@ export type InventoryItem = {
     avg_price: number;
     location: string | null;
     supplier_item_id: number | null;
+    manufacturer: string | null;
+    image_url: string | null;
     is_active: boolean;
     created_at: string;
     updated_at: string;
@@ -162,9 +164,8 @@ export const getMovements = async (itemId?: number, limit = 50) => {
         .select(`
             *,
             inventory_items (name, unit),
-            akce (nazev),
-            user:user_id (email) 
-        `) // Note: user relation might need adjustments based on profiles/auth schema
+            akce (nazev)
+        `) // Note: user relation removed due to auth.users visibility issues
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -175,4 +176,27 @@ export const getMovements = async (itemId?: number, limit = 50) => {
     const { data, error } = await query;
     if (error) throw error;
     return data;
+};
+
+export const uploadInventoryImage = async (file: File): Promise<string | null> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    // Ensure bucket exists or use a shared one. 
+    // Using 'inventory-images' bucket. User must ensure it exists.
+    const { error: uploadError } = await supabase.storage
+        .from('inventory-images')
+        .upload(filePath, file);
+
+    if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        throw uploadError;
+    }
+
+    const { data } = supabase.storage
+        .from('inventory-images')
+        .getPublicUrl(filePath);
+
+    return data.publicUrl;
 };

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
+import { Combobox, Transition } from '@headlessui/react';
 import ScannerModal from './ScannerModal';
 import { getInventoryItemByEan, createMovement, InventoryItem, createInventoryItem, updateInventoryItem, searchInventoryItems } from '@/lib/api/inventory-api';
 
@@ -28,6 +29,7 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
 
     const handleSearch = async (term: string) => {
         setSearchTerm(term);
+        setItem(null); // Clear selection when searching to allow new input
         if (term.length < 2) {
             setSuggestions([]);
             return;
@@ -40,14 +42,23 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
         }
     };
 
-    const selectItem = (selected: InventoryItem) => {
-        setItem(selected);
-        setName(selected.name);
-        setEan(selected.ean || '');
-        setPrice(selected.avg_price || 0);
-        setQuantity(1);
-        setSuggestions([]);
-        setSearchTerm('');
+    const selectItem = (selected: InventoryItem | null) => {
+        if (selected) {
+            setItem(selected);
+            setName(selected.name);
+            setEan(selected.ean || '');
+            setPrice(selected.avg_price || 0);
+            setQuantity(1);
+            setSuggestions([]);
+            setSearchTerm('');
+        } else {
+            // Reset if cleared
+            setItem(null);
+            setName('');
+            setEan('');
+            setPrice(0);
+            setQuantity(1);
+        }
     };
 
     // Reset state when opening
@@ -146,35 +157,65 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
                     <div className="space-y-4">
 
 
-                        // ... JSX ...
+
 
                         <div className="space-y-4">
                             {/* Manual Search */}
                             <div className="relative z-20">
-                                <label className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1 block">Vyhledat položku (Název)</label>
-                                <input
-                                    value={searchTerm}
-                                    onChange={(e) => handleSearch(e.target.value)}
-                                    placeholder="Začněte psát název..."
-                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                {suggestions.length > 0 && (
-                                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl max-h-60 overflow-y-auto">
-                                        {suggestions.map(s => (
-                                            <button
-                                                key={s.id}
-                                                onClick={() => selectItem(s)}
-                                                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-800 border-b border-gray-50 dark:border-slate-800 last:border-0"
-                                            >
-                                                <div className="font-bold text-gray-900 dark:text-white">{s.name}</div>
-                                                <div className="text-xs text-gray-500 flex gap-2">
-                                                    <span>Skladem: {s.quantity} {s.unit}</span>
-                                                    {s.sku && <span>SKU: {s.sku}</span>}
-                                                </div>
-                                            </button>
-                                        ))}
+                                <Combobox as="div" value={item} onChange={selectItem} nullable>
+                                    <Combobox.Label className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1 block">Vyhledat položku (Název)</Combobox.Label>
+                                    <div className="relative">
+                                        <Combobox.Input
+                                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                                            onChange={(event) => handleSearch(event.target.value)}
+                                            displayValue={(item: InventoryItem) => item?.name || searchTerm}
+                                            placeholder="Začněte psát název..."
+                                            autoComplete="off"
+                                        />
+                                        <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-4">
+                                            <svg className="w-5 h-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path fillRule="evenodd" d="M10 3a.75.75 0 01.53.22l3.5 3.5a.75.75 0 01-1.06 1.06L10 4.81 7.03 7.78a.75.75 0 01-1.06-1.06l3.5-3.5A.75.75 0 0110 3zm-5.03 8.22a.75.75 0 011.06 0L10 15.19l2.97-2.97a.75.75 0 111.06 1.06l-3.5 3.5a.75.75 0 01-1.06 0l-3.5-3.5a.75.75 0 010-1.06z" clipRule="evenodd" />
+                                            </svg>
+                                        </Combobox.Button>
                                     </div>
-                                )}
+                                    <Transition
+                                        as={Fragment}
+                                        leave="transition ease-in duration-100"
+                                        leaveFrom="opacity-100"
+                                        leaveTo="opacity-0"
+                                        afterLeave={() => setSearchTerm('')}
+                                    >
+                                        <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white dark:bg-slate-900 py-1 text-base shadow-lg ring-1 ring-black/5 dark:ring-slate-700 focus:outline-none sm:text-sm">
+                                            {suggestions.length === 0 && searchTerm.length >= 2 ? (
+                                                <div className="relative cursor-default select-none py-2 px-4 text-gray-700 dark:text-gray-400">
+                                                    Nic nenalezeno.
+                                                </div>
+                                            ) : (
+                                                suggestions.map((s) => (
+                                                    <Combobox.Option
+                                                        key={s.id}
+                                                        value={s}
+                                                        className={({ active }) =>
+                                                            `relative cursor-pointer select-none py-2 pl-4 pr-4 ${active ? 'bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-white' : 'text-gray-900 dark:text-gray-100'
+                                                            }`
+                                                        }
+                                                    >
+                                                        {({ selected, active }) => (
+                                                            <div className="flex justify-between items-center">
+                                                                <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                                                                    {s.name}
+                                                                </span>
+                                                                <span className={`text-xs ${active ? 'text-blue-200' : 'text-gray-500'}`}>
+                                                                    {s.quantity} {s.unit}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </Combobox.Option>
+                                                ))
+                                            )}
+                                        </Combobox.Options>
+                                    </Transition>
+                                </Combobox>
                             </div>
 
                             {/* EAN / Skenování */}
