@@ -132,7 +132,8 @@ export default function InventoryTable({ items, loading, onDataChanged, onStatsC
             </div>
 
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                <table className="w-full text-left text-sm">
+                {/* Desktop Table */}
+                <table className="w-full text-left text-sm hidden md:table">
                     <thead className="bg-gray-50 dark:bg-slate-950/50 border-b border-gray-100 dark:border-slate-800">
                         <tr>
                             <th className="px-6 py-4 font-semibold text-gray-900 dark:text-gray-200">Název</th>
@@ -184,6 +185,49 @@ export default function InventoryTable({ items, loading, onDataChanged, onStatsC
                         )}
                     </tbody>
                 </table>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden divide-y divide-gray-100 dark:divide-slate-800">
+                    {loading ? (
+                        <div className="p-8 text-center text-gray-500">Načítám sklad...</div>
+                    ) : filteredItems.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500">
+                            {items.length === 0 ? 'Sklad je prázdný. Přidejte první položku tlačítkem Příjem.' : 'Žádné položky nenalezeny'}
+                        </div>
+                    ) : (
+                        filteredItems.map(item => (
+                            <Link
+                                key={item.id}
+                                href={`/inventory/${item.id}`}
+                                className="block p-4 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors"
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h3 className="font-medium text-gray-900 dark:text-white">{item.name}</h3>
+                                        <div className="text-xs text-gray-500 flex flex-wrap gap-2 mt-1">
+                                            {item.sku && <span>SKU: {item.sku}</span>}
+                                            {item.ean && <span>EAN: {item.ean}</span>}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="block font-bold text-gray-900 dark:text-white">
+                                            {getDisplayQuantity(item)} {item.unit}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                    <span>{item.avg_price?.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK' })} / j.</span>
+                                    <span className="flex items-center text-blue-600 font-medium">
+                                        Detail
+                                        <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </span>
+                                </div>
+                            </Link>
+                        ))
+                    )}
+                </div>
             </div>
         </div>
     );

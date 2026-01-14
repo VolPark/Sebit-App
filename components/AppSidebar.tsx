@@ -26,65 +26,9 @@ const Icons = {
     Inventory: (props: any) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
 }
 
-type NavItem = {
-    name: string;
-    href: string;
-    icon: any;
-    exact?: boolean;
-}
+import { getFilteredNavigation } from '@/lib/app-navigation';
 
-type NavGroup = {
-    title: string;
-    items: NavItem[];
-}
-
-const NAVIGATION: NavGroup[] = [
-    {
-        title: 'Přehled',
-        items: [
-            { name: 'Firma', href: '/dashboard?tab=firma', icon: Icons.Dashboard },
-            { name: 'Zaměstnanci', href: '/dashboard?tab=workers', icon: Icons.UserGroup },
-            { name: 'Klienti', href: '/dashboard?tab=clients', icon: Icons.Users },
-            { name: 'Experimentální', href: '/dashboard?tab=experimental', icon: Icons.Action },
-            { name: 'Manažerský přehled', href: '/management', icon: Icons.Chart },
-            { name: 'AI Asistent', href: '/dashboard?tab=ai', icon: Icons.Chat },
-        ]
-    },
-    {
-        title: 'Obchod',
-        items: [
-            { name: 'Nabídky', href: '/nabidky', icon: Icons.Offer },
-            { name: 'Sklad', href: '/inventory', icon: Icons.Inventory },
-            // Akce moved to Administrace
-        ]
-    },
-    {
-        title: 'Compliance',
-        items: [
-            { name: 'AML Toolbox', href: '/aml', icon: Icons.Shield },
-        ]
-    },
-    {
-        title: 'Administrace',
-        items: [
-            { name: 'Nastavení', href: '/administrace', icon: Icons.UserGroup },
-            { name: 'Akce', href: '/akce', icon: Icons.Action },
-            { name: 'Klienti', href: '/klienti', icon: Icons.Users },
-            { name: 'Pracovníci', href: '/pracovnici', icon: Icons.UserGroup },
-        ]
-    },
-    {
-        title: 'Finance',
-        items: [
-            { name: 'Transakce', href: '/finance', icon: Icons.Money },
-            { name: 'Výkazy', href: '/vykazy', icon: Icons.Report },
-            { name: 'Mzdy', href: '/mzdy', icon: Icons.Money },
-            { name: 'Náklady', href: '/naklady', icon: Icons.Cost },
-            { name: 'Timesheety', href: '/timesheets', icon: Icons.Timesheet },
-            { name: 'Účetnictví', href: '/accounting', icon: Icons.Accounting },
-        ]
-    }
-];
+// ... Icons definition remains ...
 
 export default function AppSidebar() {
     const pathname = usePathname();
@@ -97,77 +41,8 @@ export default function AppSidebar() {
         setIsOpen(false);
     };
 
-    // RBAC Filtering
-    const filteredNavigation = NAVIGATION.map(group => {
-        // Clone items to avoid mutating original
-        let items = [...group.items];
-
-        if (isLoading || !role) {
-            // If loading or role not yet loaded, return empty to prevent flashing forbidden content
-            return null;
-        }
-
-        if (role === 'office') {
-            // Office sees everything EXCEPT 'Přehled' section
-            if (group.title === 'Přehled') return null;
-        }
-
-        if (role === 'reporter') {
-            // Reporter sees ONLY 'Výkazy'
-            items = items.filter(item => item.name === 'Výkazy' || item.name === 'Timesheety');
-            if (items.length === 0) return null;
-        }
-
-        // Only owner and admin can see 'Uživatelé'
-        if (role !== 'owner' && role !== 'admin') {
-            items = items.filter(item => item.name !== 'Nastavení');
-        }
-
-        if (items.length === 0) return null;
-
-        if (group.title === 'Přehled' && !CompanyConfig.features.enableDashboard) return null;
-        if (group.title === 'Obchod' && !CompanyConfig.features.enableOffers && !CompanyConfig.features.enableInventory) return null;
-        if (group.title === 'Obchod') {
-            if (!CompanyConfig.features.enableOffers) items = items.filter(i => i.name !== 'Nabídky');
-            if (!CompanyConfig.features.enableInventory) items = items.filter(i => i.name !== 'Sklad');
-        }
-        if (group.title === 'Compliance' && !CompanyConfig.features.enableAML) return null;
-        if (group.title === 'Administrace' && !CompanyConfig.features.enableAdmin) return null;
-        if (group.title === 'Finance' && !CompanyConfig.features.enableFinance) return null;
-
-        // Granular Item Filtering
-        if (group.title === 'Přehled') {
-            if (!CompanyConfig.features.enableDashboardFirma) items = items.filter(i => i.name !== 'Firma');
-            if (!CompanyConfig.features.enableDashboardWorkers) items = items.filter(i => i.name !== 'Zaměstnanci');
-            if (!CompanyConfig.features.enableDashboardClients) items = items.filter(i => i.name !== 'Klienti');
-            if (!CompanyConfig.features.enableDashboardExperimental) items = items.filter(i => i.name !== 'Experimentální');
-            if (!CompanyConfig.features.enableAccounting) items = items.filter(i => i.name !== 'Manažerský přehled');
-            if (!CompanyConfig.features.enableAI) items = items.filter(i => i.name !== 'AI Asistent');
-        }
-
-        if (group.title === 'Administrace') {
-            if (!CompanyConfig.features.enableAdminUsers) items = items.filter(i => i.name !== 'Nastavení');
-            if (!CompanyConfig.features.enableAdminActions) items = items.filter(i => i.name !== 'Akce');
-            if (!CompanyConfig.features.enableAdminClients) items = items.filter(i => i.name !== 'Klienti');
-            if (!CompanyConfig.features.enableAdminWorkers) items = items.filter(i => i.name !== 'Pracovníci');
-        }
-
-        if (group.title === 'Finance') {
-            if (!CompanyConfig.features.enableFinanceTransactions) items = items.filter(i => i.name !== 'Transakce');
-            if (!CompanyConfig.features.enableFinanceReports) items = items.filter(i => i.name !== 'Výkazy');
-            if (!CompanyConfig.features.enableFinancePayroll) items = items.filter(i => i.name !== 'Mzdy');
-            if (!CompanyConfig.features.enableFinanceCosts) items = items.filter(i => i.name !== 'Náklady');
-            if (!CompanyConfig.features.enableFinanceTimesheets) items = items.filter(i => i.name !== 'Timesheety');
-            if (!CompanyConfig.features.enableAccounting) items = items.filter(i => i.name !== 'Účetnictví');
-        }
-
-        if (items.length === 0) return null;
-
-        return {
-            ...group,
-            items
-        };
-    }).filter(Boolean) as NavGroup[];
+    // Get Navigation
+    const filteredNavigation = role && !isLoading ? getFilteredNavigation(role) : [];
 
     const SidebarContent = () => (
         <div className="flex flex-col h-full bg-[#111827] text-white overflow-y-auto w-[260px] border-r border-gray-800">
@@ -217,6 +92,9 @@ export default function AppSidebar() {
                                         isActive = pathname.startsWith(item.href);
                                     }
 
+                                    // Resolve Icon
+                                    const IconComponent = Icons[item.iconKey as keyof typeof Icons] || Icons.Dashboard;
+
                                     return (
                                         <li key={item.name}>
                                             <Link
@@ -230,7 +108,7 @@ export default function AppSidebar() {
                                                     }
                                             `}
                                             >
-                                                <item.icon
+                                                <IconComponent
                                                     className={`
                                                     mr-3 h-5 w-5 flex-shrink-0 transition-colors
                                                     ${isActive ? 'text-current' : 'text-gray-500 group-hover:text-white'}
