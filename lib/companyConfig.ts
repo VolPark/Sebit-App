@@ -51,6 +51,7 @@ export const CompanyConfig = {
 
         // New Module
         enableAccounting: process.env.NEXT_PUBLIC_ENABLE_ACCOUNTING === 'true',
+        enableAML: process.env.NEXT_PUBLIC_ENABLE_AML === 'true',
     },
     api: {
         uol: {

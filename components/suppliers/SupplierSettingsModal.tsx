@@ -55,6 +55,30 @@ export function SupplierSettingsModal({ open, onOpenChange, supplier, onSave }: 
             if (error) throw error;
 
             toast.success('Dodavatel uložen');
+
+            // AML Check Trigger
+            try {
+                const amlRes = await fetch('/api/aml/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, ico: '' }) // ICO not in form yet
+                });
+
+                if (amlRes.ok) {
+                    const amlData = await amlRes.json();
+                    if (amlData.status === 'hits_found') {
+                        toast.warning('POZOR: Nalezena shoda v sankčním seznamu! (AML)', { duration: 5000 });
+                    } else if (amlData.riskRating === 'high' || amlData.riskRating === 'critical') {
+                        toast.warning(`POZOR: Subjekt vyhodnocen jako ${amlData.riskRating.toUpperCase()} RISK!`, { duration: 5000 });
+                    } else {
+                        toast.info('AML Check: OK (Clean)', { duration: 2000 });
+                    }
+                }
+            } catch (amlError) {
+                console.error('AML Check trigger failed', amlError);
+                // Don't block user flow
+            }
+
             onOpenChange(false);
             if (onSave) onSave();
 
