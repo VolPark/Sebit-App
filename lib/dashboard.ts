@@ -125,7 +125,7 @@ export async function getDashboardData(
     // Fetch documents with mappings for the period
     // @ts-ignore
     accountingQuery = client.from('accounting_documents')
-      .select('id, type, amount, issue_date, tax_date, currency, amount_czk, provider_id, mappings:accounting_mappings(id, akce_id, pracovnik_id, division_id, cost_category, amount, amount_czk)')
+      .select('id, type, amount, issue_date, tax_date, currency, amount_czk, description, provider_id, mappings:accounting_mappings(id, akce_id, pracovnik_id, division_id, cost_category, amount, amount_czk)')
       .gte('issue_date', start)
       .lte('issue_date', end);
   }
@@ -338,6 +338,17 @@ export async function getDashboardData(
 
       const bucket = monthlyBuckets.get(key);
       if (!bucket) continue;
+
+      // Filter out internal transfers
+      const desc = (doc.description || '').toLowerCase();
+      if (
+        desc.includes('převod mezi firemními účty') ||
+        desc.includes('převod mezi vlastními účty') ||
+        desc.includes('peníze na cestě') ||
+        (desc.includes('převod') && desc.includes('účt')) // Broader catch for transfers
+      ) {
+        continue;
+      }
 
       // Check doc type
       if (doc.type === 'sales_invoice') {

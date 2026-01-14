@@ -110,13 +110,18 @@ export async function GET(req: Request) {
             const md = entry.account_md || '';
             const d = entry.account_d || '';
 
-            // 1. Cash Flow (Class 2, exclude 261)
+            // 1. Cash Flow (Class 2, excluding internal transfers)
+            // Definition: Movement between Cash Account (2xx except 26x) and Non-Cash Account (Not 2xx).
+            // If both sides are 2xx (e.g. 221 vs 261, or 221 vs 211), it is internal transfer.
+
             const isCashMD = md.startsWith('2') && !md.startsWith('26');
             const isCashD = d.startsWith('2') && !d.startsWith('26');
 
-            if (isCashMD && !isCashD) {
+            if (isCashMD && !d.startsWith('2')) {
+                // Asset Increase (Debit) from Non-Cash Source (Credit) -> Cash In
                 months[monthIdx].cashIn += amount;
-            } else if (isCashD && !isCashMD) {
+            } else if (isCashD && !md.startsWith('2')) {
+                // Asset Decrease (Credit) to Non-Cash Target (Debit) -> Cash Out
                 months[monthIdx].cashOut += amount;
             }
 
