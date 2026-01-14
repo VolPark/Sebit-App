@@ -13,6 +13,7 @@ import CompanyActionsTable from '@/components/CompanyActionsTable';
 import ActionDetailModal from '@/components/ActionDetailModal';
 import WorkerDetailModal from '@/components/WorkerDetailModal';
 import AiChat, { Message } from '@/components/AiChat';
+import { formatRate } from '@/lib/formatting';
 
 type FilterOption = { id: number; name: string };
 // ... (rest of imports)
@@ -272,12 +273,12 @@ const DashboardKpiGrid = ({ data, selectedMonths }: { data: DashboardData, selec
         />
         <KPICard
           title="Průměrná hodinová mzda"
-          value={currency.format(kpiData.averageHourlyWage) + "/h"}
-          helpText="Průměrná vyplacená mzda na hodinu"
+          value={formatRate(kpiData.averageHourlyWage)}
+          helpText="Průměrná vyplacená mzda"
         />
         <KPICard
           title="Průměrná sazba firmy"
-          value={currency.format(kpiData.avgCompanyRate) + "/h"}
+          value={formatRate(kpiData.avgCompanyRate)}
           helpText="Průměrná fakturovaná sazba (Příjmy / Hodiny)"
         />
       </div>
@@ -305,8 +306,8 @@ const WorkersTable = ({ data, onWorkerClick }: { data: WorkerStats[], onWorkerCl
               <td className="p-4 font-medium text-gray-900 dark:text-white">{w.name}</td>
               <td className="p-4 text-right dark:text-gray-300">{w.totalHours.toLocaleString('cs-CZ')} h</td>
               <td className="p-4 text-right dark:text-gray-300">{w.totalWages.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</td>
-              <td className="p-4 text-right text-gray-500 dark:text-gray-400">{w.avgHourlyRate.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h</td>
-              <td className="p-4 text-right font-bold text-gray-900 dark:text-white">{(w.realHourlyRate || 0).toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h</td>
+              <td className="p-4 text-right text-gray-500 dark:text-gray-400">{formatRate(w.avgHourlyRate)}</td>
+              <td className="p-4 text-right font-bold text-gray-900 dark:text-white">{formatRate(w.realHourlyRate || 0)}</td>
             </tr>
           ))}
           {data.length === 0 && <tr><td colSpan={5} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
@@ -331,10 +332,10 @@ const WorkersTable = ({ data, onWorkerClick }: { data: WorkerStats[], onWorkerCl
             </div>
             <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
               <p className="text-xs text-blue-600 dark:text-blue-400 mb-1 font-semibold">Reálná sazba</p>
-              <p className="font-bold text-blue-700 dark:text-blue-300">{(w.realHourlyRate || 0).toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h</p>
+              <p className="font-bold text-blue-700 dark:text-blue-300">{formatRate(w.realHourlyRate || 0)}</p>
             </div>
             <div className="col-span-2 text-center text-xs text-gray-400">
-              Sazba (Alokovaná): {w.avgHourlyRate.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}/h
+              Sazba (Alokovaná): {formatRate(w.avgHourlyRate)}
             </div>
           </div>
         </div>

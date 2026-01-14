@@ -2,6 +2,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Menu, Transition } from '@headlessui/react'
+import { formatRate } from '@/lib/formatting'
 
 export default function PracovniciPage() {
   // Data state
@@ -285,7 +286,7 @@ export default function PracovniciPage() {
             />
           </div>
           <div className="md:col-span-1">
-            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Hodinová sazba (Kč)</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Hodinová sazba ({process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || 'Kč'})</label>
             <input
               type="number"
               placeholder="250"
@@ -367,7 +368,7 @@ export default function PracovniciPage() {
               <>
                 <div className="flex justify-between items-start mb-2">
                   <h3 className={`font-bold text-lg text-gray-900 dark:text-white ${!p.is_active ? 'line-through text-gray-500 dark:text-gray-500' : ''}`}>{p.jmeno}</h3>
-                  <div className="text-sm font-semibold bg-gray-100 dark:bg-slate-800 dark:text-gray-300 px-2 py-1 rounded">{p.hodinova_mzda} Kč/h</div>
+                  <div className="text-sm font-semibold bg-gray-100 dark:bg-slate-800 dark:text-gray-300 px-2 py-1 rounded">{formatRate(p.hodinova_mzda)}</div>
                 </div>
 
                 <div className="flex flex-col gap-3 mt-4">
@@ -398,7 +399,7 @@ export default function PracovniciPage() {
             <tr>
               <th className="p-3">Jméno</th>
               <th className="p-3">Role</th>
-              <th className="p-3">Hodinová sazba</th>
+              <th className="p-3">Sazba</th>
               <th className="p-3">Napárovaný uživatel</th>
               <th className="p-3">Divize</th>
               <th className="p-3 text-right">Akce</th>
@@ -465,7 +466,7 @@ export default function PracovniciPage() {
                   <tr className={`hover:bg-gray-50 dark:hover:bg-slate-800 text-black dark:text-gray-100 ${!p.is_active ? 'bg-gray-50 dark:bg-slate-800/50 text-gray-400 dark:text-gray-500' : ''}`}>
                     <td className={`p-3 font-medium ${!p.is_active ? 'line-through' : ''}`}>{p.jmeno}</td>
                     <td className="p-3">{p.role || '-'}</td>
-                    <td className="p-3">{p.hodinova_mzda} Kč/h</td>
+                    <td className="p-3">{formatRate(p.hodinova_mzda)}</td>
                     <td className="p-3 text-sm text-gray-500">
                       {profiles.find(prof => prof.id === p.user_id)?.full_name || '-'}
                     </td>
