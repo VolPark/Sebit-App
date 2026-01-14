@@ -79,12 +79,12 @@ export default function InventoryTable({ items, loading, onDataChanged, onStatsC
         return stock ? stock.quantity : 0;
     };
 
-    if (loading && items.length === 0) return <div className="text-center py-10 text-gray-500">Načítám sklad...</div>;
-    if (items.length === 0 && !filter && selectedCenterId === 'ALL') return <div className="text-center py-10 text-gray-500">Sklad je prázdný</div>;
+    // if (loading && items.length === 0) return <div className="text-center py-10 text-gray-500">Načítám sklad...</div>;
+    // We want to show buttons even if empty, so we handle empty state inside the table or below filters.
 
     return (
         <div className="space-y-4">
-            {/* Filters */}
+            {/* Filters & Actions */}
             <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="relative flex-1">
                     <input
@@ -113,17 +113,17 @@ export default function InventoryTable({ items, loading, onDataChanged, onStatsC
                     </select>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full md:w-auto">
                     <button
                         onClick={() => onAction('RECEIPT')}
-                        className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-500/20 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
+                        className="flex-1 md:flex-none justify-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-500/20 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                         Příjem
                     </button>
                     <button
                         onClick={() => onAction('ISSUE')}
-                        className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
+                        className="flex-1 md:flex-none justify-center px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" /></svg>
                         Výdej
@@ -143,10 +143,16 @@ export default function InventoryTable({ items, loading, onDataChanged, onStatsC
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                        {filteredItems.length === 0 ? (
+                        {loading ? (
                             <tr>
                                 <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                                    {filter ? 'Žádné položky nenalezeny' : 'Sklad je prázdný'}
+                                    Načítám sklad...
+                                </td>
+                            </tr>
+                        ) : filteredItems.length === 0 ? (
+                            <tr>
+                                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                                    {items.length === 0 ? 'Sklad je prázdný. Přidejte první položku tlačítkem Příjem.' : 'Žádné položky nenalezeny'}
                                 </td>
                             </tr>
                         ) : (
