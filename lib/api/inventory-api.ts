@@ -70,6 +70,18 @@ export const getInventoryItemByEan = async (ean: string) => {
     return data as InventoryItem | null;
 };
 
+export const searchInventoryItems = async (query: string) => {
+    const { data, error } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .ilike('name', `%${query}%`)
+        .eq('is_active', true)
+        .limit(10); // Limit to top 10 suggestions
+
+    if (error) throw error;
+    return data as InventoryItem[];
+};
+
 export const createInventoryItem = async (item: Partial<InventoryItem>) => {
     const { data, error } = await supabase
         .from('inventory_items')

@@ -52,12 +52,14 @@ export default function InventoryPage() {
 
             <InventoryTable key={refreshKey} />
 
-            <InventoryActionModal
-                isOpen={!!actionType}
-                type={actionType || 'RECEIPT'}
-                onClose={() => setActionType(null)}
-                onSuccess={handleSuccess}
-            />
+            {!!actionType && (
+                <InventoryActionModal
+                    isOpen={true}
+                    type={actionType}
+                    onClose={() => setActionType(null)}
+                    onSuccess={handleSuccess}
+                />
+            )}
         </div>
     )
 }
