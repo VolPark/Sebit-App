@@ -32,11 +32,7 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
         try {
             const data = await getCenters();
             setCenters(data);
-            // Default to 'Hlavní sklad' if available and nothing selected, or just first one
-            if (!selectedCenterId && data.length > 0) {
-                const main = data.find(c => c.name === 'Hlavní sklad');
-                setSelectedCenterId(main ? main.id : data[0].id);
-            }
+            // Don't auto-select 'Hlavní sklad' here anymore, to force explicit choice or smart choice based on item
         } catch (e) {
             console.error(e);
         }
@@ -65,18 +61,45 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
         if (isOpen) {
             loadCenters();
             handleSearch(''); // Load default suggestions
+            // Reset fields
+            setItem(null);
+            setName('');
+            setEan('');
+            setPrice(0);
+            setQuantity(1);
+            setSelectedCenterId(null);
         }
     }, [isOpen]);
+
+    const determineBestCenter = (selectedItem: InventoryItem) => {
+        if (type === 'ISSUE') {
+            const stockLocations = selectedItem.stocks?.filter(s => s.quantity > 0) || [];
+            if (stockLocations.length === 1) {
+                // If only one place has it, select it
+                setSelectedCenterId(stockLocations[0].center_id);
+            } else {
+                // If multiple places or none, reset selection to force user choice
+                setSelectedCenterId(null);
+            }
+        } else {
+            // For RECEIPT, maybe default to where we usually stock it? 
+            // Or just 'Hlavní sklad' if defined? 
+            // For now, let's leave it empty or default to first if existing stock found?
+            // Let's rely on user selection for Receipt to avoid mistakes.
+            setSelectedCenterId(null);
+        }
+    };
 
     const selectItem = (selected: InventoryItem | null) => {
         if (selected) {
             setItem(selected);
             setName(selected.name);
             setEan(selected.ean || '');
-            setPrice(selected.avg_price || 0);
+            setPrice(selected.avg_price ? Number(selected.avg_price.toFixed(2)) : 0);
             setQuantity(1);
             setSuggestions([]);
-            setSearchTerm('');
+            setSearchTerm(selected.name);
+            determineBestCenter(selected);
         } else {
             // Reset if cleared
             setItem(null);
@@ -84,6 +107,7 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
             setEan('');
             setPrice(0);
             setQuantity(1);
+            setSelectedCenterId(null);
         }
     };
 
@@ -105,13 +129,16 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
             if (found) {
                 setItem(found);
                 setName(found.name);
-                setPrice(found.avg_price || 0);
+                setPrice(found.avg_price ? Number(found.avg_price.toFixed(2)) : 0);
                 setQuantity(1);
+                setSearchTerm(found.name);
+                determineBestCenter(found);
             } else {
                 setItem(null);
                 setName('');
                 setPrice(0);
                 setQuantity(1);
+                setSelectedCenterId(null);
             }
         } catch (e) {
             console.error(e);
@@ -276,52 +303,69 @@ export default function InventoryActionModal({ isOpen, onClose, type, onSuccess 
                                     onChange={(e) => setSelectedCenterId(Number(e.target.value))}
                                     className="w-full bg-white dark:bg-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
                                 >
-                                    {centers.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
+                                    <option value="" disabled>Vyberte středisko...</option>
+                                    {centers.map(c => {
+                                        // Find stock level for this center if item is selected
+                                        const stock = item?.stocks?.find(s => s.center_id === c.id);
+                                        const qty = stock ? stock.quantity : 0;
+
+                                        return (
+                                            <option key={c.id} value={c.id}>
+                                                {c.name} {item ? `(${qty} ${item.unit || 'ks'})` : ''}
+                                            </option>
+                                        );
+                                    })}
                                 </select>
+                                {item && <p className="text-xs text-green-600 mt-2 font-medium">✓ Položka nalezena ve skladu (Celkem: {item.quantity} {item.unit})</p>}
                             </div>
 
                             {/* Položka Info */}
-                            <div>
-                                <label className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1 block">Název položky</label>
-                                <input
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder="Název produktu"
-                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                                />
-                                {item && <p className="text-xs text-green-600 mt-1">✓ Položka nalezena ve skladu (Aktuálně: {item.quantity} {item.unit})</p>}
-                                {!item && ean && !loading && name && <p className="text-xs text-orange-500 mt-1">+ Bude založena nová karta</p>}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
+                            {type === 'RECEIPT' && !item && (
                                 <div>
-                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1 block">Množství</label>
+                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1 block">Název položky</label>
+                                    <input
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        placeholder="Název produktu"
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                                    />
+                                    {!item && ean && !loading && name && <p className="text-xs text-orange-500 mt-1">+ Bude založena nová karta</p>}
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="flex flex-col">
+                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1 block min-h-[32px] flex items-end pb-1">Množství</label>
                                     <input
                                         type="number"
                                         value={quantity}
                                         onChange={(e) => setQuantity(Number(e.target.value))}
-                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-lg"
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-lg h-[50px]"
                                     />
                                 </div>
-                                <div>
-                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1 block">
+                                <div className="flex flex-col">
+                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1 block min-h-[32px] flex items-end pb-1">
                                         {type === 'RECEIPT' ? 'Nákupní cena / ks' : 'Prodejní cena (volitelné)'}
                                     </label>
                                     <input
                                         type="number"
+                                        step="0.01"
                                         value={price}
-                                        onChange={(e) => setPrice(Number(e.target.value))}
-                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            // Ensure max 2 decimal places if typed?
+                                            // Usually parsing number handles it, but input step helps.
+                                            setPrice(val === '' ? 0 : Number(val));
+                                        }}
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 h-[50px]"
                                     />
                                 </div>
                             </div>
 
                             <button
                                 onClick={handleSubmit}
-                                disabled={loading}
-                                className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-transform active:scale-[0.98] ${type === 'RECEIPT' ? 'bg-green-600 hover:bg-green-700 shadow-green-500/20' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'
+                                disabled={loading || !selectedCenterId}
+                                className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${type === 'RECEIPT' ? 'bg-green-600 hover:bg-green-700 shadow-green-500/20' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'
                                     }`}
                             >
                                 {loading ? 'Ukládám...' : (type === 'RECEIPT' ? 'Přijmout na sklad' : 'Vydat ze skladu')}

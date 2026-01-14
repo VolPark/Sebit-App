@@ -108,8 +108,8 @@ export default function InventoryDetailPage() {
                     </div>
                 </div>
 
-                <div className="flex gap-4">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-right">
+                <div className="grid grid-cols-2 sm:flex flex-wrap gap-4 w-full md:w-auto grid-flow-dense">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-right flex-1 min-w-[140px]">
                         <div className="text-xs text-gray-400 font-bold uppercase">Skladem</div>
                         <div className={`text-xl font-bold ${item.quantity <= (item.min_quantity || 0) ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>
                             {item.quantity} <span className="text-sm font-normal text-gray-400">{item.unit}</span>
@@ -118,7 +118,7 @@ export default function InventoryDetailPage() {
 
                     {/* Stock by Center Summary */}
                     {item.stocks && item.stocks.length > 0 && (
-                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-right min-w-[200px]">
+                        <div className="col-span-2 sm:col-span-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-right flex-1 min-w-[200px]">
                             <div className="text-xs text-gray-400 font-bold uppercase mb-1">Dle středisek</div>
                             <div className="space-y-1">
                                 {item.stocks.map(stock => (
@@ -133,7 +133,7 @@ export default function InventoryDetailPage() {
                         </div>
                     )}
 
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-right">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-right flex-1 min-w-[140px]">
                         <div className="text-xs text-gray-400 font-bold uppercase">Prům. Cena</div>
                         <div className="text-xl font-bold text-gray-900 dark:text-white">
                             {item.avg_price?.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK' })}
@@ -143,10 +143,11 @@ export default function InventoryDetailPage() {
                     {/* Transfer Button */}
                     <button
                         onClick={() => setShowTransferModal(true)}
-                        className="p-3 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                        className="col-span-2 sm:col-span-auto p-3 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors flex items-center justify-center"
                         title="Přesunout zásoby"
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                        <span className="sm:hidden ml-2 font-medium">Přesunout</span>
                     </button>
                 </div>
             </div>
@@ -323,7 +324,8 @@ export default function InventoryDetailPage() {
                 ) : (
                     /* History Tab */
                     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                        <table className="w-full text-left text-sm">
+                        {/* Desktop Table */}
+                        <table className="w-full text-left text-sm hidden md:table">
                             <thead className="bg-gray-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800">
                                 <tr>
                                     <th className="px-6 py-4 font-semibold text-gray-900 dark:text-gray-200">Datum</th>
@@ -337,7 +339,7 @@ export default function InventoryDetailPage() {
                             <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                                 {movements.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Žádné pohyby v historii</td>
+                                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Žádné pohyby v historii</td>
                                     </tr>
                                 ) : (
                                     movements.map(m => (
@@ -377,6 +379,61 @@ export default function InventoryDetailPage() {
                                 )}
                             </tbody>
                         </table>
+
+                        {/* Mobile List View */}
+                        <div className="block md:hidden divide-y divide-gray-100 dark:divide-slate-800">
+                            {movements.length === 0 ? (
+                                <div className="p-8 text-center text-gray-500">Žádné pohyby v historii</div>
+                            ) : (
+                                movements.map(m => (
+                                    <div key={m.id} className="p-4 space-y-3">
+                                        <div className="flex justify-between items-start">
+                                            <div className="space-y-1">
+                                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                    {new Date(m.created_at).toLocaleString('cs-CZ')}
+                                                </div>
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                                    ${m.type === 'RECEIPT' ? 'bg-green-100 text-green-800' :
+                                                        m.type === 'ISSUE' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'}`}>
+                                                    {m.type === 'RECEIPT' ? 'Příjem' : m.type === 'ISSUE' ? 'Výdej' : m.type}
+                                                </span>
+                                            </div>
+                                            <div className={`text-lg font-bold ${m.quantity_change > 0 ? 'text-green-600' : m.quantity_change < 0 ? 'text-orange-600' : 'text-gray-600'}`}>
+                                                {m.quantity_change > 0 ? '+' : ''}{m.quantity_change} {item.unit}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <div className="text-xs text-gray-400 uppercase font-bold mb-1">Středisko</div>
+                                                <div className="text-gray-900 dark:text-gray-200">
+                                                    {m.type === 'TRANSFER' ? (
+                                                        <div className="flex flex-col">
+                                                            <span>{m.inventory_centers?.name}</span>
+                                                            <span className="text-gray-400 text-xs">▼</span>
+                                                            <span className="font-bold">{m.target_centers?.name}</span>
+                                                        </div>
+                                                    ) : (
+                                                        m.inventory_centers?.name || '-'
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-xs text-gray-400 uppercase font-bold mb-1">Cena / ks</div>
+                                                <div className="font-mono text-gray-900 dark:text-gray-200">
+                                                    {m.price ? m.price.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK' }) : '-'}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-2 border-t border-gray-50 dark:border-slate-800 flex justify-between items-center text-xs text-gray-500">
+                                            <span className="truncate max-w-[200px]">{m.profiles?.email || 'Neznámý uživatel'}</span>
+                                            {m.akce && <span className="text-blue-600 bg-blue-50 px-2 py-1 rounded">{m.akce.nazev}</span>}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 )
             }

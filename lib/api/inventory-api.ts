@@ -99,7 +99,7 @@ export const getInventoryItemById = async (id: number) => {
 export const getInventoryItemByEan = async (ean: string) => {
     const { data, error } = await supabase
         .from('inventory_items')
-        .select('*')
+        .select('*, stocks:inventory_stock(*)')
         .eq('ean', ean)
         .eq('is_active', true)
         .single();
@@ -111,7 +111,7 @@ export const getInventoryItemByEan = async (ean: string) => {
 export const searchInventoryItems = async (query: string) => {
     const { data, error } = await supabase
         .from('inventory_items')
-        .select('*')
+        .select('*, stocks:inventory_stock(*)')
         .ilike('name', `%${query}%`)
         .eq('is_active', true)
         .limit(10); // Limit to top 10 suggestions
@@ -260,11 +260,8 @@ export const getMovements = async (itemId?: number, limit = 50) => {
         .select(`
             *,
             inventory_items (name, unit),
-            akce (nazev)
-            *,
-            inventory_items (name, unit),
             akce (nazev),
-            inventory_centers (name),
+            inventory_centers!center_id (name),
             target_centers:inventory_centers!target_center_id (name)
         `) // Note: user relation removed due to auth.users visibility issues
         .order('created_at', { ascending: false })
