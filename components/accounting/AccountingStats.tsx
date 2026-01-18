@@ -51,7 +51,7 @@ export function AccountingStats() {
             // "Unmapped items" usually refers to *costs* that need allocation.
             // Let's count *Documents* that are NOT fully mapped.
             supabase.from('accounting_documents')
-                .select('id, amount, amount_czk, currency, mappings:accounting_mappings(id, amount)')
+                .select('id, amount, amount_czk, currency, raw_data, mappings:accounting_mappings(id, amount)')
                 // Unmapped documents are a "todo" list, so we should show them regardless of year
                 // to prevent missing tasks from previous periods.
                 .neq('status', 'cancelled')
@@ -64,9 +64,23 @@ export function AccountingStats() {
         }, 0);
 
         const unmappedData = (unmapped.data || []).filter((doc: any) => {
+            // Calculate effective amount (mirrored from DocumentsTable)
+            const rd = doc.raw_data || {};
+            const items = Array.isArray(rd.items) ? rd.items : [];
+            const settledAmount = (parseFloat(rd.total_amount || 0) === 0)
+                ? items.reduce((sum: number, item: any) => {
+                    const price = parseFloat(item.total_price || item.total_price_vat_inclusive || 0);
+                    return price < 0 ? sum + Math.abs(price) : sum;
+                }, 0)
+                : 0;
+
+            const isSettlement = settledAmount > 0 && parseFloat(rd.total_amount || 0) === 0;
+            const effectiveAmount = isSettlement ? settledAmount : doc.amount;
+
             const mappedSum = (doc.mappings || []).reduce((s: number, m: any) => s + Number(m.amount), 0);
+
             // Return true if significantly unmapped
-            return Math.abs(Number(doc.amount) - mappedSum) > 1;
+            return Math.abs(Number(effectiveAmount) - mappedSum) > 1;
         });
 
         setStats({
