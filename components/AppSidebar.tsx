@@ -38,7 +38,7 @@ export default function AppSidebar() {
     const { user, role, userName, signOut, isLoading } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-    const hasInitialized = useRef(false);
+    const initializedGroupRef = useRef<string | null>(null);
 
     const toggleGroup = (title: string) => {
         setExpandedGroups(prev => ({
@@ -56,12 +56,20 @@ export default function AppSidebar() {
     const filteredNavigation = role && !isLoading ? getFilteredNavigation(role) : [];
 
     useEffect(() => {
-        if (!isLoading && filteredNavigation.length > 0 && !hasInitialized.current) {
-            setExpandedGroups(prev => ({
-                ...prev,
-                [filteredNavigation[0].title]: true
-            }));
-            hasInitialized.current = true;
+        if (!isLoading && filteredNavigation.length > 0) {
+            const firstTitle = filteredNavigation[0].title;
+            if (initializedGroupRef.current !== firstTitle) {
+                setExpandedGroups(prev => {
+                    const newState = { ...prev };
+                    // If we previously auto-expanded a group, collapse it to keep only one default open
+                    if (initializedGroupRef.current) {
+                        newState[initializedGroupRef.current] = false;
+                    }
+                    newState[firstTitle] = true;
+                    return newState;
+                });
+                initializedGroupRef.current = firstTitle;
+            }
         }
     }, [isLoading, filteredNavigation]);
 
