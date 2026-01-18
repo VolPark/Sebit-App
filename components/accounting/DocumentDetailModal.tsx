@@ -27,13 +27,28 @@ export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDe
         return isNaN(num) ? '-' : new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: document.currency }).format(num);
     };
 
+    // Helper to calculate settlement amount (absolute value of negative items when total is 0)
+    const settledAmount = (parseFloat(rd.total_amount || 0) === 0)
+        ? items.reduce((sum: number, item: any) => {
+            const price = parseFloat(item.total_price || item.total_price_vat_inclusive || 0);
+            return price < 0 ? sum + Math.abs(price) : sum;
+        }, 0)
+        : 0;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 text-slate-900 dark:text-slate-100">
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-4xl h-[90vh] shadow-2xl flex flex-col overflow-hidden">
 
                 {/* Header */}
                 <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50">
-                    <h2 className="text-xl font-bold">Detail faktury {document.number}</h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-xl font-bold">Detail faktury {document.number}</h2>
+                        {settledAmount > 0 && (
+                            <span className="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-md">
+                                Zúčtovací doklad
+                            </span>
+                        )}
+                    </div>
                     <div className="flex items-center gap-2">
                         {document.type === 'purchase_invoice' && (document.amount - (document.paid_amount || 0)) > 1 && (
                             <button
@@ -135,11 +150,20 @@ export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDe
                                     <span className="font-medium">{document.tax_date ? new Date(document.tax_date).toLocaleDateString('cs-CZ') : (rd.tax_payment_date ? new Date(rd.tax_payment_date).toLocaleDateString('cs-CZ') : (rd.tax_date ? new Date(rd.tax_date).toLocaleDateString('cs-CZ') : '-'))}</span>
                                 </div>
                                 <div className="text-right flex flex-col items-end justify-center">
-                                    <span className="block text-xs text-gray-500 mb-1">Celkem k úhradě</span>
-                                    {/* Using total_amount from raw_data as the final payment amount (with VAT) */}
-                                    <span className="font-bold text-lg px-3 py-1 bg-brand-primary text-brand-primary-foreground rounded-lg shadow-sm whitespace-nowrap">
-                                        {formatMoney(rd.total_amount)}
+                                    <span className="block text-xs text-gray-500 mb-1">
+                                        {settledAmount > 0 && parseFloat(rd.total_amount || 0) === 0 ? 'Celková částka' : 'Celkem k úhradě'}
                                     </span>
+                                    {/* Using total_amount from raw_data as the final payment amount (with VAT) */}
+                                    <div className="flex flex-col items-end">
+                                        <span className="font-bold text-lg px-3 py-1 bg-brand-primary text-brand-primary-foreground rounded-lg shadow-sm whitespace-nowrap">
+                                            {formatMoney(settledAmount > 0 && parseFloat(rd.total_amount || 0) === 0 ? settledAmount : rd.total_amount)}
+                                        </span>
+                                        {settledAmount > 0 && parseFloat(rd.total_amount || 0) === 0 && (
+                                            <span className="text-xs text-green-600 dark:text-green-400 font-medium mt-1">
+                                                Uhrazeno zálohou (K úhradě: 0 Kč)
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -224,7 +248,10 @@ export function DocumentDetailModal({ open, onOpenChange, document }: DocumentDe
                     )}
 
                     {activeTab === 'mapping' && (
-                        <MappingManager document={document} />
+                        <MappingManager
+                            document={document}
+                            overrideTotalAmount={settledAmount > 0 && parseFloat(rd.total_amount || 0) === 0 ? settledAmount : undefined}
+                        />
                     )}
 
                     {activeTab === 'raw' && (

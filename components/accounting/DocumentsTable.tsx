@@ -105,8 +105,34 @@ export function DocumentsTable({ type }: DocumentsTableProps) {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                     {documents.map((doc) => {
-                        console.log(`Doc ${doc.number}: amount=${doc.amount}, mappings=`, doc.accounting_mappings);
-                        const mappingStatus = getMappingStatus(doc);
+                        // Calculate settled amount logic (mirrored from DocumentDetailModal)
+                        const rd = doc.raw_data as any || {};
+                        const items = Array.isArray(rd.items) ? rd.items : [];
+                        const settledAmount = (parseFloat(rd.total_amount || 0) === 0)
+                            ? items.reduce((sum: number, item: any) => {
+                                const price = parseFloat(item.total_price || item.total_price_vat_inclusive || 0);
+                                return price < 0 ? sum + Math.abs(price) : sum;
+                            }, 0)
+                            : 0;
+
+                        // If it's a settlement invoice, use the settled amount as the effective total
+                        const isSettlement = settledAmount > 0 && parseFloat(rd.total_amount || 0) === 0;
+                        const effectiveAmount = isSettlement ? settledAmount : doc.amount;
+
+                        // Recalculate mapping status based on effective amount
+                        const getEffectiveMappingStatus = () => {
+                            if (!doc.accounting_mappings || doc.accounting_mappings.length === 0) {
+                                return { label: 'Nepřiřazeno', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' };
+                            }
+                            const totalMapped = doc.accounting_mappings.reduce((sum, m) => sum + Number(m.amount), 0);
+                            if (Math.abs(totalMapped - effectiveAmount) < 0.1) {
+                                return { label: 'Přiřazeno', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' };
+                            }
+                            return { label: 'Částečně', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' };
+                        };
+
+                        const mappingStatus = getEffectiveMappingStatus();
+
                         return (
                             <tr key={doc.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                 <td className="px-6 py-4 font-medium">{doc.number}</td>
@@ -121,7 +147,14 @@ export function DocumentsTable({ type }: DocumentsTableProps) {
                                 </td>
                                 <td className="px-6 py-4">{doc.due_date ? new Date(doc.due_date).toLocaleDateString('cs-CZ') : '-'}</td>
                                 <td className="px-6 py-4 text-right font-bold">
-                                    {formatCurrency(doc.amount, doc.currency)}
+                                    <div className="flex flex-col items-end">
+                                        <span>{formatCurrency(effectiveAmount, doc.currency)}</span>
+                                        {isSettlement && (
+                                            <span className="text-[10px] text-green-600 dark:text-green-400 font-medium whitespace-nowrap">
+                                                Zúčtováno
+                                            </span>
+                                        )}
+                                    </div>
                                 </td>
 
                                 <td className="px-6 py-4">

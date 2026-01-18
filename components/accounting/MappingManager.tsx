@@ -7,6 +7,7 @@ import { Edit2, Trash2, Save, X, Plus, AlertCircle, CheckCircle2 } from 'lucide-
 
 interface MappingManagerProps {
     document: AccountingDocument;
+    overrideTotalAmount?: number;
 }
 
 interface Mapping {
@@ -19,7 +20,7 @@ interface Mapping {
     note: string;
 }
 
-export function MappingManager({ document }: MappingManagerProps) {
+export function MappingManager({ document, overrideTotalAmount }: MappingManagerProps) {
     const [mappings, setMappings] = useState<Mapping[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -30,6 +31,11 @@ export function MappingManager({ document }: MappingManagerProps) {
 
     const materialLabel = process.env.NEXT_PUBLIC_MATERIAL_LABEL === 'HIDDEN' ? 'Materiál' : (process.env.NEXT_PUBLIC_MATERIAL_LABEL || 'Materiál');
     const showMaterial = process.env.NEXT_PUBLIC_MATERIAL_LABEL !== 'HIDDEN';
+
+    // Use the override amount if provided, otherwise fallback to document amount
+    // Ideally document.amount should be number, but sometimes it might be string from API?
+    // Types say number.
+    const effectiveTotalAmount = overrideTotalAmount !== undefined ? overrideTotalAmount : document.amount;
 
     const [newMapping, setNewMapping] = useState<Mapping>({
         akce_id: null,
@@ -60,7 +66,7 @@ export function MappingManager({ document }: MappingManagerProps) {
 
         // Auto-fill remaining
         const currentTotal = (mRes.data || []).reduce((acc: number, m: any) => acc + Number(m.amount), 0);
-        const remaining = document.amount - currentTotal;
+        const remaining = effectiveTotalAmount - currentTotal;
         if (Math.abs(remaining) > 0.001) {
             setNewMapping(prev => ({ ...prev, amount: Number(remaining.toFixed(2)) }));
         }
@@ -108,7 +114,7 @@ export function MappingManager({ document }: MappingManagerProps) {
 
     const resetForm = (currentMappings: Mapping[]) => {
         const currentTotal = currentMappings.reduce((acc, m) => acc + Number(m.amount), 0);
-        const remaining = document.amount - currentTotal;
+        const remaining = effectiveTotalAmount - currentTotal;
 
         setEditingId(null);
         setNewMapping({
@@ -136,13 +142,13 @@ export function MappingManager({ document }: MappingManagerProps) {
             setMappings(newMappings);
             // Recalculate remaining for the form
             const currentTotal = newMappings.reduce((acc, m) => acc + Number(m.amount), 0);
-            const remaining = document.amount - currentTotal;
+            const remaining = effectiveTotalAmount - currentTotal;
             setNewMapping(prev => ({ ...prev, amount: Number(remaining.toFixed(2)) }));
         }
     };
 
     const totalMapped = mappings.reduce((acc, m) => acc + Number(m.amount), 0);
-    const remaining = document.amount - totalMapped;
+    const remaining = effectiveTotalAmount - totalMapped;
     const isFullyMapped = Math.abs(remaining) < 0.01;
 
     if (loading) return <div className="p-8 text-center text-slate-500">Načítám data...</div>;
@@ -154,7 +160,7 @@ export function MappingManager({ document }: MappingManagerProps) {
                 <div>
                     <span className="text-slate-500 text-sm uppercase tracking-wider font-semibold">Celková částka</span>
                     <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                        {new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: document.currency }).format(document.amount)}
+                        {new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: document.currency }).format(effectiveTotalAmount)}
                     </div>
                 </div>
 
