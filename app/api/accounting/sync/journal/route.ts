@@ -10,7 +10,7 @@ const supabaseAdmin = createClient(
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes timeout
 
-export async function POST() {
+export async function POST(req: Request) {
     try {
         // 1. Get Config
         const { data: provider, error } = await supabaseAdmin
@@ -31,17 +31,17 @@ export async function POST() {
         });
 
         // 2. Determine Date Range
-        // Ideally we sync incrementally. For now, let's sync current year + last year?
-        // Or get last synced date from DB?
-        // Let's safe sync current year for now.
-        const year = new Date().getFullYear();
+        const url = new URL(req.url); // Parsing request for year param
+        const yearParam = url.searchParams.get('year');
+        const year = yearParam ? Number(yearParam) : new Date().getFullYear();
+
         const start = `${year}-01-01`;
         const end = `${year}-12-31`;
 
         // 3. Fetch Loop
         let page = 1;
         let totalSynced = 0;
-        let info = "";
+        const seenIds = new Set<string>();
 
         while (true) {
             const res = await client.getAccountingRecords({
@@ -54,16 +54,21 @@ export async function POST() {
             if (items.length === 0) break;
 
             // 4. Transform & Insert
-            const payload = items.map((item: any) => ({
-                uol_id: String(item.id), // Assuming ID exists
-                date: item.date,
-                account_md: item.account_md || item.debit_account || '', // Verify field names
-                account_d: item.account_d || item.credit_account || '',
-                amount: parseFloat(item.amount || '0'),
-                currency: 'CZK', // Usually CZK in General Ledger locally
-                text: item.text || item.description,
-                fiscal_year: year
-            }));
+            const payload = items.map((item: any) => {
+                const uolId = String(item.id);
+                seenIds.add(uolId);
+
+                return {
+                    uol_id: uolId,
+                    date: item.date,
+                    account_md: item.account_md || item.debit_account || '',
+                    account_d: item.account_d || item.credit_account || '',
+                    amount: parseFloat(item.amount || '0'),
+                    currency: 'CZK',
+                    text: item.text || item.description,
+                    fiscal_year: year
+                };
+            });
 
             // Upsert (on conflict uol_id update)
             const { error: upsertError } = await supabaseAdmin
@@ -77,7 +82,41 @@ export async function POST() {
             page++;
         }
 
-        return NextResponse.json({ success: true, synced: totalSynced, period: year });
+        // 5. Cleanup Deleted Records (Soft Deletion / Hard Deletion Sync)
+        // Fetch all local UOL IDs for this year to compare
+        const { data: localRecords } = await supabaseAdmin
+            .from('accounting_journal')
+            .select('uol_id')
+            .eq('fiscal_year', year);
+
+        const localIds = localRecords?.map(r => r.uol_id) || [];
+        const idsToDelete = localIds.filter(id => !seenIds.has(id));
+
+        let deletedCount = 0;
+        if (idsToDelete.length > 0) {
+            console.log(`[Sync] Found ${idsToDelete.length} records to delete (not in source).`);
+
+            // Delete in batches to avoid URL limits if many
+            const BATCH_SIZE = 50;
+            for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+                const batch = idsToDelete.slice(i, i + BATCH_SIZE);
+                const { error: delError } = await supabaseAdmin
+                    .from('accounting_journal')
+                    .delete()
+                    .in('uol_id', batch);
+
+                if (delError) console.error('Error deleting batch:', delError);
+            }
+            deletedCount = idsToDelete.length;
+        }
+
+        return NextResponse.json({
+            success: true,
+            synced: totalSynced,
+            deleted: deletedCount,
+            period: year
+        });
+
     } catch (e: any) {
         console.error('Error syncing journal:', e);
         return NextResponse.json({ error: e.message }, { status: 500 });
