@@ -23,7 +23,9 @@ const Icons = {
     Accounting: (props: any) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>,
     Chart: (props: any) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M8.159 13.395l3.541-3.542 3.322 3.322L19.5 7.5" /></svg>,
     Shield: (props: any) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" /></svg>,
-    Inventory: (props: any) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+    Inventory: (props: any) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>,
+    ChevronDown: (props: any) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>,
+    ChevronRight: (props: any) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
 }
 
 import { getFilteredNavigation } from '@/lib/app-navigation';
@@ -35,6 +37,14 @@ export default function AppSidebar() {
     const searchParams = useSearchParams();
     const { user, role, userName, signOut, isLoading } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+    const toggleGroup = (title: string) => {
+        setExpandedGroups(prev => ({
+            ...prev,
+            [title]: !prev[title]
+        }));
+    };
 
     // Close sidebar on route change (mobile)
     const handleLinkClick = () => {
@@ -73,56 +83,69 @@ export default function AppSidebar() {
                         ))}
                     </div>
                 ) : (
-                    filteredNavigation.map((group) => (
-                        <div key={group.title}>
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-3">
-                                {group.title}
-                            </h3>
-                            <ul className="space-y-1">
-                                {group.items.map((item) => {
-                                    // Check if active
-                                    let isActive = false;
-                                    if (item.href.startsWith('/dashboard')) {
-                                        // Dashboard logic: check tab param
-                                        const itemTab = item.href.split('=')[1];
-                                        const currentTab = searchParams?.get('tab') || 'firma'; // default tab
-                                        isActive = pathname === '/dashboard' && itemTab === currentTab;
-                                    } else {
-                                        // Standard link logic
-                                        isActive = pathname.startsWith(item.href);
-                                    }
+                    filteredNavigation.map((group) => {
+                        const isExpanded = expandedGroups[group.title] || false;
 
-                                    // Resolve Icon
-                                    const IconComponent = Icons[item.iconKey as keyof typeof Icons] || Icons.Dashboard;
+                        return (
+                            <div key={group.title}>
+                                <button
+                                    onClick={() => toggleGroup(group.title)}
+                                    className="flex items-center justify-between w-full text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-3 hover:text-gray-300 transition-colors"
+                                >
+                                    {group.title}
+                                    {isExpanded ? (
+                                        <Icons.ChevronDown className="w-4 h-4" />
+                                    ) : (
+                                        <Icons.ChevronRight className="w-4 h-4" />
+                                    )}
+                                </button>
 
-                                    return (
-                                        <li key={item.name}>
-                                            <Link
-                                                href={item.href}
-                                                onClick={handleLinkClick}
-                                                className={`
-                                                group flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200
-                                                ${isActive
-                                                        ? 'bg-brand-primary text-brand-primary-foreground shadow-lg shadow-brand-primary/20'
-                                                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                                                    }
-                                            `}
-                                            >
-                                                <IconComponent
+                                <div className={`space-y-1 transition-all duration-200 overflow-hidden ${isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                    {group.items.map((item) => {
+                                        // Check if active
+                                        let isActive = false;
+                                        if (item.href.startsWith('/dashboard')) {
+                                            // Dashboard logic: check tab param
+                                            const itemTab = item.href.split('=')[1];
+                                            const currentTab = searchParams?.get('tab') || 'firma'; // default tab
+                                            isActive = pathname === '/dashboard' && itemTab === currentTab;
+                                        } else {
+                                            // Standard link logic
+                                            isActive = pathname.startsWith(item.href);
+                                        }
+
+                                        // Resolve Icon
+                                        const IconComponent = Icons[item.iconKey as keyof typeof Icons] || Icons.Dashboard;
+
+                                        return (
+                                            <li key={item.name} className="list-none">
+                                                <Link
+                                                    href={item.href}
+                                                    onClick={handleLinkClick}
                                                     className={`
-                                                    mr-3 h-5 w-5 flex-shrink-0 transition-colors
-                                                    ${isActive ? 'text-current' : 'text-gray-500 group-hover:text-white'}
+                                                    group flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200
+                                                    ${isActive
+                                                            ? 'bg-brand-primary text-brand-primary-foreground shadow-lg shadow-brand-primary/20'
+                                                            : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                                        }
                                                 `}
-                                                    aria-hidden="true"
-                                                />
-                                                {item.name}
-                                            </Link>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </div>
-                    ))
+                                                >
+                                                    <IconComponent
+                                                        className={`
+                                                        mr-3 h-5 w-5 flex-shrink-0 transition-colors
+                                                        ${isActive ? 'text-current' : 'text-gray-500 group-hover:text-white'}
+                                                    `}
+                                                        aria-hidden="true"
+                                                    />
+                                                    {item.name}
+                                                </Link>
+                                            </li>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })
                 )}
             </nav>
 
