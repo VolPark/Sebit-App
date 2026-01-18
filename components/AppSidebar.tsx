@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { CompanyConfig } from '@/lib/companyConfig';
 
@@ -38,6 +38,7 @@ export default function AppSidebar() {
     const { user, role, userName, signOut, isLoading } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+    const hasInitialized = useRef(false);
 
     const toggleGroup = (title: string) => {
         setExpandedGroups(prev => ({
@@ -53,6 +54,16 @@ export default function AppSidebar() {
 
     // Get Navigation
     const filteredNavigation = role && !isLoading ? getFilteredNavigation(role) : [];
+
+    useEffect(() => {
+        if (!isLoading && filteredNavigation.length > 0 && !hasInitialized.current) {
+            setExpandedGroups(prev => ({
+                ...prev,
+                [filteredNavigation[0].title]: true
+            }));
+            hasInitialized.current = true;
+        }
+    }, [isLoading, filteredNavigation]);
 
     const SidebarContent = () => (
         <div className="flex flex-col h-full bg-[#111827] text-white overflow-y-auto w-[260px] border-r border-gray-800">
