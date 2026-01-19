@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
         marginTop: 15,
         borderBottomWidth: 1,
         borderBottomColor: '#ddd',
-        paddingBottom: 15
+        paddingBottom: 20
     },
     itemMainRow: {
         flexDirection: 'row',
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     },
     // Content Layout
     itemContent: {
-        flex: 1
+        // Natural height
     },
     itemName: {
         fontSize: 11,
@@ -317,7 +317,7 @@ export default function OfferPdf({ offer, items }: OfferPdfProps) {
                 </Text>
 
                 {/* Table Header */}
-                <View style={styles.tableHeader}>
+                <View style={styles.tableHeader} fixed>
                     <Text style={[styles.th, { width: '50%' }]}>Název položky</Text>
                     <Text style={[styles.th, { width: '10%', textAlign: 'center' }]}>Množství</Text>
                     <Text style={[styles.th, { width: '20%', textAlign: 'right' }]}>Cena celkem</Text>
@@ -342,18 +342,18 @@ export default function OfferPdf({ offer, items }: OfferPdfProps) {
                                 </View>
                             </View>
 
-                            <View style={{ flexDirection: 'row' }}>
-                                {/* Image */}
+                            <View style={{ position: 'relative', minHeight: item.obrazek_url ? 120 : 0, paddingLeft: item.obrazek_url ? 155 : 0 }}>
+                                {/* Image - Positioned Absolutely */}
                                 {item.obrazek_url && (
-                                    <View style={styles.imageContainer}>
+                                    <View style={[styles.imageContainer, { position: 'absolute', top: 0, left: 0 }]} wrap={false}>
                                         <Image
                                             style={styles.itemImage}
-                                            src={`/api/proxy-image?url=${encodeURIComponent(item.obrazek_url)}`}
+                                            src={`/api/proxy-image?url=${encodeURIComponent(item.obrazek_url)}&t=${Date.now()}`}
                                         />
                                     </View>
                                 )}
 
-                                {/* Description */}
+                                {/* Description - Now using the padding of the parent */}
                                 <View style={styles.itemContent}>
                                     <Text style={styles.itemDesc}>
                                         {item.popis || 'Bez popisu.'}
