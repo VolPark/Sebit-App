@@ -15,7 +15,10 @@ import { BalanceSheetTile } from '@/components/accounting/reports/BalanceSheetTi
 import { ProfitLossTile } from '@/components/accounting/reports/ProfitLossTile';
 import { ReceivablesTile } from '@/components/accounting/reports/ReceivablesTile';
 import { PayablesTile } from '@/components/accounting/reports/PayablesTile';
+import { ValueAddedTile } from '@/components/accounting/reports/ValueAddedTile';
 import { Suspense } from 'react';
+
+
 
 function AccountingContent() {
     const router = useRouter();
@@ -176,6 +179,11 @@ function AccountingContent() {
                                 {/* Profit & Loss Tile (Výsledovka) */}
                                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
                                     <ProfitLossTile />
+                                </div>
+
+                                {/* Value Added Tile (New) */}
+                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
+                                    <ValueAddedTile />
                                 </div>
 
                                 {/* Receivables Tile */}

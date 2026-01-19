@@ -274,7 +274,7 @@ export class AccountingService {
         if (existing) {
             // We MUST NOT overwrite paid_amount if manually_paid is true.
             if (existing.manually_paid) {
-                delete payload.paid_amount;
+                delete (payload as any).paid_amount;
             }
 
             const { error } = await supabaseAdmin
