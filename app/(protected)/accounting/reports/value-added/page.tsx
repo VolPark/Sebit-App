@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -16,10 +15,15 @@ interface ReportData {
         valueAdded: number;
         operatingResult: number;
     };
-    servicesBreakdown: Array<{
+    breakdown: Array<{
         name: string;
         amount: number;
         code: string;
+    }>;
+    costStructure: Array<{
+        code: string;
+        name: string;
+        amount: number;
     }>;
 }
 
@@ -27,6 +31,9 @@ export default function ValueAddedReport() {
     const [year, setYear] = useState(new Date().getFullYear());
     const [data, setData] = useState<ReportData | null>(null);
     const [loading, setLoading] = useState(true);
+
+    // UI State
+    const [selectedGroup, setSelectedGroup] = useState<string>('51');
 
     // State for editing
     const [editingAccount, setEditingAccount] = useState<string | null>(null);
@@ -62,7 +69,11 @@ export default function ValueAddedReport() {
     if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
     if (!data) return <div className="p-6">Failed to load data.</div>;
 
-    const { metrics, servicesBreakdown } = data;
+    const { metrics, breakdown, costStructure } = data;
+
+    // Filter logic
+    const filteredAccounts = breakdown?.filter(item => item.code.startsWith(selectedGroup)) || [];
+    const selectedGroupTotal = filteredAccounts.reduce((sum, item) => sum + item.amount, 0);
 
     // UI Helpers
     const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
@@ -70,8 +81,6 @@ export default function ValueAddedReport() {
             {children}
         </div>
     );
-
-    /* State for editing moved to top */
 
     const startEditing = (code: string, currentName: string) => {
         setEditingAccount(code);
@@ -193,48 +202,56 @@ export default function ValueAddedReport() {
             {/* Structure Analysis */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
 
-                {/* Cost Structure - Simple Visualization */}
+                {/* Cost Structure - Dynamic Visualization */}
                 <Card className="col-span-3">
                     <div className="p-6">
-                        <h3 className="text-lg font-semibold leading-none tracking-tight mb-4">Struktura Nákladů (TOP)</h3>
+                        <h3 className="text-lg font-semibold leading-none tracking-tight mb-4">Struktura Nákladů (Všechny skupiny)</h3>
                         <div className="space-y-4">
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between text-sm">
-                                    <span>Služby (51)</span>
-                                    <span className="font-bold">{formatCurrency(metrics.totalServices)}</span>
-                                </div>
-                                <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-orange-500" style={{ width: `${(metrics.totalServices / (metrics.totalServices + metrics.totalPersonnel + metrics.totalMaterial)) * 100}%` }} />
-                                </div>
-                            </div>
+                            {costStructure?.map((item) => {
+                                const totalCosts = metrics.totalMaterial + metrics.totalServices + metrics.totalPersonnel + metrics.totalOtherCosts;
+                                const percent = (item.amount / totalCosts) * 100;
+                                const isSelected = selectedGroup === item.code;
 
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between text-sm">
-                                    <span>Osobní náklady (52)</span>
-                                    <span className="font-bold">{formatCurrency(metrics.totalPersonnel)}</span>
-                                </div>
-                                <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-blue-500" style={{ width: `${(metrics.totalPersonnel / (metrics.totalServices + metrics.totalPersonnel + metrics.totalMaterial)) * 100}%` }} />
-                                </div>
-                            </div>
+                                const getColor = (c: string) => {
+                                    if (c === '50') return 'bg-gray-500';
+                                    if (c === '51') return 'bg-orange-500';
+                                    if (c === '52') return 'bg-blue-500';
+                                    if (c === '53') return 'bg-red-500';
+                                    if (c === '54') return 'bg-purple-500';
+                                    if (c === '55') return 'bg-yellow-500';
+                                    return 'bg-slate-400';
+                                };
 
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between text-sm">
-                                    <span>Materiál a energie (50)</span>
-                                    <span className="font-bold">{formatCurrency(metrics.totalMaterial)}</span>
-                                </div>
-                                <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-gray-500" style={{ width: `${(metrics.totalMaterial / (metrics.totalServices + metrics.totalPersonnel + metrics.totalMaterial)) * 100}%` }} />
-                                </div>
-                            </div>
+                                return (
+                                    <div
+                                        key={item.code}
+                                        onClick={() => setSelectedGroup(item.code)}
+                                        className={`space-y-2 cursor-pointer p-2 -mx-2 rounded-lg transition-colors ${isSelected ? 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'}`}
+                                    >
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className={isSelected ? 'font-semibold text-slate-900 dark:text-white' : ''}>{item.name} ({item.code})</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold">{formatCurrency(item.amount)}</span>
+                                                {isSelected && <ArrowLeft className="w-3 h-3 text-slate-400 rotate-180" />}
+                                            </div>
+                                        </div>
+                                        <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <div className={`h-full ${getColor(item.code)}`} style={{ width: `${percent}%` }} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </Card>
 
-                {/* Services Breakdown Table */}
+                {/* Detail Table */}
                 <Card className="col-span-4">
                     <div className="p-6 pb-0">
-                        <h3 className="text-lg font-semibold leading-none tracking-tight mb-4">Detail Služeb (51xxxx)</h3>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold leading-none tracking-tight">Detail Účtů ({selectedGroup}xxxx)</h3>
+                            <span className="text-sm text-slate-500 font-medium">Celkem: {formatCurrency(selectedGroupTotal)}</span>
+                        </div>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
@@ -248,7 +265,7 @@ export default function ValueAddedReport() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {servicesBreakdown.map((item) => (
+                                {filteredAccounts.map((item) => (
                                     <tr key={item.code} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 group">
                                         <td className="px-6 py-4 font-medium text-slate-500">{item.code}</td>
                                         <td className="px-6 py-4 font-medium">
@@ -268,11 +285,13 @@ export default function ValueAddedReport() {
                                                     <button onClick={() => setEditingAccount(null)} className="text-slate-400 hover:text-slate-500 font-medium text-xs">X</button>
                                                 </div>
                                             ) : (
-                                                <span className="cursor-pointer hover:underline decoration-dashed underline-offset-4 decoration-slate-300" onClick={() => startEditing(item.code, item.name)}>{item.name}</span>
+                                                <div className="group/edit relative pr-4">
+                                                    <span className="cursor-pointer hover:underline decoration-dashed underline-offset-4 decoration-slate-300" onClick={() => startEditing(item.code, item.name)}>{item.name}</span>
+                                                </div>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right">{formatCurrency(item.amount)}</td>
-                                        <td className="px-6 py-4 text-right text-slate-500">{formatPercent(item.amount, metrics.totalServices)}</td>
+                                        <td className="px-6 py-4 text-right text-slate-500">{formatPercent(item.amount, selectedGroupTotal)}</td>
                                         <td className="px-6 py-4 text-center">
                                             {!editingAccount && (
                                                 <button onClick={() => startEditing(item.code, item.name)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-600 transition-all p-1">
@@ -283,9 +302,9 @@ export default function ValueAddedReport() {
                                         </td>
                                     </tr>
                                 ))}
-                                {servicesBreakdown.length === 0 && (
+                                {filteredAccounts.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">Žádná data</td>
+                                        <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">Žádná data pro skupinu {selectedGroup}</td>
                                     </tr>
                                 )}
                             </tbody>

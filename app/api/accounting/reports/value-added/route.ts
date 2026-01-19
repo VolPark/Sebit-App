@@ -49,7 +49,7 @@ export async function GET(request: Request) {
         let totalPersonnel = 0; // Group 52
         let totalOtherCosts = 0;// Rest of Class 5
 
-        const servicesBreakdown: Record<string, { name: string; amount: number; items: any[] }> = {};
+        const accountsBreakdown: Record<string, { name: string; amount: number; items: any[] }> = {};
 
         // Standard Group Names
         const GROUP_NAMES: Record<string, string> = {
@@ -81,23 +81,25 @@ export async function GET(request: Request) {
                 if (firstTwo === '50') totalMaterial += val;
                 else if (firstTwo === '51') {
                     totalServices += val;
-                    // Priority: 1. Custom Name, 2. Specific Account Name, 3. Synthetic Account Name, 4. Code
-                    const name = customNames[account]
-                        || accountNames[account]
-                        || accountNames[account.substring(0, 3)]
-                        || account;
-
-                    if (!servicesBreakdown[account]) {
-                        servicesBreakdown[account] = {
-                            name: name,
-                            amount: 0,
-                            items: []
-                        };
-                    }
-                    servicesBreakdown[account].amount += val;
                 }
                 else if (firstTwo === '52') totalPersonnel += val;
                 else totalOtherCosts += val;
+
+                // Collect Breakdown for ALL Class 5 accounts
+                // Priority: 1. Custom Name, 2. Specific Account Name, 3. Synthetic Account Name, 4. Code
+                const name = customNames[account]
+                    || accountNames[account]
+                    || accountNames[account.substring(0, 3)]
+                    || account;
+
+                if (!accountsBreakdown[account]) {
+                    accountsBreakdown[account] = {
+                        name: name,
+                        amount: 0,
+                        items: []
+                    };
+                }
+                accountsBreakdown[account].amount += val;
             }
             else if (firstChar === '6') {
                 const sign = side === 'd' ? 1 : -1;
@@ -117,12 +119,12 @@ export async function GET(request: Request) {
             }
         });
 
-        // Refine Services Breakdown
-        const servicesArray = Object.values(servicesBreakdown)
+        // Refine Breakdown
+        const breakdownArray = Object.values(accountsBreakdown)
             .map(s => ({
                 name: s.name,
                 amount: s.amount,
-                code: Object.keys(servicesBreakdown).find(key => servicesBreakdown[key] === s)
+                code: Object.keys(accountsBreakdown).find(key => accountsBreakdown[key] === s)! // ! assertion safe here
             }))
             .sort((a, b) => b.amount - a.amount);
 
@@ -130,7 +132,7 @@ export async function GET(request: Request) {
         const costStructureArray = Object.keys(costStructure)
             .map(code => ({
                 code,
-                name: `${GROUP_NAMES[code] || 'Ostatní'} (${code})`,
+                name: `${GROUP_NAMES[code] || 'Ostatní'}`,  // Removed code from name for cleaner UI
                 amount: costStructure[code]
             }))
             .filter(item => Math.abs(item.amount) > 1) // Only show non-zero (tolerance 1)
@@ -144,14 +146,14 @@ export async function GET(request: Request) {
             year,
             metrics: {
                 totalRevenue,
-                totalMaterial,
-                totalServices,
+                totalMaterial,   // Výkonová spotřeba - Materiál
+                totalServices,   // Výkonová spotřeba - Služby
                 totalPersonnel,
                 totalOtherCosts,
-                valueAdded,
-                operatingResult
+                valueAdded,      // Přidaná hodnota
+                operatingResult  // Provozní výsledek hospodaření
             },
-            servicesBreakdown: servicesArray,
+            breakdown: breakdownArray,
             costStructure: costStructureArray
         });
 
