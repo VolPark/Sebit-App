@@ -10,7 +10,7 @@ export default function InventoryPage() {
     const [actionType, setActionType] = useState<'RECEIPT' | 'ISSUE' | null>(null);
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({ totalValue: 0, totalItems: 0 });
+    const [stats, setStats] = useState({ totalValue: 0, totalItems: 0, totalQuantity: 0 });
 
     const loadItems = async () => {
         setLoading(true);
@@ -38,7 +38,7 @@ export default function InventoryPage() {
         <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Sklad</h1>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Skladové hospodářství</h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">Přehled skladových zásob a pohybů</p>
                 </div>
 
@@ -53,6 +53,10 @@ export default function InventoryPage() {
                     <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                         <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Položek</div>
                         <div className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">{stats.totalItems}</div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Celkové množství</div>
+                        <div className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">{stats.totalQuantity} ks</div>
                     </div>
                 </div>
             </div>

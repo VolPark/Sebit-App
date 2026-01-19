@@ -8,7 +8,7 @@ type InventoryTableProps = {
     items: InventoryItem[];
     loading?: boolean;
     onDataChanged: () => void;
-    onStatsCalculated?: (stats: { totalValue: number, totalItems: number }) => void;
+    onStatsCalculated?: (stats: { totalValue: number, totalItems: number, totalQuantity: number }) => void;
     onAction: (type: 'RECEIPT' | 'ISSUE') => void;
 };
 
@@ -67,7 +67,7 @@ export default function InventoryTable({ items, loading, onDataChanged, onStatsC
         });
 
         if (onStatsCalculated) {
-            onStatsCalculated({ totalValue: val, totalItems: count });
+            onStatsCalculated({ totalValue: val, totalItems: result.length, totalQuantity: count });
         }
 
     }, [items, filter, selectedCenterId, onStatsCalculated]);
