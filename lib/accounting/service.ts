@@ -432,7 +432,7 @@ export class AccountingService {
                         date: item.date,
                         account_md: extractAccount(item.account_md || item.debit_account),
                         account_d: extractAccount(item.account_d || item.credit_account),
-                        amount: parseFloat(item.amount || '0'),
+                        amount: parseFloat(item.accounting_amount || item.amount || '0'),
                         currency: 'CZK',
                         text: item.text || item.description,
                         fiscal_year: year
