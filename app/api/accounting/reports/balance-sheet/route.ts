@@ -103,8 +103,17 @@ export async function GET(req: Request) {
         let expenseSum = 0; // Class 5 (Current Year)
         let revenueSum = 0; // Class 6 (Current Year)
 
+        let vatSum = 0;
+
         Object.keys(balances).forEach(account => {
             const net = getNet(account);
+
+            // --- NETTO VAT LOGIC (343xxx) ---
+            if (account.startsWith('343')) {
+                vatSum += net;
+                return; // Skip standard processing
+            }
+
             const firstChar = account.charAt(0);
             const firstTwo = account.substring(0, 2);
 
@@ -179,6 +188,24 @@ export async function GET(req: Request) {
                 // Class 9: Off-balance (ignored in Balance Sheet usually) or specific cases
             }
         });
+
+        // 5. Add Netto VAT Result
+        if (Math.abs(vatSum) > 0.01) {
+            if (vatSum > 0) {
+                // Asset side (Excess Deduction) - Group C per user request? 
+                // User said: "IF Výsledné saldo < 0 (Nadměrný odpočet): Zobrazit pouze na straně AKTIV v sekci Pohledávky -> Stát - daňové pohledávky."
+                // My vatSum > 0 matches this case.
+                // Assets Group C is "C. Oběžná aktiva".
+                assetsGroups['C'].accounts.push({ account: '343', name: 'Stát - daňové pohledávky', balance: vatSum });
+                assetsGroups['C'].balance += vatSum;
+            } else {
+                // Liability side (Tax Liability) - Group B_C
+                // User said: "IF Výsledné saldo > 0 (Dlužíme státu): Zobrazit pouze na straně PASIV v sekci Krátkodobé závazky -> Stát - daňové závazky."
+                // My vatSum < 0 matches this case.
+                liabilitiesGroups['B_C'].accounts.push({ account: '343', name: 'Stát - daňové závazky', balance: -vatSum });
+                liabilitiesGroups['B_C'].balance += -vatSum;
+            }
+        }
 
         // 5. Calculate Profit/Loss (Current Year) and Add to Equity
         // Profit = Revenue (Credit) - Expense (Debit)
