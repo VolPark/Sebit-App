@@ -4,6 +4,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { getFilteredNavigation } from '@/lib/app-navigation';
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 function LoginForm() {
@@ -46,7 +47,7 @@ function LoginForm() {
 
             // Fetch role to determine redirect
             const { data: { user } } = await supabase.auth.getUser();
-            let targetPath = '/vykazy'; // Default fallback
+            let targetPath = '/dashboard'; // Default fallback
 
             if (user) {
                 const { data: profile } = await supabase
@@ -55,8 +56,15 @@ function LoginForm() {
                     .eq('id', user.id)
                     .single();
 
-                if (profile?.role === 'owner' || profile?.role === 'admin') {
-                    targetPath = '/dashboard';
+                const role = profile?.role;
+                const navigation = getFilteredNavigation(role);
+
+                // Find first available route
+                for (const group of navigation) {
+                    if (group.items && group.items.length > 0) {
+                        targetPath = group.items[0].href;
+                        break;
+                    }
                 }
             }
 
