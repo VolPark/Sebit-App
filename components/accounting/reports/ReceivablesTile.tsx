@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
-import { RefreshCw, ArrowRight, TrendingDown } from 'lucide-react';
+import { RefreshCw, ArrowRight, TrendingDown, FileText, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
@@ -12,27 +13,39 @@ export function ReceivablesTile() {
     const fetchStats = async () => {
         setLoading(true);
         try {
-            // Fetch unpaid sales invoices
+            // Fetch unpaid sales invoices with due_date
             const { data, error } = await supabase
                 .from('accounting_documents')
-                .select('amount, paid_amount')
+                .select('amount, paid_amount, due_date')
                 .eq('type', 'sales_invoice')
-                .gt('amount', 0); // Optimization: only fetch positive amounts if needed, mostly just type check
+                .gt('amount', 0);
 
             if (error) throw error;
 
             let totalReceivables = 0;
+            let totalOverdue = 0;
             let count = 0;
 
             if (data) {
+                const today = new Date().toISOString().split('T')[0];
+
                 // Filter for unpaid or partially paid
-                const unpaid = data.filter(d => (d.amount - (d.paid_amount || 0)) > 1); // tolerance > 1 CZK
+                const unpaid = data.filter(d => (d.amount - (d.paid_amount || 0)) > 1);
                 count = unpaid.length;
-                totalReceivables = unpaid.reduce((sum, d) => sum + (d.amount - (d.paid_amount || 0)), 0);
+
+                unpaid.forEach(d => {
+                    const remaining = d.amount - (d.paid_amount || 0);
+                    totalReceivables += remaining;
+
+                    if (d.due_date && d.due_date < today) {
+                        totalOverdue += remaining;
+                    }
+                });
             }
 
             setStats({
                 totalReceivables,
+                totalOverdue,
                 count
             });
         } catch (e: any) {
@@ -54,7 +67,7 @@ export function ReceivablesTile() {
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full group relative hover:border-lime-300 dark:hover:border-lime-700 transition-colors">
             <Link href="/accounting/reports/receivables" className="absolute inset-0 z-10" />
 
-            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/20">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/20">
                 <div className="flex items-center gap-2">
                     <div className="p-2 bg-lime-50 dark:bg-lime-900/20 rounded-lg">
                         <TrendingDown className="w-5 h-5 text-lime-600 dark:text-lime-400" />
@@ -64,21 +77,46 @@ export function ReceivablesTile() {
                         <p className="text-xs text-slate-500">Neuhrazené faktury</p>
                     </div>
                 </div>
+
+                <div className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-lime-50 text-lime-600 border border-lime-100 dark:bg-lime-900/20 dark:text-lime-400 dark:border-lime-900/30">
+                    K inkasu
+                </div>
             </div>
 
             <div className="p-6 flex-1 flex flex-col justify-center items-center bg-white dark:bg-slate-900 relative">
                 {loading ? (
-                    <RefreshCw className="w-6 h-6 animate-spin text-slate-300" />
+                    <div className="w-full h-full flex items-center justify-center">
+                        <RefreshCw className="w-6 h-6 animate-spin text-slate-300" />
+                    </div>
                 ) : (
-                    <div className="text-center">
-                        <div className="text-3xl font-bold text-lime-600 dark:text-lime-500 mb-1">
+                    <div className="text-center w-full">
+                        <div className="text-4xl font-bold text-slate-900 dark:text-white mb-6">
                             {formatMoney(stats?.totalReceivables || 0)}
                         </div>
-                        <div className="text-sm text-slate-500 mb-4">
-                            {stats?.count} neuhrazených faktur
+
+                        <div className="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800 pt-4 w-full text-center">
+                            <div className="flex flex-col gap-1 border-r border-slate-100 dark:border-slate-800">
+                                <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center justify-center gap-1">
+                                    <FileText className="w-3 h-3" /> Počet faktur
+                                </span>
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                    {stats?.count || 0}
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center justify-center gap-1">
+                                    <AlertCircle className="w-3 h-3 text-orange-500" /> Po splatnosti
+                                </span>
+                                <span className={`font-semibold ${stats?.totalOverdue > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                    {formatMoney(stats?.totalOverdue || 0)}
+                                </span>
+                            </div>
                         </div>
-                        <div className="inline-flex items-center gap-1 text-sm font-medium text-lime-700 dark:text-lime-400 bg-lime-50 dark:bg-lime-900/20 px-3 py-1.5 rounded-full group-hover:bg-lime-100 dark:group-hover:bg-lime-900/30 transition-colors">
-                            Zobrazit report <ArrowRight className="w-4 h-4 ml-0.5" />
+
+                        <div className="mt-6 flex justify-center">
+                            <div className="inline-flex items-center gap-1 text-sm font-medium text-lime-600 dark:text-lime-400 group-hover:text-lime-700 dark:group-hover:text-lime-300 transition-colors">
+                                Zobrazit report <ArrowRight className="w-4 h-4 ml-0.5" />
+                            </div>
                         </div>
                     </div>
                 )}

@@ -16,6 +16,8 @@ import { ProfitLossTile } from '@/components/accounting/reports/ProfitLossTile';
 import { ReceivablesTile } from '@/components/accounting/reports/ReceivablesTile';
 import { PayablesTile } from '@/components/accounting/reports/PayablesTile';
 import { ValueAddedTile } from '@/components/accounting/reports/ValueAddedTile';
+import { BurnRateTile } from '@/components/accounting/analytics/BurnRateTile';
+import { VatControlTile } from '@/components/accounting/analytics/VatControlTile';
 import { Suspense } from 'react';
 
 
@@ -126,6 +128,16 @@ function AccountingContent() {
                                 </div>
                                 <div className="p-6 pt-0">
                                     <AccountingStats />
+                                </div>
+                            </div>
+
+                            {/* Analytics Row (New) */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-auto min-h-[12rem]">
+                                    <BurnRateTile />
+                                </div>
+                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-auto min-h-[12rem]">
+                                    <VatControlTile />
                                 </div>
                             </div>
 
