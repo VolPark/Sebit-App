@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import Link from 'next/link';
-import { Loader2, TrendingUp, Users, Wrench, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Loader2, TrendingUp, Users, Wrench, RefreshCw, ArrowLeft, ArrowRight } from 'lucide-react';
 
 interface ReportData {
     year: number;
@@ -39,12 +39,43 @@ export default function ValueAddedReport() {
     const [editingAccount, setEditingAccount] = useState<string | null>(null);
     const [editValue, setEditValue] = useState('');
 
+    // State for drill-down
+    const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
+    const [detailData, setDetailData] = useState<Record<string, any[]>>({});
+    const [detailLoading, setDetailLoading] = useState<string | null>(null);
+
+    const toggleDetail = async (account: string) => {
+        if (expandedAccount === account) {
+            setExpandedAccount(null);
+            return;
+        }
+
+        setExpandedAccount(account);
+
+        if (!detailData[account]) {
+            setDetailLoading(account);
+            try {
+                const res = await fetch(`/api/accounting/reports/value-added/detail?account=${account}&year=${year}`);
+                if (!res.ok) throw new Error('Failed to fetch detail');
+                const json = await res.json();
+                setDetailData(prev => ({ ...prev, [account]: json.items }));
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setDetailLoading(null);
+            }
+        }
+    };
+
     useEffect(() => {
         fetchData();
     }, [year]);
 
     async function fetchData() {
         setLoading(true);
+        // Clear details cache to force re-fetch on expansion after refresh
+        setDetailData({});
+        setExpandedAccount(null); // Collapse all to avoid stale state visual
         try {
             const res = await fetch(`/api/accounting/reports/value-added?year=${year}`);
             if (!res.ok) throw new Error('Failed to fetch data');
@@ -266,41 +297,92 @@ export default function ValueAddedReport() {
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {filteredAccounts.map((item) => (
-                                    <tr key={item.code} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 group">
-                                        <td className="px-6 py-4 font-medium text-slate-500">{item.code}</td>
-                                        <td className="px-6 py-4 font-medium">
-                                            {editingAccount === item.code ? (
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        autoFocus
-                                                        value={editValue}
-                                                        onChange={e => setEditValue(e.target.value)}
-                                                        className="border rounded px-2 py-1 text-sm w-full bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
-                                                        onKeyDown={e => {
-                                                            if (e.key === 'Enter') saveName(item.code);
-                                                            if (e.key === 'Escape') setEditingAccount(null);
-                                                        }}
-                                                    />
-                                                    <button onClick={() => saveName(item.code)} className="text-green-600 hover:text-green-700 font-medium text-xs">OK</button>
-                                                    <button onClick={() => setEditingAccount(null)} className="text-slate-400 hover:text-slate-500 font-medium text-xs">X</button>
+                                    <Fragment key={item.code}>
+                                        <tr
+                                            className={`group transition-colors cursor-pointer ${expandedAccount === item.code ? 'bg-slate-50 dark:bg-slate-800 border-b-0' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                            onClick={() => !editingAccount && toggleDetail(item.code)}
+                                        >
+                                            <td className="px-6 py-4 font-medium text-slate-500">{item.code}</td>
+                                            <td className="px-6 py-4 font-medium" onClick={(e) => e.stopPropagation()}>
+                                                {editingAccount === item.code ? (
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            autoFocus
+                                                            value={editValue}
+                                                            onChange={e => setEditValue(e.target.value)}
+                                                            className="border rounded px-2 py-1 text-sm w-full bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
+                                                            onKeyDown={e => {
+                                                                if (e.key === 'Enter') saveName(item.code);
+                                                                if (e.key === 'Escape') setEditingAccount(null);
+                                                            }}
+                                                        />
+                                                        <button onClick={() => saveName(item.code)} className="text-green-600 hover:text-green-700 font-medium text-xs">OK</button>
+                                                        <button onClick={() => setEditingAccount(null)} className="text-slate-400 hover:text-slate-500 font-medium text-xs">X</button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="group/edit relative pr-4 flex items-center gap-2">
+                                                        <span>{item.name}</span>
+                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(item.code, item.name); }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-600 transition-all p-1">
+                                                            <span className="sr-only">Upravit</span>
+                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">{formatCurrency(item.amount)}</td>
+                                            <td className="px-6 py-4 text-right text-slate-500">{formatPercent(item.amount, selectedGroupTotal)}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <div className={`transition-transform duration-200 ${expandedAccount === item.code ? 'rotate-90' : ''}`}>
+                                                    <ArrowRight className="w-4 h-4 text-slate-400" />
                                                 </div>
-                                            ) : (
-                                                <div className="group/edit relative pr-4">
-                                                    <span className="cursor-pointer hover:underline decoration-dashed underline-offset-4 decoration-slate-300" onClick={() => startEditing(item.code, item.name)}>{item.name}</span>
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">{formatCurrency(item.amount)}</td>
-                                        <td className="px-6 py-4 text-right text-slate-500">{formatPercent(item.amount, selectedGroupTotal)}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            {!editingAccount && (
-                                                <button onClick={() => startEditing(item.code, item.name)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-600 transition-all p-1">
-                                                    <span className="sr-only">Upravit</span>
-                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
+                                            </td>
+                                        </tr>
+
+                                        {/* Expandable Detail */}
+                                        {expandedAccount === item.code && (
+                                            <tr className="bg-slate-50 dark:bg-slate-800/50">
+                                                <td colSpan={5} className="px-6 pb-6 pt-0">
+                                                    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm animate-in slide-in-from-top-2">
+                                                        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Detail transakcí ({item.code})</h4>
+
+                                                        {detailLoading === item.code ? (
+                                                            <div className="flex justify-center p-4"><Loader2 className="animate-spin h-5 w-5 text-slate-400" /></div>
+                                                        ) : detailData[item.code]?.length > 0 ? (
+                                                            <table className="w-full text-xs">
+                                                                <thead>
+                                                                    <tr className="text-slate-500 border-b border-slate-100 dark:border-slate-800">
+                                                                        <th className="py-2 text-left font-medium">Datum</th>
+                                                                        <th className="py-2 text-left font-medium">Popis</th>
+                                                                        <th className="py-2 text-left font-medium">Dodavatel</th>
+                                                                        <th className="py-2 text-right font-medium">Částka</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                                    {detailData[item.code].map((entry: any, i: number) => (
+                                                                        <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                                            <td className="py-2 text-slate-500">{new Date(entry.date).toLocaleDateString('cs-CZ')}</td>
+                                                                            <td className="py-2">{entry.text} {entry.doc_vs ? <span className="text-slate-400 text-[10px] ml-1">VS: {entry.doc_vs}</span> : ''}</td>
+                                                                            <td className="py-2 font-medium">
+                                                                                {entry.supplier !== 'Neznámý dodavatel' ? (
+                                                                                    <span className="text-blue-600 dark:text-blue-400">{entry.supplier}</span>
+                                                                                ) : (
+                                                                                    <span className="text-slate-400 italic">{entry.supplier}</span>
+                                                                                )}
+                                                                                {entry.ico && <span className="ml-1 text-slate-400 text-[10px]">({entry.ico})</span>}
+                                                                            </td>
+                                                                            <td className="py-2 text-right font-medium">{formatCurrency(entry.amount)}</td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        ) : (
+                                                            <p className="text-center text-sm text-slate-400 py-4">Žádné detailní záznamy nenalezeny.</p>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
                                 ))}
                                 {filteredAccounts.length === 0 && (
                                     <tr>

@@ -1,5 +1,5 @@
 
-import { AccountingService } from '@/lib/accounting/service';
+import { AccountingService } from '../lib/accounting/service';
 import dotenv from 'dotenv';
 
 // Load env

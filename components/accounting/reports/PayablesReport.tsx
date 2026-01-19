@@ -30,7 +30,13 @@ export function PayablesReport() {
     const fetchPayables = async () => {
         setLoading(true);
         try {
-            // Fetch purchase invoices with positive amount
+            // 1. Fetch breakdown from GL API (Source of Truth for Totals)
+            const resGl = await fetch('/api/accounting/reports/payables');
+            if (!resGl.ok) throw new Error('Failed to fetch GL payables');
+            const glData = await resGl.json();
+            const { breakdown } = glData; // { '321': 100, '379': 50 ... }
+
+            // 2. Fetch Invoices (Detail for 321)
             const { data: docsData, error } = await supabase
                 .from('accounting_documents')
                 .select('*')
@@ -40,31 +46,13 @@ export function PayablesReport() {
                 .order('issue_date', { ascending: false });
 
             if (error) throw error;
-
             const docs = docsData || [];
 
             // Filter strictly for unpaid > 1 CZK tolerance
             const unpaidDocs = docs.filter(d => (d.amount - (d.paid_amount || 0)) > 1);
 
-            // Fetch mappings for these documents
-            if (unpaidDocs.length > 0) {
-                const docIds = unpaidDocs.map(d => d.id);
-                const { data: mappingsData } = await supabase
-                    .from('accounting_mappings')
-                    .select('*')
-                    .in('document_id', docIds);
-
-                if (mappingsData) {
-                    unpaidDocs.forEach(d => {
-                        d.accounting_mappings = mappingsData.filter((m: any) => m.document_id === d.id);
-                    });
-                }
-            }
-
-            // Group by supplier
+            // 3. Convert Invoices to Groups
             const groups: { [key: string]: GroupedPayables } = {};
-            let totalAmount = 0;
-            let totalRemaining = 0;
 
             unpaidDocs.forEach(doc => {
                 const name = doc.supplier_name || 'Neznámý dodavatel';
@@ -82,16 +70,96 @@ export function PayablesReport() {
                 groups[name].total_amount += doc.amount;
                 groups[name].total_paid += (doc.paid_amount || 0);
                 groups[name].total_remaining += remaining;
-
-                totalAmount += doc.amount;
-                totalRemaining += remaining;
             });
 
-            setGroupedData(Object.values(groups));
+            // 4. Synthesize Other Liabilities (379, 365, 343)
+            // Ideally we would fetch details for these too (via journal), 
+            // but for now we effectively add them as "Summary Documents" to ensure Total matches.
+            const otherAccounts = [
+                { code: '379', name: 'Jiné závazky (379)' },
+                { code: '365', name: 'Závazky ke společníkům (365)' },
+                { code: '343', name: 'Daňové závazky (343)' }
+            ];
+
+            const synthesizedDocs: AccountingDocument[] = [];
+
+            otherAccounts.forEach(acc => {
+                const amount = breakdown[acc.code] || 0;
+                if (amount > 1) {
+                    // Create a virtual document
+                    const doc: any = {
+                        id: `virt-${acc.code}`,
+                        type: 'other_liability',
+                        number: acc.code,
+                        supplier_name: acc.name, // Use account name as supplier group
+                        supplier_ico: '',
+                        amount: amount,
+                        paid_amount: 0,
+                        currency: 'CZK',
+                        issue_date: new Date().toISOString(),
+                        due_date: new Date().toISOString(),
+                        tax_date: new Date().toISOString(),
+                        raw_data: { variable_symbol: '-', payment_method: 'Zůstatek účtu' }
+                    };
+
+                    // Add to groups
+                    groups[acc.name] = {
+                        supplier_name: acc.name,
+                        documents: [doc],
+                        total_amount: amount,
+                        total_paid: 0,
+                        total_remaining: amount
+                    };
+                    synthesizedDocs.push(doc);
+                }
+            });
+
+            // Handle 321 Discrepancy
+            const gl321 = breakdown['321'] || 0;
+            const docs321 = unpaidDocs.reduce((sum, d) => sum + (d.amount - (d.paid_amount || 0)), 0);
+            const diff321 = gl321 - docs321;
+
+            if (diff321 > 1) {
+                const name = 'Nespárované faktury (321)';
+                const doc: any = {
+                    id: `virt-321-diff`,
+                    type: 'other_liability',
+                    number: '321-DIFF',
+                    supplier_name: name,
+                    supplier_ico: '',
+                    amount: diff321,
+                    paid_amount: 0,
+                    currency: 'CZK',
+                    issue_date: new Date().toISOString(),
+                    due_date: new Date().toISOString(),
+                    tax_date: new Date().toISOString(),
+                    raw_data: { variable_symbol: '-', payment_method: 'Rozdíl GL vs Doklady' }
+                };
+
+                groups[name] = {
+                    supplier_name: name,
+                    documents: [doc],
+                    total_amount: diff321,
+                    total_paid: 0,
+                    total_remaining: diff321
+                };
+                synthesizedDocs.push(doc);
+            }
+
+            // Recalculate Totals based on Groups (Mixed Source)
+            const allGroups = Object.values(groups);
+            const totalRemaining = allGroups.reduce((sum, g) => sum + g.total_remaining, 0);
+            const count = unpaidDocs.length + synthesizedDocs.length; // Invoices + Virtuals
+
+            // Sort Groups: 321 first (Suppliers), then Others? Or just alpha?
+            // Usually liabilities like 365 are important. Let's sort Alpha for now.
+            allGroups.sort((a, b) => a.supplier_name.localeCompare(b.supplier_name));
+
+            setGroupedData(allGroups);
             setSummary({
-                totalAmount,
+                totalAmount: totalRemaining, // Approximation for "Total Amount invoiced" is tricky with mixed types
                 totalRemaining,
-                count: unpaidDocs.length
+                count
             });
 
         } catch (e) {

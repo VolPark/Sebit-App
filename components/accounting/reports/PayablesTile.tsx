@@ -12,28 +12,13 @@ export function PayablesTile() {
     const fetchStats = async () => {
         setLoading(true);
         try {
-            // Fetch unpaid purchase invoices
-            const { data, error } = await supabase
-                .from('accounting_documents')
-                .select('amount, paid_amount')
-                .eq('type', 'purchase_invoice')
-                .gt('amount', 0);
-
-            if (error) throw error;
-
-            let totalPayables = 0;
-            let count = 0;
-
-            if (data) {
-                // Filter for unpaid or partially paid
-                const unpaid = data.filter(d => (d.amount - (d.paid_amount || 0)) > 1); // tolerance > 1 CZK
-                count = unpaid.length;
-                totalPayables = unpaid.reduce((sum, d) => sum + (d.amount - (d.paid_amount || 0)), 0);
-            }
+            const res = await fetch('/api/accounting/reports/payables');
+            if (!res.ok) throw new Error('Failed to fetch payables');
+            const data = await res.json();
 
             setStats({
-                totalPayables,
-                count
+                totalPayables: data.totalPayables,
+                breakdown: data.breakdown
             });
         } catch (e: any) {
             console.error(e);
@@ -61,7 +46,7 @@ export function PayablesTile() {
                     </div>
                     <div>
                         <h3 className="font-semibold text-slate-900 dark:text-white">Závazky</h3>
-                        <p className="text-xs text-slate-500">Neuhrazené faktury</p>
+                        <p className="text-xs text-slate-500">Celkové závazky</p>
                     </div>
                 </div>
             </div>
@@ -74,8 +59,9 @@ export function PayablesTile() {
                         <div className="text-3xl font-bold text-rose-600 dark:text-rose-500 mb-1">
                             {formatMoney(stats?.totalPayables || 0)}
                         </div>
-                        <div className="text-sm text-slate-500 mb-4">
-                            {stats?.count} neuhrazených faktur
+                        <div className="text-xs text-slate-400 mb-4 flex flex-col gap-1">
+                            <span>321 Faktury: {formatMoney(stats?.breakdown?.['321'] || 0)}</span>
+                            <span>379, 365, 343: {formatMoney((stats?.breakdown?.['379'] || 0) + (stats?.breakdown?.['365'] || 0) + (stats?.breakdown?.['343'] || 0))}</span>
                         </div>
                         <div className="inline-flex items-center gap-1 text-sm font-medium text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 px-3 py-1.5 rounded-full group-hover:bg-rose-100 dark:group-hover:bg-rose-900/30 transition-colors">
                             Zobrazit report <ArrowRight className="w-4 h-4 ml-0.5" />
