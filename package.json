@@ -21,6 +21,7 @@
     "@vercel/speed-insights": "^1.3.1",
     "ai": "^5.0.116",
     "browser-image-compression": "^2.0.2",
+    "dotenv": "^17.2.3",
     "fast-xml-parser": "^5.3.3",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.562.0",
@@ -31,6 +32,7 @@
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.0",
     "remark-gfm": "^4.0.1",
+    "sharp": "^0.34.5",
     "sonner": "^2.0.7",
     "ssh2-sftp-client": "^12.0.1"
   },

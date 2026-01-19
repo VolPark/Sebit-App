@@ -164,13 +164,14 @@ const styles = StyleSheet.create({
     imageContainer: {
         width: 140,
         height: 120,
-        backgroundColor: '#f5f5f5',
-        marginRight: 15
+        marginRight: 15,
+        alignItems: 'center',
+        justifyContent: 'center'
     },
     itemImage: {
         width: '100%',
         height: '100%',
-        objectFit: 'cover'
+        objectFit: 'contain'
     },
     // Content Layout
     itemContent: {
@@ -345,7 +346,10 @@ export default function OfferPdf({ offer, items }: OfferPdfProps) {
                                 {/* Image */}
                                 {item.obrazek_url && (
                                     <View style={styles.imageContainer}>
-                                        <Image style={styles.itemImage} src={item.obrazek_url} />
+                                        <Image
+                                            style={styles.itemImage}
+                                            src={`/api/proxy-image?url=${encodeURIComponent(item.obrazek_url)}`}
+                                        />
                                     </View>
                                 )}
 
