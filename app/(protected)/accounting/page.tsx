@@ -190,7 +190,7 @@ function AccountingContent() {
 
                     {activeTab === 'reports' && (
                         <div className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                                 {/* Balance Sheet Tile */}
                                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
                                     <BalanceSheetTile />
@@ -199,21 +199,6 @@ function AccountingContent() {
                                 {/* Profit & Loss Tile (Výsledovka) */}
                                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
                                     <ProfitLossTile />
-                                </div>
-
-                                {/* Value Added Tile (New) */}
-                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
-                                    <ValueAddedTile />
-                                </div>
-
-                                {/* Receivables Tile */}
-                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
-                                    <ReceivablesTile />
-                                </div>
-
-                                {/* Payables Tile */}
-                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
-                                    <PayablesTile />
                                 </div>
 
                                 {/* General Ledger Tile */}
