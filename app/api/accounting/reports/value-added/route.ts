@@ -54,7 +54,7 @@ export async function GET(request: Request) {
         // Standard Group Names
         const GROUP_NAMES: Record<string, string> = {
             '50': 'Spotřebované nákupy',
-            '51': 'Služby (51)',
+            '51': 'Služby',
             '52': 'Osobní náklady',
             '53': 'Daně a poplatky',
             '54': 'Jiné provozní náklady',
