@@ -44,13 +44,18 @@ export default function ValueAddedReport() {
     const [detailData, setDetailData] = useState<Record<string, any[]>>({});
     const [detailLoading, setDetailLoading] = useState<string | null>(null);
 
+    // Supplier grouping state
+    const [expandedSuppliers, setExpandedSuppliers] = useState<Set<string>>(new Set());
+
     const toggleDetail = async (account: string) => {
         if (expandedAccount === account) {
             setExpandedAccount(null);
+            setExpandedSuppliers(new Set()); // Reset supplier expansion
             return;
         }
 
         setExpandedAccount(account);
+        setExpandedSuppliers(new Set()); // Reset supplier expansion
 
         if (!detailData[account]) {
             setDetailLoading(account);
@@ -65,6 +70,36 @@ export default function ValueAddedReport() {
                 setDetailLoading(null);
             }
         }
+    };
+
+    const toggleSupplier = (supplierKey: string) => {
+        const newSet = new Set(expandedSuppliers);
+        if (newSet.has(supplierKey)) {
+            newSet.delete(supplierKey);
+        } else {
+            newSet.add(supplierKey);
+        }
+        setExpandedSuppliers(newSet);
+    };
+
+    const groupItemsBySupplier = (items: any[]) => {
+        const grouped: Record<string, { name: string; amount: number; items: any[], ico?: string }> = {};
+
+        items.forEach(item => {
+            const key = item.supplier || 'Neznámý dodavatel';
+            if (!grouped[key]) {
+                grouped[key] = {
+                    name: key,
+                    amount: 0,
+                    items: [],
+                    ico: item.ico
+                };
+            }
+            grouped[key].amount += item.amount;
+            grouped[key].items.push(item);
+        });
+
+        return Object.values(grouped).sort((a, b) => b.amount - a.amount);
     };
 
     useEffect(() => {
@@ -349,29 +384,40 @@ export default function ValueAddedReport() {
                                                             <div className="flex justify-center p-4"><Loader2 className="animate-spin h-5 w-5 text-slate-400" /></div>
                                                         ) : detailData[item.code]?.length > 0 ? (
                                                             <table className="w-full text-xs">
-                                                                <thead>
-                                                                    <tr className="text-slate-500 border-b border-slate-100 dark:border-slate-800">
-                                                                        <th className="py-2 text-left font-medium">Datum</th>
-                                                                        <th className="py-2 text-left font-medium">Popis</th>
-                                                                        <th className="py-2 text-left font-medium">Dodavatel</th>
-                                                                        <th className="py-2 text-right font-medium">Částka</th>
-                                                                    </tr>
-                                                                </thead>
                                                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                                                    {detailData[item.code].map((entry: any, i: number) => (
-                                                                        <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                                                            <td className="py-2 text-slate-500">{new Date(entry.date).toLocaleDateString('cs-CZ')}</td>
-                                                                            <td className="py-2">{entry.text} {entry.doc_vs ? <span className="text-slate-400 text-[10px] ml-1">VS: {entry.doc_vs}</span> : ''}</td>
-                                                                            <td className="py-2 font-medium">
-                                                                                {entry.supplier !== 'Neznámý dodavatel' ? (
-                                                                                    <span className="text-blue-600 dark:text-blue-400">{entry.supplier}</span>
-                                                                                ) : (
-                                                                                    <span className="text-slate-400 italic">{entry.supplier}</span>
-                                                                                )}
-                                                                                {entry.ico && <span className="ml-1 text-slate-400 text-[10px]">({entry.ico})</span>}
-                                                                            </td>
-                                                                            <td className="py-2 text-right font-medium">{formatCurrency(entry.amount)}</td>
-                                                                        </tr>
+                                                                    {groupItemsBySupplier(detailData[item.code]).map((group) => (
+                                                                        <Fragment key={group.name}>
+                                                                            {/* Supplier Header */}
+                                                                            <tr
+                                                                                className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer text-slate-700 dark:text-slate-300 font-medium bg-slate-50/50 dark:bg-slate-900/50"
+                                                                                onClick={() => toggleSupplier(group.name)}
+                                                                            >
+                                                                                <td colSpan={3} className="py-2 pl-2">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <div className={`transition-transform duration-200 ${expandedSuppliers.has(group.name) ? 'rotate-90' : ''}`}>
+                                                                                            <ArrowRight className="w-3 h-3 text-slate-400" />
+                                                                                        </div>
+                                                                                        <span className="text-blue-600 dark:text-blue-400">{group.name}</span>
+                                                                                        {group.ico && <span className="text-slate-400 text-[10px]">({group.ico})</span>}
+                                                                                        <span className="text-slate-400 text-[10px] ml-1">({group.items.length} pol.)</span>
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td className="py-2 text-right font-bold pr-2">{formatCurrency(group.amount)}</td>
+                                                                            </tr>
+
+                                                                            {/* Expanded Items */}
+                                                                            {expandedSuppliers.has(group.name) && group.items.map((entry: any, i: number) => (
+                                                                                <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 border-l-2 border-slate-100 dark:border-slate-800">
+                                                                                    <td className="py-2 pl-8 text-slate-500 w-24 whitespace-nowrap">{new Date(entry.date).toLocaleDateString('cs-CZ')}</td>
+                                                                                    <td className="py-2 text-slate-600 dark:text-slate-400">
+                                                                                        {entry.text}
+                                                                                        {entry.doc_vs && <span className="text-slate-400 text-[10px] ml-1">VS: {entry.doc_vs}</span>}
+                                                                                    </td>
+                                                                                    <td className="py-2"></td>
+                                                                                    <td className="py-2 text-right text-slate-500 pr-2">{formatCurrency(entry.amount)}</td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </Fragment>
                                                                     ))}
                                                                 </tbody>
                                                             </table>

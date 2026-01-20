@@ -69,7 +69,7 @@ export async function GET(request: Request) {
 
         const { data: docs } = await supabaseAdmin
             .from('accounting_documents')
-            .select('id, supplier_name, supplier_ico, raw_data, number, issue_date') // number is VS
+            .select('id, supplier_name, supplier_ico, raw_data, number, external_id, issue_date, contact:accounting_contacts(name, company_number)') // number is VS
             .eq('type', 'purchase_invoice')
             .gte('issue_date', `${year}-01-01`)
             .lte('issue_date', `${year}-12-31`);
@@ -78,12 +78,11 @@ export async function GET(request: Request) {
         // Build Doc Map by doc_number (internal)
         const docLookup = new Map<string, any>();
         docs?.forEach(d => {
-            // Use 'number' column as primary key for linking (e.g. 20250001)
-            // Fallback to raw_data.doc_number if number is missing
-            const key = d.number || d.raw_data?.doc_number || d.raw_data?.id;
-            if (key) {
-                docLookup.set(String(key), d);
-            }
+            // Strict match: DOC:xxx in journal refers to external_id (Invoice ID) in documents
+            // DO NOT index by 'number' (VS), as it causes collisions (e.g. DOC:100 vs VS:100)
+            if (d.external_id) docLookup.set(String(d.external_id), d);
+            if (d.raw_data?.id) docLookup.set(String(d.raw_data.id), d); // additional fallback if external_id missing
+            if (d.raw_data?.doc_number) docLookup.set(String(d.raw_data.doc_number), d);
         });
 
         // 5. Build Result List
@@ -92,14 +91,27 @@ export async function GET(request: Request) {
             let supplierIco = null;
             let docInfo = null;
 
-            const match = entry.text?.match(/\| DOC:(\d+)/);
-            if (match && match[1]) {
-                const docNum = match[1];
-                const doc = docLookup.get(docNum);
-                if (doc) {
-                    supplierName = doc.supplier_name;
-                    supplierIco = doc.supplier_ico;
-                    docInfo = doc;
+            // Only attempt invoice lookup for groups that essentially contain invoices (50, 51, 53)
+            // Groups 52 (Wages), 54 (Other), 55 (Depreciation), 56 (Financial) often contain internal docs 
+            // that share IDs/VS with invoices (e.g. rounding diffs), leading to confusing matches.
+            const accountGroup = account.substring(0, 2);
+            const shouldLookup = ['50', '51', '53'].includes(accountGroup);
+
+            if (shouldLookup) {
+                const match = entry.text?.match(/\| DOC:(\d+)/);
+                if (match && match[1]) {
+                    const docNum = match[1];
+                    const doc = docLookup.get(docNum);
+                    if (doc) {
+                        // Prioritize linked contact name
+                        if (doc.contact && (doc.contact as any).name) {
+                            supplierName = (doc.contact as any).name;
+                        } else {
+                            supplierName = doc.supplier_name;
+                        }
+                        supplierIco = (doc.contact as any)?.company_number || doc.supplier_ico;
+                        docInfo = doc;
+                    }
                 }
             }
 
@@ -109,11 +121,23 @@ export async function GET(request: Request) {
             let amount = Number(entry.amount);
             if (entry.account_d === account) amount = -amount;
 
+            let effectiveSupplier = supplierName;
+
+            // Refine "Unknown" for specific logical groups
+            if (!effectiveSupplier || effectiveSupplier === 'Neznámý dodavatel') {
+                if (accountGroup === '52') effectiveSupplier = 'Mzdy / Zaměstnanci';
+                else if (accountGroup === '55') effectiveSupplier = 'Interní doklad (Odpisy/Rezervy)';
+                else if (accountGroup === '56') effectiveSupplier = 'Banka / Poplatky';
+                else if (accountGroup === '54') effectiveSupplier = 'Provozní náklady';
+                else if (accountGroup === '50' || accountGroup === '51' || accountGroup === '53') effectiveSupplier = 'Neznámý dodavatel';
+                else effectiveSupplier = 'Interní doklad';
+            }
+
             return {
                 date: entry.date,
                 text: entry.text.replace(/\| DOC:\d+/, '').trim(), // Clean text
                 amount: amount,
-                supplier: supplierName || 'Neznámý dodavatel',
+                supplier: effectiveSupplier,
                 ico: supplierIco,
                 doc_vs: docInfo?.number // VS
             };
