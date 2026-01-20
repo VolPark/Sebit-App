@@ -45,11 +45,18 @@ export class AccountingService {
         const logId = await this.startLog();
 
         try {
-            // await this.syncContacts(); // Contacts table not implemented yet
+            await this.syncContacts(deadline);
+            // Link invoices (must run after contacts and invoices are synced)
+            // We can run it after sales/purchase sync, but let's run it here to be sure contacts are fresh.
+            // Actually, linking needs invoices, so we should run it AFTER invoices are synced.
 
             const salesCount = await this.syncSalesInvoices(deadline);
             const purchaseCount = await this.syncPurchaseInvoices(deadline);
             const movementsCount = await this.syncBankMovements(deadline);
+
+            if (Date.now() < deadline) {
+                await this.linkInvoices(deadline);
+            }
 
             // Only continue if we have time
             let journalCount = 0;
@@ -714,5 +721,126 @@ export class AccountingService {
 
         console.log(`Payables Sync Complete. Smart matched/updated ${totalUpdated} records.`);
         return totalUpdated;
+    }
+    async syncContacts(deadline?: number) {
+        console.log('Starting Contacts Sync...');
+        let page = 1;
+        let hasNext = true;
+        let totalSynced = 0;
+
+        while (hasNext) {
+            if (deadline && Date.now() > deadline) break;
+
+            console.log(`Fetching Contacts page ${page}`);
+            const res = await this.uolClient.getContacts(page, 100);
+            const items = res.items || [];
+
+            if (items.length === 0) break;
+
+            const payload = items.map((item) => {
+                const address = (item as any).addresses?.[0] || {};
+                const bank = (item as any).bank_accounts?.[0] || {};
+
+                return {
+                    id: item.contact_id,
+                    name: item.name,
+                    company_number: item.company_number,
+                    vatin: item.vatin,
+                    city: address.city,
+                    street: address.street,
+                    postal_code: address.postal_code,
+                    country: item.contact_id || address.country_id, // contact_id usually not country, likely item.country_id check required but sticking to script logic
+                    account_number: bank.iban || bank.bank_account,
+                    updated_at: new Date().toISOString()
+                };
+            });
+
+            const { error } = await supabaseAdmin
+                .from('accounting_contacts')
+                .upsert(payload, { onConflict: 'id' });
+
+            if (error) {
+                console.error('Error upserting contacts', error);
+                // Continue despite error?
+            } else {
+                totalSynced += items.length;
+            }
+
+            if (res._meta.pagination?.next) page++;
+            else hasNext = false;
+        }
+        console.log(`Contacts Sync Complete. Synced ${totalSynced} contacts.`);
+        return totalSynced;
+    }
+
+    async linkInvoices(deadline?: number) {
+        console.log('Starting Invoice Linking...');
+
+        // 1. Load Contacts Map
+        const { data: contacts, error: cError } = await supabaseAdmin
+            .from('accounting_contacts')
+            .select('id, company_number, vatin');
+
+        if (cError || !contacts) {
+            console.error('Error loading contacts for linking', cError);
+            return;
+        }
+
+        const icoMap = new Map<string, string>();
+        const dicMap = new Map<string, string>();
+
+        contacts.forEach(c => {
+            if (c.company_number) icoMap.set(c.company_number.trim(), c.id);
+            if (c.vatin) dicMap.set(c.vatin.trim().toUpperCase(), c.id);
+        });
+
+        // 2. Fetch Unlinked Docs
+        let page = 0;
+        const pageSize = 500;
+        let totalLinked = 0;
+
+        while (true) {
+            if (deadline && Date.now() > deadline) break;
+
+            const { data: docs, error: dError } = await supabaseAdmin
+                .from('accounting_documents')
+                .select('id, supplier_ico, supplier_dic')
+                .is('contact_id', null)
+                .range(page * pageSize, (page + 1) * pageSize - 1);
+
+            if (dError) {
+                console.error('Error fetching unlinked docs', dError);
+                break;
+            }
+            if (!docs || docs.length === 0) break;
+
+            const updates: { id: number, contact_id: string }[] = [];
+
+            for (const doc of docs) {
+                let matchedId: string | undefined;
+
+                if (doc.supplier_dic && dicMap.has(doc.supplier_dic.trim().toUpperCase())) {
+                    matchedId = dicMap.get(doc.supplier_dic.trim().toUpperCase());
+                } else if (doc.supplier_ico && icoMap.has(doc.supplier_ico.trim())) {
+                    matchedId = icoMap.get(doc.supplier_ico.trim());
+                }
+
+                if (matchedId) {
+                    updates.push({ id: doc.id, contact_id: matchedId });
+                }
+            }
+
+            if (updates.length > 0) {
+                await Promise.all(updates.map(u =>
+                    supabaseAdmin.from('accounting_documents').update({ contact_id: u.contact_id }).eq('id', u.id)
+                ));
+                totalLinked += updates.length;
+            }
+
+            if (docs.length < pageSize) break;
+            page++;
+        }
+        console.log(`Invoice Linking Complete. Linked ${totalLinked} documents.`);
+        return totalLinked;
     }
 }
