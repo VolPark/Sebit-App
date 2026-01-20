@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, Fragment } from 'react';
-import Link from 'next/link';
 import { Loader2, TrendingUp, Users, Wrench, RefreshCw, ArrowLeft, ArrowRight } from 'lucide-react';
 
 interface ReportData {
@@ -27,7 +26,7 @@ interface ReportData {
     }>;
 }
 
-export default function ValueAddedReport() {
+export function ValueAddedTab() {
     const [year, setYear] = useState(new Date().getFullYear());
     const [data, setData] = useState<ReportData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -171,13 +170,10 @@ export default function ValueAddedReport() {
     };
 
     return (
-        <div className="space-y-8 p-6">
+        <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <Link href="/accounting?tab=reports" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
-                        <ArrowLeft className="w-5 h-5 text-slate-500" />
-                    </Link>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Přidaná hodnota a Marže</h1>
+                    <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Přidaná hodnota a Marže</h2>
                 </div>
 
                 <div className="flex gap-2">

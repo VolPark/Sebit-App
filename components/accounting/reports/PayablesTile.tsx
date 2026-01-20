@@ -44,13 +44,10 @@ export function PayablesTile() {
 
             <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/20">
                 <div className="flex items-center gap-2">
-                    <div className="p-2 bg-rose-50 dark:bg-rose-900/20 rounded-lg">
-                        <TrendingUp className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                    <div className="p-1.5 bg-rose-50 dark:bg-rose-900/20 rounded-lg">
+                        <TrendingUp className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                     </div>
-                    <div>
-                        <h3 className="font-semibold text-slate-900 dark:text-white">Závazky</h3>
-                        <p className="text-xs text-slate-500">Celkové závazky</p>
-                    </div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white text-sm">Závazky</h3>
                 </div>
 
                 <div className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-100 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-900/30">
@@ -58,31 +55,31 @@ export function PayablesTile() {
                 </div>
             </div>
 
-            <div className="p-6 flex-1 flex flex-col justify-center items-center bg-white dark:bg-slate-900 relative">
+            <div className="p-5 flex-1 flex flex-col justify-between h-full bg-white dark:bg-slate-900 relative">
                 {loading ? (
                     <div className="w-full h-full flex items-center justify-center">
-                        <RefreshCw className="w-6 h-6 animate-spin text-slate-300" />
+                        <RefreshCw className="w-5 h-5 animate-spin text-slate-300" />
                     </div>
                 ) : (
-                    <div className="text-center w-full">
-                        <div className="text-4xl font-bold text-slate-900 dark:text-white mb-6">
-                            {formatMoney(stats?.totalPayables || 0)}
+                    <div className="w-full h-full flex flex-col justify-between">
+                        {/* Main Number */}
+                        <div className="text-center py-2">
+                            <div className="text-3xl font-bold text-slate-900 dark:text-white">
+                                {formatMoney(stats?.totalPayables || 0)}
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800 pt-4 w-full text-center">
-                            <div className="flex flex-col gap-1 border-r border-slate-100 dark:border-slate-800">
-                                <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center justify-center gap-1">
-                                    <FileText className="w-3 h-3" /> Faktury (321)
-                                </span>
-                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        {/* Simplified Grid */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg flex flex-col items-center justify-center">
+                                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide mb-0.5">Faktury (321)</span>
+                                <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">
                                     {formatMoney(invoices)}
                                 </span>
                             </div>
-                            <div className="flex flex-col gap-1">
-                                <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center justify-center gap-1">
-                                    <PieChart className="w-3 h-3" /> Ostatní
-                                </span>
-                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg flex flex-col items-center justify-center">
+                                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide mb-0.5">Ostatní</span>
+                                <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">
                                     {formatMoney(other)}
                                 </span>
                             </div>

@@ -49,19 +49,38 @@ export function ManagementDashboard() {
         <div className="space-y-6">
 
             {/* Year Selector */}
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                {years.map((y: number) => (
+            <div className="flex justify-end items-center mb-6">
+                <div className="flex gap-2">
+                    <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-1 overflow-x-auto">
+                        {(() => {
+                            // Use same logic as ValueAdded tab: 2025 to current year
+                            const currentYear = new Date().getFullYear();
+                            const startYear = 2025;
+                            const availableYears = [];
+                            for (let y = startYear; y <= currentYear; y++) availableYears.push(y);
+
+                            return availableYears.map(y => (
+                                <button
+                                    key={y}
+                                    onClick={() => setYear(y)}
+                                    className={`px-3 py-1 text-sm font-medium rounded-md transition-all whitespace-nowrap ${year === y
+                                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                        }`}
+                                >
+                                    {y}
+                                </button>
+                            ));
+                        })()}
+                    </div>
                     <button
-                        key={y}
-                        onClick={() => setYear(y)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${year === y
-                            ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
-                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-                            }`}
+                        onClick={fetchData}
+                        className="p-2 border border-slate-200 dark:border-slate-800 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        title="Obnovit"
                     >
-                        {y}
+                        <RefreshCw className={`w-5 h-5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
                     </button>
-                ))}
+                </div>
             </div>
 
             {/* Top Summaries */}

@@ -18,6 +18,8 @@ import { PayablesTile } from '@/components/accounting/reports/PayablesTile';
 import { ValueAddedTile } from '@/components/accounting/reports/ValueAddedTile';
 import { BurnRateTile } from '@/components/accounting/analytics/BurnRateTile';
 import { VatControlTile } from '@/components/accounting/analytics/VatControlTile';
+import { VatEstimationTile } from '@/components/accounting/reports/VatEstimationTile';
+import { TaxEstimationTab } from '@/components/accounting/reports/TaxEstimationTab';
 import { Suspense } from 'react';
 
 
@@ -114,6 +116,12 @@ function AccountingContent() {
                         >
                             Reporty
                         </button>
+                        <button
+                            onClick={() => setActiveTab('tax')}
+                            className={`${activeTab === 'tax' ? 'border-slate-900 text-slate-900 dark:border-white dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                        >
+                            Daňové odhady
+                        </button>
                     </nav>
                 </div>
 
@@ -131,22 +139,22 @@ function AccountingContent() {
                                 </div>
                             </div>
 
-                            {/* Analytics Row (New) */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Analytics Grid (4 cols) */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                                {/* Burn Rate */}
                                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-auto min-h-[12rem]">
                                     <BurnRateTile />
                                 </div>
+                                {/* VAT Estimation (New) */}
                                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-auto min-h-[12rem]">
-                                    <VatControlTile />
+                                    <VatEstimationTile />
                                 </div>
-                            </div>
-
-                            {/* Liabilities and Receivables Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
+                                {/* Receivables */}
+                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-auto min-h-[12rem]">
                                     <ReceivablesTile />
                                 </div>
-                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-64 md:h-auto min-h-[16rem]">
+                                {/* Payables */}
+                                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 h-auto min-h-[12rem]">
                                     <PayablesTile />
                                 </div>
                             </div>
@@ -219,6 +227,10 @@ function AccountingContent() {
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {activeTab === 'tax' && (
+                        <TaxEstimationTab />
                     )}
                 </div>
             </div>
