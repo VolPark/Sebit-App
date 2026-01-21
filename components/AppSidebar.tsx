@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { CompanyConfig } from '@/lib/companyConfig';
 
@@ -38,7 +38,7 @@ export default function AppSidebar() {
     const { user, role, userName, signOut, isLoading } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-    const initializedGroupRef = useRef<string | null>(null);
+
 
     const toggleGroup = (title: string) => {
         setExpandedGroups(prev => ({
@@ -53,25 +53,50 @@ export default function AppSidebar() {
     };
 
     // Get Navigation
-    const filteredNavigation = role && !isLoading ? getFilteredNavigation(role) : [];
+    const filteredNavigation = useMemo(() =>
+        role && !isLoading ? getFilteredNavigation(role) : [],
+        [role, isLoading]
+    );
 
+    // Auto-expand the active group and collapse others on navigation
     useEffect(() => {
-        if (!isLoading && filteredNavigation.length > 0) {
-            const firstTitle = filteredNavigation[0].title;
-            if (initializedGroupRef.current !== firstTitle) {
-                setExpandedGroups(prev => {
-                    const newState = { ...prev };
-                    // If we previously auto-expanded a group, collapse it to keep only one default open
-                    if (initializedGroupRef.current) {
-                        newState[initializedGroupRef.current] = false;
-                    }
-                    newState[firstTitle] = true;
-                    return newState;
-                });
-                initializedGroupRef.current = firstTitle;
+        if (isLoading || !filteredNavigation.length) return;
+
+        let activeGroupTitle: string | null = null;
+
+        for (const group of filteredNavigation) {
+            for (const item of group.items) {
+                let isActive = false;
+                if (item.href.startsWith('/dashboard')) {
+                    // Dashboard logic: check tab param
+                    const itemTab = item.href.split('=')[1];
+                    const currentTab = searchParams?.get('tab') || 'firma'; // default tab
+                    isActive = pathname === '/dashboard' && itemTab === currentTab;
+                } else {
+                    // Standard link logic
+                    isActive = pathname.startsWith(item.href);
+                }
+
+                if (isActive) {
+                    activeGroupTitle = group.title;
+                    break;
+                }
             }
+            if (activeGroupTitle) break;
         }
-    }, [isLoading, filteredNavigation]);
+
+        if (activeGroupTitle) {
+            setExpandedGroups(prev => {
+                // If the active group is already the ONLY expanded group, do nothing to avoid re-renders
+                const expandedKeys = Object.keys(prev).filter(key => prev[key]);
+                if (expandedKeys.length === 1 && expandedKeys[0] === activeGroupTitle) {
+                    return prev;
+                }
+
+                return { [activeGroupTitle]: true };
+            });
+        }
+    }, [pathname, searchParams, filteredNavigation, isLoading]);
 
     const SidebarContent = () => (
         <div className="flex flex-col h-full bg-[#111827] text-white overflow-y-auto w-[260px] border-r border-gray-800">
