@@ -18,40 +18,6 @@ export async function GET(request: Request) {
         // DPPO Rate (21% for 2024+)
         const TAX_RATE = 0.21;
 
-        // 1. VAT Calculation (Full Year)
-        // Output VAT (Liability) - Credit side of 343
-        // Input VAT (Deduction) - Debit side of 343
-
-        // Exclude closing operations usually marked with specific text or account 7xx/395 if applicable
-        // Simple filter based on text exclusions used in other reports
-        const excludedTexts = ['%DP%', '%Úhrada DPH%', '%výstup%', '%vstup%', '%zaokrouhlení%', '%haléřové vyrovnání%'];
-
-        const buildVatQuery = (side: 'account_md' | 'account_d') => {
-            let q = supabaseAdmin.from('accounting_journal')
-                .select('amount, text, account_md, account_d')
-                .eq('fiscal_year', year)
-                .ilike(side, '343%');
-
-            // Exclude some patterns if needed, but risky. 
-            // Better: Exclude offset accounts if they are not tax-relevant?
-            // For estimation, raw sum is usually okay if we assume 343 matches tax return.
-            return q;
-        };
-
-        // 2b. Calculate Already Paid VAT (Payments to State)
-        // This is what we excluded above: Debit 343 with Credit 2xx
-        // Also refunds: Credit 343 with Debit 2xx
-
-        let vatPaidToState = 0;
-        let vatRefundedFromState = 0;
-
-        // Iterate raw input/output again or do a separate query?
-        // Let's do separate query for clarity or just filter the raw data if we fetched enough? 
-        // We need to fetch ALL 343 entries to splits them correctly.
-        // Actually, let's just re-fetch everything on 343 and splitting it into "Business" vs "Payment".
-
-        // Let's refactor step 1 for efficiency.
-        // Let's refactor step 1 for efficiency.
         // Fetch ALL 343 entries for current year AND next year (to catch Jan payments)
         const { data: allVatEntries, error: errVat } = await supabaseAdmin
             .from('accounting_journal')
@@ -69,68 +35,75 @@ export async function GET(request: Request) {
             const isMd343 = item.account_md?.startsWith('343');
             const isD343 = item.account_d?.startsWith('343');
 
-            // Determine if this is a Payment/Refund
+            // Determine if this is a Payment/Refund (Financial Account Class 2)
             const isPaymentToState = isMd343 && item.account_d?.startsWith('2');
             const isRefundFromState = isD343 && item.account_md?.startsWith('2');
             const isFinancial = isPaymentToState || isRefundFromState;
 
-            // DATE LOGIC:
+            if (isFinancial) {
+                // 2. Financial Operations (Payments) - Smart Rule
+                // - Payment in Jan of Year X belongs to Year X-1
+                // - Payment in Feb-Dec of Year X belongs to Year X
+
+                // CRITICAL FIX: Do NOT apply consolidation text filtering here.
+                // "Úhrada DPH" is a valid payment text!
+
+                const date = new Date(item.date);
+                const month = date.getMonth(); // 0 = Jan, 1 = Feb...
+
+                if (item.fiscal_year === year) {
+                    // Current Year Payment: Include ONLY if NOT January
+                    if (month !== 0) {
+                        if (isPaymentToState) paidVat += Number(item.amount);
+                        if (isRefundFromState) paidVat -= Number(item.amount);
+                    }
+                } else if (item.fiscal_year === year + 1) {
+                    // Next Year Payment: Include ONLY if January
+                    if (month === 0) {
+                        if (isPaymentToState) paidVat += Number(item.amount);
+                        if (isRefundFromState) paidVat -= Number(item.amount);
+                    }
+                }
+                return; // Done with financial
+            }
+
+            // --- Non-Financial (Business Operations) ---
+
+            // Filter out consolidation entries based on Account 343111 (Settlement)
+            // or Text patterns that indicate internal transfers/summaries
+            const isConsolidationAccount = item.account_md === '343111' || item.account_d === '343111';
+
+            let isConsolidationText = false;
+            if (item.text) {
+                const lowerText = item.text.toLowerCase();
+                // Precise checks for the known summary texts to avoid false positives
+                if (lowerText.includes('výstup ') || lowerText.includes('vstup ') || lowerText.startsWith('dp ') || lowerText === 'dp' || lowerText.includes('zaokrouhlení') || lowerText.includes('úhrada dph')) {
+                    isConsolidationText = true;
+                }
+            }
+
+            if (isConsolidationAccount || isConsolidationText) return;
+
             // 1. Business Operations (Invoices) MUST belong to the current fiscal year
-            if (!isFinancial) {
-                if (item.fiscal_year !== year) return; // Skip next year's invoices
+            if (item.fiscal_year !== year) return;
 
-                if (isMd343) inputVat += Number(item.amount);
-                if (isD343) outputVat += Number(item.amount);
-                return;
-            }
-
-            // 2. Financial Operations (Payments) - Smart Rule
-            // - Payment in Jan of Year X belongs to Year X-1
-            // - Payment in Feb-Dec of Year X belongs to Year X
-
-            const date = new Date(item.date);
-            const month = date.getMonth(); // 0 = Jan, 1 = Feb...
-
-            // We are calculating for `year`.
-            // We want payments made in: [Feb `year` ... Jan `year + 1`]
-
-            if (item.fiscal_year === year) {
-                // Current Year Payment
-                // Include ONLY if NOT January (because Jan belongs to prev year)
-                if (month !== 0) {
-                    if (isPaymentToState) paidVat += Number(item.amount);
-                    if (isRefundFromState) paidVat -= Number(item.amount);
-                }
-            } else if (item.fiscal_year === year + 1) {
-                // Next Year Payment
-                // Include ONLY if January (because Jan belongs to `year`)
-                if (month === 0) {
-                    if (isPaymentToState) paidVat += Number(item.amount);
-                    if (isRefundFromState) paidVat -= Number(item.amount);
-                }
-            }
+            if (isMd343) inputVat += Number(item.amount);
+            if (isD343) outputVat += Number(item.amount);
         });
 
         const netVat = outputVat - inputVat; // Positive = Pay to state
 
 
         // 2. DPPO Calculation
-        // 2. DPPO Calculation (Using Net Logic like Profit & Loss)
-        // Fetch ALL entries for Class 5 and 6
         const { data: glEntries } = await supabaseAdmin.from('accounting_journal')
             .select('account_md, account_d, amount')
             .eq('fiscal_year', year)
             .or('account_md.like.5%,account_md.like.6%,account_d.like.5%,account_d.like.6%');
 
-        // Calculate Net Balances
-        // 5xx: Cost = MD - D
-        // 6xx: Revenue = D - MD
-
         let revenues = 0;
         let expenses = 0;
         let nonDeductible = 0;
 
-        // Helper Map
         const balances: Record<string, { md: number, d: number }> = {};
         const add = (acc: string, val: number, side: 'md' | 'd') => {
             if (!acc) return;
@@ -146,20 +119,12 @@ export async function GET(request: Request) {
 
         Object.keys(balances).forEach(acc => {
             const b = balances[acc];
-            const net = b.md - b.d; // Standard Balance (Debit - Credit)
+            const net = b.md - b.d;
 
             if (acc.startsWith('6')) {
-                // Revenue: We expect Credit balance, so Net should be negative. 
-                // We add (-Net) to Revenues.
-                // e.g. D = 1000, MD = 0 -> Net = -1000 -> Rev += 1000.
-                // e.g. D = 1000, MD = 200 (Correction) -> Net = -800 -> Rev += 800.
                 revenues += (-net);
             } else if (acc.startsWith('5')) {
-                // Cost: We expect Debit balance.
-                // e.g. MD = 500 -> Net = 500 -> Exp += 500.
                 expenses += net;
-
-                // Non-deductible tracking (Net basis too)
                 if (acc.startsWith('513') || acc.startsWith('543')) {
                     nonDeductible += net;
                 }
@@ -171,12 +136,11 @@ export async function GET(request: Request) {
         const estimatedTax = taxBase * TAX_RATE;
 
         // 3. Paid Advances (DPPO) - Account 341
-        // Fetch 341 account movement (Debit side usually means payment of advance)
         const { data: dppoAdvances } = await supabaseAdmin
             .from('accounting_journal')
             .select('amount, account_md, account_d')
             .eq('fiscal_year', year)
-            .ilike('account_md', '341%'); // Debit 341 is claim against state (advance paid)
+            .ilike('account_md', '341%');
 
         const paidAdvances = dppoAdvances?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
 
