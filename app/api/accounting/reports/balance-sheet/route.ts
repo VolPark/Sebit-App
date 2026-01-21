@@ -121,8 +121,8 @@ export async function GET(req: Request) {
             let name = accountNames[account] || accountNames[account.substring(0, 3)] || '';
             if (account === RETAINED_EARNINGS_ACCOUNT) name = 'Nerozdělený zisk minulých let';
 
-            // Skip zero balance accounts? Or keep them? Usually keep if movement exists.
-            if (Math.abs(net) < 0.01 && balances[account].md === 0 && balances[account].d === 0) return;
+            // Skip zero balance accounts
+            if (Math.abs(net) < 0.01) return;
 
             if (firstChar === '5') {
                 expenseSum += net;

@@ -81,8 +81,8 @@ export async function GET(req: Request) {
             const firstThree = account.substring(0, 3);
             const firstChar = account.charAt(0);
 
-            // Skip zero balance
-            if (Math.abs(net) < 0.01 && bal.md === 0 && bal.d === 0) return;
+            // Skip zero balance accounts
+            if (Math.abs(net) < 0.01) return;
 
             // Logic:
             // Revenues (Class 6): Net is usually negative (Credit). We display as Positive for "Revenue" sections.
