@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 
         const buildVatQuery = (side: 'account_md' | 'account_d') => {
             let q = supabaseAdmin.from('accounting_journal')
-                .select('amount, text')
+                .select('amount, text, account_md, account_d')
                 .eq('fiscal_year', year)
                 .ilike(side, '343%');
 
@@ -38,14 +38,81 @@ export async function GET(request: Request) {
             return q;
         };
 
-        const { data: vatInput, error: errInput } = await buildVatQuery('account_md');
-        const { data: vatOutput, error: errOutput } = await buildVatQuery('account_d');
+        // 2b. Calculate Already Paid VAT (Payments to State)
+        // This is what we excluded above: Debit 343 with Credit 2xx
+        // Also refunds: Credit 343 with Debit 2xx
 
-        if (errInput || errOutput) throw new Error('Failed to fetch VAT data');
+        let vatPaidToState = 0;
+        let vatRefundedFromState = 0;
 
-        const inputVat = vatInput?.reduce((sum, item) => sum + item.amount, 0) || 0;
-        const outputVat = vatOutput?.reduce((sum, item) => sum + item.amount, 0) || 0;
+        // Iterate raw input/output again or do a separate query?
+        // Let's do separate query for clarity or just filter the raw data if we fetched enough? 
+        // We need to fetch ALL 343 entries to splits them correctly.
+        // Actually, let's just re-fetch everything on 343 and splitting it into "Business" vs "Payment".
+
+        // Let's refactor step 1 for efficiency.
+        // Let's refactor step 1 for efficiency.
+        // Fetch ALL 343 entries for current year AND next year (to catch Jan payments)
+        const { data: allVatEntries, error: errVat } = await supabaseAdmin
+            .from('accounting_journal')
+            .select('amount, text, account_md, account_d, date, fiscal_year')
+            .in('fiscal_year', [year, year + 1])
+            .or('account_md.ilike.343%,account_d.ilike.343%');
+
+        if (errVat) throw errVat;
+
+        let inputVat = 0;
+        let outputVat = 0;
+        let paidVat = 0; // Payments sent to state
+
+        allVatEntries?.forEach(item => {
+            const isMd343 = item.account_md?.startsWith('343');
+            const isD343 = item.account_d?.startsWith('343');
+
+            // Determine if this is a Payment/Refund
+            const isPaymentToState = isMd343 && item.account_d?.startsWith('2');
+            const isRefundFromState = isD343 && item.account_md?.startsWith('2');
+            const isFinancial = isPaymentToState || isRefundFromState;
+
+            // DATE LOGIC:
+            // 1. Business Operations (Invoices) MUST belong to the current fiscal year
+            if (!isFinancial) {
+                if (item.fiscal_year !== year) return; // Skip next year's invoices
+
+                if (isMd343) inputVat += Number(item.amount);
+                if (isD343) outputVat += Number(item.amount);
+                return;
+            }
+
+            // 2. Financial Operations (Payments) - Smart Rule
+            // - Payment in Jan of Year X belongs to Year X-1
+            // - Payment in Feb-Dec of Year X belongs to Year X
+
+            const date = new Date(item.date);
+            const month = date.getMonth(); // 0 = Jan, 1 = Feb...
+
+            // We are calculating for `year`.
+            // We want payments made in: [Feb `year` ... Jan `year + 1`]
+
+            if (item.fiscal_year === year) {
+                // Current Year Payment
+                // Include ONLY if NOT January (because Jan belongs to prev year)
+                if (month !== 0) {
+                    if (isPaymentToState) paidVat += Number(item.amount);
+                    if (isRefundFromState) paidVat -= Number(item.amount);
+                }
+            } else if (item.fiscal_year === year + 1) {
+                // Next Year Payment
+                // Include ONLY if January (because Jan belongs to `year`)
+                if (month === 0) {
+                    if (isPaymentToState) paidVat += Number(item.amount);
+                    if (isRefundFromState) paidVat -= Number(item.amount);
+                }
+            }
+        });
+
         const netVat = outputVat - inputVat; // Positive = Pay to state
+
 
         // 2. DPPO Calculation
         // 2. DPPO Calculation (Using Net Logic like Profit & Loss)
@@ -72,8 +139,9 @@ export async function GET(request: Request) {
         };
 
         glEntries?.forEach(e => {
-            if (e.account_md) add(e.account_md, e.amount, 'md');
-            if (e.account_d) add(e.account_d, e.amount, 'd');
+            const val = Number(e.amount);
+            if (e.account_md) add(e.account_md, val, 'md');
+            if (e.account_d) add(e.account_d, val, 'd');
         });
 
         Object.keys(balances).forEach(acc => {
@@ -102,22 +170,25 @@ export async function GET(request: Request) {
         const taxBase = Math.max(0, accountingProfit + nonDeductible);
         const estimatedTax = taxBase * TAX_RATE;
 
-        // 3. Paid Advances (DPPO)
-        // Typically account 341 (Tax prepayments)
-        /*
-        const { data: advancesData } = await supabaseAdmin.from('accounting_journal')
-            .select('amount')
+        // 3. Paid Advances (DPPO) - Account 341
+        // Fetch 341 account movement (Debit side usually means payment of advance)
+        const { data: dppoAdvances } = await supabaseAdmin
+            .from('accounting_journal')
+            .select('amount, account_md, account_d')
             .eq('fiscal_year', year)
-            .ilike('account_md', '341%');
-        const paidAdvances = advancesData?.reduce((sum, item) => sum + item.amount, 0) || 0;
-        */
+            .ilike('account_md', '341%'); // Debit 341 is claim against state (advance paid)
+
+        const paidAdvances = dppoAdvances?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
+
 
         return NextResponse.json({
             year,
             vat: {
                 input: inputVat,   // Deductions
                 output: outputVat, // Liability
-                net: netVat,       // To Pay
+                net: netVat,       // Liability generated
+                paid: paidVat,      // Already paid
+                remaining: netVat - paidVat // Remaining to pay
             },
             dppo: {
                 revenues,
@@ -126,7 +197,9 @@ export async function GET(request: Request) {
                 nonDeductible,
                 taxBase,
                 rate: TAX_RATE,
-                estimatedTax
+                estimatedTax,
+                paid: paidAdvances,
+                remaining: estimatedTax - paidAdvances
             }
         });
 

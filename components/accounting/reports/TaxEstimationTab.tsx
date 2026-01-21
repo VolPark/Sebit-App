@@ -38,7 +38,7 @@ export function TaxEstimationTab() {
     if (!data) return null;
 
     const { vat, dppo } = data;
-    const totalToSetAside = Math.max(0, vat.net) + Math.max(0, dppo.estimatedTax);
+    const totalToSetAside = Math.max(0, vat.remaining) + Math.max(0, dppo.remaining);
 
     return (
         <div className="space-y-8">
@@ -71,7 +71,7 @@ export function TaxEstimationTab() {
                         <Wallet className="h-5 w-5 opacity-80" />
                     </div>
                     <div className="text-indigo-100 text-sm mb-4">
-                        Odhadovaná částka k úhradě státu
+                        Zbývá k úhradě (po odečtení záloh)
                     </div>
                     <div>
                         <div className="text-4xl font-bold mb-2">{formatCurrency(totalToSetAside)}</div>
@@ -103,11 +103,19 @@ export function TaxEstimationTab() {
                             </div>
                         </div>
 
-                        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                             <div className="flex justify-between items-center">
-                                <span className="font-medium text-slate-600 dark:text-slate-400">Výsledek DPH</span>
-                                <span className={`text-2xl font-bold ${vat.net > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                    {vat.net > 0 ? 'K úhradě' : 'Nadměrný odpočet'}: {formatCurrency(Math.abs(vat.net))}
+                                <span className="text-slate-500">Vypočtená povinnost</span>
+                                <span className="font-semibold">{formatCurrency(vat.net)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-slate-500">
+                                <span>Již zaplaceno (FÚ)</span>
+                                <span>{formatCurrency(vat.paid)}</span>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800">
+                                <span className="font-medium text-slate-600 dark:text-slate-400">Zbývá doplatit</span>
+                                <span className={`text-2xl font-bold ${vat.remaining > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                    {vat.remaining > 0 ? 'K úhradě' : 'Přeplatek'}: {formatCurrency(Math.abs(vat.remaining))}
                                 </span>
                             </div>
                         </div>
@@ -142,14 +150,22 @@ export function TaxEstimationTab() {
                             </div>
                         </div>
 
-                        <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800/30">
-                            <div className="flex justify-between mb-2">
+                        <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800/30 space-y-3">
+                            <div className="flex justify-between">
                                 <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Odhadovaný základ daně</span>
                                 <span className="font-bold text-amber-800 dark:text-amber-200">{formatCurrency(dppo.taxBase)}</span>
                             </div>
+                            <div className="flex justify-between items-center text-sm text-amber-900/70 dark:text-amber-200/70">
+                                <span>Vypočtená daň ({dppo.rate * 100}%)</span>
+                                <span>{formatCurrency(dppo.estimatedTax)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm text-amber-900/70 dark:text-amber-200/70">
+                                <span>Zaplacené zálohy</span>
+                                <span>-{formatCurrency(dppo.paid)}</span>
+                            </div>
                             <div className="flex justify-between items-center pt-2 border-t border-amber-200 dark:border-amber-800/50">
-                                <span className="text-sm text-amber-700 dark:text-amber-300 font-bold">Odhadovaná daň ({dppo.rate * 100}%)</span>
-                                <span className="text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(dppo.estimatedTax)}</span>
+                                <span className="text-sm text-amber-700 dark:text-amber-300 font-bold">Zbývá doplatit</span>
+                                <span className="text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(dppo.remaining)}</span>
                             </div>
                         </div>
                     </div>
