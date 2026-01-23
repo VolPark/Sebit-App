@@ -103,6 +103,28 @@ Control the visibility of application sections. Set to `false` to hide.
 
 ---
 
+## 🛡️ Role Oprávnění (Permissions)
+
+Systém používá systém rolí pro řízení přístupu k jednotlivým modulům. Níže je křížová matice přístupů (✅ = Přístup povolen, ❌ = Přístup omezen).
+
+| Sekce Menu | Majitel (Owner) / Admin | Kancelář (Office) | Zaměstnanec (Reporter) |
+| :--- | :---: | :---: | :---: |
+| **Přehled (Dashboard)** | ✅ | ❌ | ❌ |
+| **Obchod (Nabídky, Sklad)** | ✅ | ✅ | ❌ |
+| **Compliance (AML)** | ✅ | ✅ | ❌ |
+| **Administrace (Klienti, Akce)** | ✅ | ✅ | ❌ |
+| **Nastavení (Uživatelé)** | ✅ | ❌ | ❌ |
+| **Finance (Mzdy, Náklady...)** | ✅ | ✅ | ❌ |
+| **Výkazy & Timesheety** | ✅ | ✅ | ✅ |
+
+### Poznámky k rolím:
+*   **Nový uživatel**: Po registraci získává automaticky roli **Zaměstnanec (Reporter)**.
+*   **Kancelář (Office)**: Role pro běžné zaměstnance, kteří pracují se zakázkami, skladem a financemi. Záměrně ale nevidí manažerský přehled (Dashboard).
+*   **Majitel / Admin**: Plný přístup ke všemu.
+
+
+---
+
 ## 🚀 Deployment Guide (Vercel)
 
 ### Deploying for SEBIT Solutions:
