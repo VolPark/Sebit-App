@@ -1,269 +1,40 @@
 'use client';
-
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { CompanyConfig } from '@/lib/companyConfig';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/utils/supabase/client';
 import dynamic from 'next/dynamic';
+import { useTimesheetData } from '@/hooks/useTimesheetData';
+import { WorkLog } from '@/lib/types/timesheet-types';
 
 const TimesheetPdfDownloadButton = dynamic(() => import('@/components/timesheets/TimesheetPdfDownloadButton'), {
     ssr: false,
     loading: () => <button disabled className="px-6 py-3 bg-gray-200 dark:bg-gray-800 text-gray-400 font-bold rounded-lg cursor-not-allowed">Načítání...</button>
 });
 
-// Types
-type ReportType = 'worker' | 'client';
-
-interface Entity {
-    id: number;
-    name: string;
-}
-
-interface WorkLog {
-    id: number;
-    date: string;
-    project: string;
-    description: string;
-    hours: number;
-    clientName?: string;
-    workerName?: string;
-    workerRole?: string;
-}
-
 export default function TimesheetsPage() {
     const router = useRouter();
-    const supabase = createClient();
+    const [isClient, setIsClient] = useState(false); // hydration safety
 
-    // State
-    const [isClient, setIsClient] = useState(false);
-    const [reportType, setReportType] = useState<ReportType>('worker');
-    const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
-    const [selectedEntityId, setSelectedEntityId] = useState<string>('');
-    const [entities, setEntities] = useState<Entity[]>([]);
-    const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
-    const [loading, setLoading] = useState(false);
+    const {
+        reportType,
+        setReportType,
+        selectedMonth,
+        setSelectedMonth,
+        selectedEntityId,
+        setSelectedEntityId,
+        entities,
+        workLogs,
+        loading,
+        isReporter
+    } = useTimesheetData();
 
-    // Reporter Logic State
-    const [isReporter, setIsReporter] = useState(false);
-    const [reporterWorkerId, setReporterWorkerId] = useState<number | null>(null);
-
-    useEffect(() => {
-        const initReporter = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-            if (profile?.role === 'reporter') {
-                setIsReporter(true);
-
-                const { data: worker } = await supabase.from('pracovnici').select('id, jmeno').eq('user_id', user.id).single();
-                if (worker) {
-                    setReporterWorkerId(worker.id);
-                    setSelectedEntityId(worker.id.toString());
-                    setReportType('worker');
-
-                    // Find last active month
-                    const { data: lastLog } = await supabase
-                        .from('prace')
-                        .select('datum')
-                        .eq('pracovnik_id', worker.id)
-                        .order('datum', { ascending: false })
-                        .limit(1)
-                        .single();
-
-                    if (lastLog) {
-                        const lastDate = new Date(lastLog.datum);
-                        const lastMonthStr = `${lastDate.getFullYear()}-${String(lastDate.getMonth() + 1).padStart(2, '0')}`;
-                        setSelectedMonth(lastMonthStr);
-                    }
-                }
-            }
-        };
-        initReporter();
-    }, []);
-
-    // Feature Flag Check
+    // Feature Flag Check & Client Side
     useEffect(() => {
         if (!CompanyConfig.features.enableFinanceTimesheets) {
             router.push('/dashboard');
         }
         setIsClient(true);
     }, [router]);
-
-    // Fetch Entities (Workers or Clients) - Only those active in the selected month
-    useEffect(() => {
-        const fetchEntities = async () => {
-            const [year, month] = selectedMonth.split('-');
-            const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
-            const startDate = `${year}-${month}-01`;
-            const endDate = `${year}-${month}-${lastDay}`;
-
-            let data: any[] | null = null;
-
-            // If Reporter, just show themselves
-            if (isReporter && reporterWorkerId) {
-                // We need the name - could get it from state if we stored it, or fetch.
-                // Let's fetch to be safe or optimize later.
-                const { data: worker } = await supabase.from('pracovnici').select('id, jmeno').eq('id', reporterWorkerId).single();
-                if (worker) {
-                    setEntities([{ id: worker.id, name: worker.jmeno }]);
-                }
-                return;
-            }
-
-            if (reportType === 'worker') {
-                // Fetch workers who have work logs in this period
-                const response = await supabase
-                    .from('prace')
-                    .select('pracovnici!inner(id, jmeno)')
-                    .gte('datum', startDate)
-                    .lte('datum', endDate);
-                data = response.data;
-            } else {
-                // Fetch clients who have work logs in this period
-                // We use the direct relation prace -> klienti if available and reliable,
-                // or via akce -> klienti if better. Schema context says prace has klient_id directly.
-                const response = await supabase
-                    .from('prace')
-                    .select('klienti!inner(id, nazev)')
-                    .gte('datum', startDate)
-                    .lte('datum', endDate);
-                data = response.data;
-            }
-
-            if (data) {
-                // Extract unique entities
-                const uniqueMap = new Map();
-                data.forEach((item: any) => {
-                    const entity = reportType === 'worker' ? item.pracovnici : item.klienti;
-                    if (entity && !uniqueMap.has(entity.id)) {
-                        uniqueMap.set(entity.id, {
-                            id: entity.id,
-                            name: reportType === 'worker' ? entity.jmeno : entity.nazev
-                        });
-                    }
-                });
-
-                const sorted = Array.from(uniqueMap.values()).sort((a: any, b: any) =>
-                    a.name.localeCompare(b.name)
-                );
-
-                setEntities(sorted);
-            } else {
-                setEntities([]);
-            }
-        };
-
-        fetchEntities();
-        // Reset selection when type or month changes, unless the ID still exists in the new list (handled by UI state naturally, but safer to clear if meaningful)
-        // Actually, if we switch month, we might want to keep the same entity if they worked in that month too.
-        // But for now, let's keep it simple or the user might get confused if ID persists but is not in list.
-        // The controlled select will show empty if ID is not in options usually.
-        // But let's clear it to be safe if switching types.
-        if (reportType === 'client' && !isReporter) {
-            // If we just switched to client, the previous employee ID is definitely invalid.
-            // However, this effect runs on selectedMonth change too.
-            // We'll let the user re-select for clarity, or we could check if current ID is in new list.
-            // For simplicity in this step:
-        }
-    }, [reportType, selectedMonth, supabase, isReporter, reporterWorkerId]); // added deps
-
-    // Reset selection effect
-    useEffect(() => {
-        setSelectedEntityId('');
-    }, [reportType]);
-
-    // Fetch Work Logs
-    useEffect(() => {
-        if (!selectedEntityId || !selectedMonth) return;
-
-        const fetchLogs = async () => {
-            setLoading(true);
-            const [year, month] = selectedMonth.split('-');
-            const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
-            const startDate = `${year}-${month}-01`;
-            const endDate = `${year}-${month}-${lastDay}`;
-
-            let query: any = supabase
-                .from('prace')
-                .select(`
-                    id,
-                    datum,
-                    popis,
-                    pocet_hodin,
-                    akce (
-                        nazev
-                    )
-                `)
-                .gte('datum', startDate)
-                .lte('datum', endDate)
-                .order('datum', { ascending: true });
-
-            if (reportType === 'worker') {
-                query = supabase
-                    .from('prace')
-                    .select(`
-                        id,
-                        datum,
-                        popis,
-                        pocet_hodin,
-                        akce!inner (
-                            nazev,
-                            klient_id,
-                            klienti (
-                                nazev
-                            )
-                        )
-                    `)
-                    .eq('pracovnik_id', selectedEntityId)
-                    .gte('datum', startDate)
-                    .lte('datum', endDate)
-                    .order('datum', { ascending: true });
-            } else {
-                // For client, we need to filter by akce.klient_id provided via inner join
-                query = supabase
-                    .from('prace')
-                    .select(`
-                        id,
-                        datum,
-                        popis,
-                        pocet_hodin,
-                        akce!inner (
-                            nazev,
-                            klient_id
-                        ),
-                        pracovnici (
-                            jmeno,
-                            role
-                        )
-                    `)
-                    .eq('akce.klient_id', selectedEntityId)
-                    .gte('datum', startDate)
-                    .lte('datum', endDate)
-                    .order('datum', { ascending: true });
-            }
-
-            const { data, error } = await query;
-
-            if (data) {
-                setWorkLogs(data.map((item: any) => ({
-                    id: item.id,
-                    date: item.datum,
-                    project: item.akce?.nazev || 'Bez projektu',
-                    description: item.popis,
-                    hours: item.pocet_hodin,
-                    clientName: item.akce?.klienti?.nazev,
-                    workerName: item.pracovnici?.jmeno,
-                    workerRole: item.pracovnici?.role
-                })));
-            } else if (error) {
-                console.error("Error fetching logs:", JSON.stringify(error, null, 2));
-            }
-            setLoading(false);
-        };
-
-        fetchLogs();
-    }, [selectedEntityId, selectedMonth, reportType, supabase]);
 
     const totalHours = workLogs.reduce((sum, item) => sum + item.hours, 0);
     const selectedEntityName = entities.find(e => e.id.toString() === selectedEntityId)?.name || '';
@@ -275,20 +46,22 @@ export default function TimesheetsPage() {
     // Dynamic Branding Check
     const isSebit = CompanyConfig.name.toUpperCase().includes('SEBIT');
     const projectHeaderClass = isSebit
-        ? "flex justify-between items-center mb-3 p-2 bg-[#002B5C] rounded-lg shadow-sm" // SEBIT Navy
-        : "flex justify-between items-center mb-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-sm"; // Horyna Gray
+        ? "flex justify-between items-center mb-3 p-2 bg-[#002B5C] rounded-lg shadow-sm"
+        : "flex justify-between items-center mb-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-sm";
 
     const projectTitleClass = isSebit
-        ? "font-bold text-xs uppercase tracking-wider text-[#C6FF00]" // SEBIT Lime
-        : "font-bold text-xs uppercase tracking-wider text-brand-primary"; // Horyna Red
+        ? "font-bold text-xs uppercase tracking-wider text-[#C6FF00]"
+        : "font-bold text-xs uppercase tracking-wider text-brand-primary";
 
     const projectTotalClass = isSebit
-        ? "text-xs font-bold text-[#C6FF00]/90" // SEBIT Lime
-        : "text-xs font-bold text-brand-primary/90"; // Horyna Red
+        ? "text-xs font-bold text-[#C6FF00]/90"
+        : "text-xs font-bold text-brand-primary/90";
 
     const summaryPillClass = isSebit
         ? "text-sm font-medium bg-[#002B5C] text-[#C6FF00] px-3 py-1 rounded-full shadow-sm"
         : "text-sm font-medium bg-gray-100 dark:bg-gray-800 text-brand-primary px-3 py-1 rounded-full shadow-sm";
+
+    if (!isClient) return null;
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8">
@@ -356,7 +129,7 @@ export default function TimesheetsPage() {
 
                 {/* Action Button */}
                 <div className="ml-auto">
-                    {isClient && selectedEntityId && workLogs.length > 0 ? (
+                    {selectedEntityId && workLogs.length > 0 ? (
                         <TimesheetPdfDownloadButton
                             reportType={reportType}
                             period={periodString}
@@ -392,7 +165,7 @@ export default function TimesheetsPage() {
                                 if (reportType === 'worker') {
                                     key = log.clientName || 'Ostatní';
                                 } else {
-                                    // For client report, group by Worker (maybe include Role?)
+                                    // For client report, group by Worker
                                     key = log.workerName || 'Neznámý';
                                 }
 
