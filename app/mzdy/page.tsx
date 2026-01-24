@@ -1,19 +1,19 @@
 'use client'
 import { useState, useEffect, useMemo, Fragment } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Menu, Transition } from '@headlessui/react'
 import { APP_START_YEAR } from '@/lib/config'
+import { usePayrollData } from '@/hooks/usePayrollData'
+import { CombinedPayrollRecord } from '@/lib/types/payroll-types'
 
 // Helper to get month name
 const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
 
 // Main component
 export default function MzdyPage() {
-  // Data state
-  const [pracovnici, setPracovnici] = useState<any[]>([])
+  // Use Custom Hook for Data Logic
+  const { data: pracovnici, loading, error, fetchData, saveRecord, deleteRecord } = usePayrollData();
 
   // UI state
-  const [loading, setLoading] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
   const [selectedDate, setSelectedDate] = useState(() => {
     const now = new Date();
@@ -47,10 +47,17 @@ export default function MzdyPage() {
   const [faktura, setFaktura] = useState('')
   const [priplatek, setPriplatek] = useState('')
 
+  // Load data when date changes
   useEffect(() => {
-    fetchData()
-  }, [selectedDate])
+    fetchData(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
+  }, [selectedDate, fetchData]);
 
+  // Show error from hook if any
+  useEffect(() => {
+    if (error) {
+      setStatusMessage('Chyba: ' + error);
+    }
+  }, [error]);
 
 
   // --- Date navigation ---
@@ -68,120 +75,8 @@ export default function MzdyPage() {
     });
   }
 
-  async function fetchData() {
-    setLoading(true);
-
-    const year = selectedDate.getFullYear();
-    const month = selectedDate.getMonth() + 1;
-
-    // 0. Fetch current user role
-    const { data: { user } } = await supabase.auth.getUser();
-    let currentUserRole = null;
-    if (user) {
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-      currentUserRole = profile?.role;
-    }
-
-    // 1. Fetch all workers
-    const { data: allPracovnici, error: pracError } = await supabase
-      .from('pracovnici')
-      .select('*')
-      .order('jmeno');
-
-    // 2. Fetch all salaries for the selected month
-    const { data: monthlyMzdy, error: mzdyError } = await supabase
-      .from('mzdy')
-      .select('*')
-      .eq('rok', year)
-      .eq('mesic', month);
-
-    // 2.5 Fetch mapped costs for the selected month
-    // We filter by accounting_documents.issue_date within the selected month
-    const startOfMonth = new Date(Date.UTC(year, month - 1, 1)).toISOString().split('T')[0];
-    const endOfMonth = new Date(Date.UTC(year, month, 0)).toISOString().split('T')[0];
-
-    const { data: mappedCosts, error: costsError } = await supabase
-      .from('accounting_mappings')
-      .select(`
-        amount,
-        pracovnik_id,
-        accounting_documents!inner (
-          issue_date
-        )
-      `)
-      .not('pracovnik_id', 'is', null)
-      .gte('accounting_documents.issue_date', startOfMonth)
-      .lte('accounting_documents.issue_date', endOfMonth);
-
-    if (pracError || mzdyError || costsError) {
-      console.error('Chyba při načítání dat:', pracError || mzdyError || costsError);
-      setStatusMessage('Nepodařilo se načíst data.');
-      setLoading(false);
-      return;
-    }
-
-    // Process costs
-    const costsMap = new Map<number, number>();
-    if (mappedCosts) {
-      mappedCosts.forEach((item: any) => {
-        const pid = item.pracovnik_id;
-        const amount = Number(item.amount) || 0;
-        costsMap.set(pid, (costsMap.get(pid) || 0) + amount);
-      });
-    }
-
-    // 2.6 Fetch roles for workers (to filter visibility)
-    const userIds = allPracovnici.map(p => p.user_id).filter((id: any) => id !== null); // user_id comes from select(*)
-    const workerRolesMap = new Map<string, string>();
-    if (userIds.length > 0) {
-      // Use RPC to bypass RLS restrictions (Office cannot read Owner profiles directly)
-      const { data: profiles } = await supabase
-        .rpc('get_profiles_roles', { user_ids: userIds });
-
-      if (profiles) {
-        profiles.forEach((p: any) => workerRolesMap.set(p.id, p.role));
-      }
-    }
-
-    // 3. Combine the data
-    const mzdyMap = new Map(monthlyMzdy.map(m => [m.pracovnik_id, m]));
-    const combinedData = allPracovnici.map(p => {
-      const mzda = mzdyMap.get(p.id) || null;
-      const mappedCost = costsMap.get(p.id) || 0;
-
-      // Calculate total with mapped cost
-      // Note: If mzda is null but we have mappedCost, should we show it? 
-      // Current logic filters by isActiveOrHasMoney below, checking p.mzda !== null
-      // We should update that logic too.
-
-      return {
-        ...p,
-        mzda: mzda,
-        mappedCost: mappedCost,
-        totalWithCost: (mzda?.celkova_castka || 0) + mappedCost
-      };
-    });
-
-    // 4. Filter for display
-    const filteredPracovnici = combinedData.filter(p => {
-      // Rule 1: Show if active OR if they have a salary this month OR mapped costs
-      const isActiveOrHasMoney = p.is_active || p.mzda !== null || p.mappedCost > 0;
-      if (!isActiveOrHasMoney) return false;
-
-      // Rule 2: Office role cannot see Owners
-      if (currentUserRole === 'office') {
-        const workerRole = p.user_id ? workerRolesMap.get(p.user_id) : null;
-        if (workerRole === 'owner') return false;
-      }
-
-      return true;
-    });
-
-    setPracovnici(filteredPracovnici);
-    setLoading(false);
-  }
   // --- Form handling ---
-  const startEditing = (pracovnik: any) => {
+  const startEditing = (pracovnik: CombinedPayrollRecord) => {
     // Prevent editing if worker is inactive
     if (!pracovnik.is_active) return;
 
@@ -211,7 +106,7 @@ export default function MzdyPage() {
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth() + 1;
 
-    const upsertPayload = {
+    const payload = {
       pracovnik_id: pracovnikId,
       rok: year,
       mesic: month,
@@ -220,15 +115,12 @@ export default function MzdyPage() {
       priplatek: parseFloat(priplatek) || null,
     };
 
-    const { error } = await supabase
-      .from('mzdy')
-      .upsert(upsertPayload, { onConflict: 'pracovnik_id,rok,mesic' });
+    const result = await saveRecord(payload, year, month);
 
-    if (error) {
-      setStatusMessage('Nepodařilo se uložit mzdu: ' + error.message)
+    if (!result.success) {
+      setStatusMessage('Nepodařilo se uložit mzdu: ' + result.error)
     } else {
       setStatusMessage('Mzda uložena.');
-      await fetchData();
       cancelEditing();
     }
   };
@@ -248,15 +140,15 @@ export default function MzdyPage() {
   const confirmAction = async () => {
     if (!modalConfig.id) return
 
-    // We don't set global 'loading' here to avoid hiding the list, verification will happen via statusMessage or fetchData reload
-
     if (modalConfig.type === 'DELETE') {
-      const { error } = await supabase.from('mzdy').delete().eq('id', modalConfig.id)
-      if (error) {
-        setStatusMessage('Nepodařilo se smazat mzdu: ' + error.message)
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth() + 1;
+      const result = await deleteRecord(modalConfig.id, year, month);
+
+      if (!result.success) {
+        setStatusMessage('Nepodařilo se smazat mzdu: ' + result.error)
       } else {
         setStatusMessage('Záznam o mzdě byl smazán.')
-        fetchData()
       }
     }
     setModalOpen(false)
@@ -308,10 +200,10 @@ export default function MzdyPage() {
         {!loading && pracovnici.map(p => {
           const mzda = p.mzda;
           const isEditing = editingPracovnikId === p.id;
-          const canEdit = p.is_active;
+          const canEdit = p.canEdit && p.is_active; // Use both helper and property
 
           return (
-            <div key={p.id} className={`bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 transition-all ${isEditing ? 'ring-[#E30613]' : 'ring-slate-200 dark:ring-slate-700'} ${!canEdit ? 'bg-gray-50 dark:bg-slate-900/50' : ''}`}>
+            <div key={p.id} className={`bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 transition-all ${isEditing ? 'ring-[#E30613]' : 'ring-slate-200 dark:ring-slate-700'} ${!p.is_active ? 'bg-gray-50 dark:bg-slate-900/50' : ''}`}>
               {/* --- Collapsed View --- */}
               {!isEditing && (
                 <div className={`p-4 flex items-center justify-between`}>
@@ -319,7 +211,7 @@ export default function MzdyPage() {
                     className={`flex-grow ${canEdit && !mzda ? 'cursor-pointer' : 'cursor-default'}`}
                     onClick={() => canEdit && !mzda && startEditing(p)}
                   >
-                    <span className={`font-medium dark:text-white ${!canEdit ? 'text-gray-400 dark:text-gray-500 line-through' : ''}`}>{p.jmeno}</span>
+                    <span className={`font-medium dark:text-white ${!p.is_active ? 'text-gray-400 dark:text-gray-500 line-through' : ''}`}>{p.jmeno}</span>
                   </div>
 
                   {mzda ? (
