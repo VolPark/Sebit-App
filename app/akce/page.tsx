@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useMemo, Fragment } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useMemo, Fragment } from 'react'
+import { useProjectData } from '@/hooks/useProjectData'
 import { formatDate } from '@/lib/formatDate'
 import { getMaterialConfig } from '@/lib/material-config'
 import ComboBox from '@/components/ComboBox'
@@ -8,12 +8,25 @@ import { Menu, Transition } from '@headlessui/react'
 import { APP_START_DATE } from '@/lib/config'
 
 export default function AkcePage() {
-  const [akce, setAkce] = useState<any[]>([])
-  const [klienti, setKlienti] = useState<any[]>([])
-  const [divisions, setDivisions] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
+  const {
+    projects,
+    clients,
+    divisions,
+    loading: dataLoading,
+    error,
+    filters,
+    setFilters,
+    createProject,
+    updateProject,
+    deleteProject,
+    toggleProjectStatus
+  } = useProjectData();
+
   const [statusMessage, setStatusMessage] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
+
+  // Local UI Loading state (for action buttons feedback if needed, generic 'loading' covers fetch)
+  // We can use dataLoading, but simpler to rely on it.
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false)
@@ -34,7 +47,7 @@ export default function AkcePage() {
     actionClass: '',
   })
 
-  // Stavy pro formulář
+  // Form State
   const [nazev, setNazev] = useState('')
   const [datum, setDatum] = useState(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -48,72 +61,46 @@ export default function AkcePage() {
   const [materialKlient, setMaterialKlient] = useState('')
   const [materialMy, setMaterialMy] = useState('')
   const [odhadHodin, setOdhadHodin] = useState('')
-  const [projectType, setProjectType] = useState('STANDARD') // STANDARD, SERVICE, TM
+  const [projectType, setProjectType] = useState<any>('STANDARD') // STANDARD, SERVICE, TM
 
-  const [showCompleted, setShowCompleted] = useState(false);
-  const [filterDivisionId, setFilterDivisionId] = useState<number | null>(null);
-
-  useEffect(() => {
-    fetchAll()
-  }, [showCompleted, filterDivisionId])
-
+  // Sorting
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
 
-  const sortedAkce = useMemo(() => {
-    let sortableItems = [...akce]
+  const sortedProjects = useMemo(() => {
+    let items = [...projects];
     if (sortConfig !== null) {
-      sortableItems.sort((a, b) => {
-        let aValue = a[sortConfig.key]
-        let bValue = b[sortConfig.key]
+      items.sort((a, b) => {
+        let aValue: any = a[sortConfig.key as keyof typeof a];
+        let bValue: any = b[sortConfig.key as keyof typeof b];
+
         if (sortConfig.key === 'klient') {
-          aValue = a.klienti?.nazev || ''
-          bValue = b.klienti?.nazev || ''
+          aValue = a.klienti?.nazev || '';
+          bValue = b.klienti?.nazev || '';
         }
         if (sortConfig.key === 'division') {
-          aValue = a.divisions?.nazev || ''
-          bValue = b.divisions?.nazev || ''
+          aValue = a.divisions?.nazev || '';
+          bValue = b.divisions?.nazev || '';
         }
-        if (aValue < bValue) {
-          return sortConfig.direction === 'asc' ? -1 : 1
-        }
-        if (aValue > bValue) {
-          return sortConfig.direction === 'asc' ? 1 : -1
-        }
-        return 0
-      })
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
     }
-    return sortableItems
-  }, [akce, sortConfig])
+    return items;
+  }, [projects, sortConfig]);
 
   const requestSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc'
+    let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc'
+      direction = 'desc';
     }
-    setSortConfig({ key, direction })
+    setSortConfig({ key, direction });
   }
 
-  const formattedKlienti = useMemo(() => klienti.map(k => ({ id: k.id, name: k.nazev })), [klienti]);
+  const formattedKlienti = useMemo(() => clients.map(k => ({ id: k.id, name: k.nazev })), [clients]);
 
-  async function fetchAll() {
-    setLoading(true)
-    const [kResp, aResp, dResp] = await Promise.all([
-      supabase.from('klienti').select('*').order('nazev'),
-      (() => {
-        let query = supabase.from('akce').select('*, klienti(nazev), divisions(nazev)').eq('is_completed', showCompleted).order('datum', { ascending: false });
-        if (filterDivisionId) {
-          query = query.eq('division_id', filterDivisionId);
-        }
-        return query;
-      })(),
-      supabase.from('divisions').select('id, nazev').order('id')
-    ])
-    if (kResp.data) setKlienti(kResp.data)
-    if (aResp.data) setAkce(aResp.data)
-    if (dResp.data) setDivisions(dResp.data)
-    setLoading(false)
-  }
-
+  // Actions
   function resetForm() {
     setNazev('')
     setDatum(new Date().toISOString().split('T')[0])
@@ -126,6 +113,7 @@ export default function AkcePage() {
     setProjectType('STANDARD')
     setShowNewClientForm(false)
     setNewClientName('')
+    setEditingId(null)
   }
 
   function startEdit(a: any) {
@@ -147,47 +135,16 @@ export default function AkcePage() {
     setNewClientName('')
   }
 
-  function cancelEdit() {
-    setEditingId(null)
-    resetForm()
-  }
-
   async function saveAkce() {
     if (!nazev || !datum) {
       setStatusMessage('Chyba: Vyplňte název a datum')
-      return
-    }
-    setLoading(true)
-
-    const ensureClient = async (): Promise<number | null> => {
-      if (selectedKlient) return Number(selectedKlient.id);
-      if (showNewClientForm && newClientName) {
-        const { data, error } = await supabase
-          .from('klienti')
-          .insert({ nazev: newClientName })
-          .select('id')
-          .single();
-        if (error) {
-          setStatusMessage('Nepodařilo se vytvořit nového klienta: ' + error.message)
-          return null;
-        }
-        // Also select it in the form
-        setSelectedKlient({ id: data.id, name: newClientName });
-        return data.id;
-      }
-      return null;
-    };
-
-    const finalKlientId = await ensureClient();
-    if ((showNewClientForm && newClientName && !finalKlientId)) {
-      setLoading(false);
-      return; // Stop if new client creation was intended but failed
+      return;
     }
 
     const payload: any = {
       nazev,
       datum,
-      klient_id: finalKlientId,
+      klient_id: selectedKlient ? Number(selectedKlient.id) : null,
       division_id: selectedDivisionId,
       project_type: projectType,
       cena_klient: projectType === 'STANDARD' ? (parseFloat(cenaKlient || '0') || 0) : 0,
@@ -196,28 +153,33 @@ export default function AkcePage() {
       odhad_hodin: parseFloat(odhadHodin || '0') || 0,
     };
 
-    if (!editingId) {
-      payload.is_completed = false;
+    const newClientObj = (showNewClientForm && newClientName) ? newClientName : undefined;
+
+    // Validation
+    if (!payload.klient_id && !newClientObj) {
+      // It's allowed to have no client? Original code allowed it (returns null).
+      // But "ensureClient" returns null in original code if failure. 
+      // If "newClientName" provided, we handle it in hook.
     }
 
-    let error;
+    let success = false;
     if (editingId) {
-      ({ error } = await supabase.from('akce').update(payload).eq('id', editingId));
+      success = await updateProject(editingId, payload, newClientObj);
+      if (success) setStatusMessage('Akce upravena');
     } else {
-      ({ error } = await supabase.from('akce').insert([payload]));
+      payload.is_completed = false;
+      success = await createProject(payload, newClientObj);
+      if (success) setStatusMessage('Akce uložena');
     }
 
-    if (error) {
-      console.error('Chyba při ukládání akce', error);
-      setStatusMessage('Nepodařilo se uložit akci: ' + (error.message || JSON.stringify(error)))
+    if (success) {
+      resetForm();
     } else {
-      setStatusMessage(editingId ? 'Akce upravena' : 'Akce uložena');
-      cancelEdit();
-      fetchAll();
+      setStatusMessage('Chyba při ukládání (viz konzole)');
     }
-    setLoading(false);
   }
 
+  // Modals
   function openDeleteModal(id: number) {
     setModalConfig({
       type: 'DELETE',
@@ -231,16 +193,7 @@ export default function AkcePage() {
   }
 
   function openToggleModal(id: number, currentStatus: boolean) {
-    const actionText = currentStatus ? 'ukončit' : 'aktivovat'; // current=false (neukončeno) -> ukončit, current=true (ukončeno) -> aktivovat
-    // currentStatus = is_completed
-    // if is_completed (true), button says "Aktivovat", so actionText should be 'aktivovat'
-    // if !is_completed (false), button says "Ukončit", so actionText should be 'ukončit'
-
-    // Note: The logic in original toggleCompleteAkce:
-    // const actionText = currentStatus ? 'aktivovat' : 'ukončit';
-    // where currentStatus passed in is 'is_completed'.
-    // if is_completed=true, actionText='aktivovat'. Correct.
-
+    const actionText = currentStatus ? 'aktivovat' : 'ukončit';
     setModalConfig({
       type: 'TOGGLE',
       id,
@@ -254,33 +207,19 @@ export default function AkcePage() {
   }
 
   async function confirmAction() {
-    if (!modalConfig.id) return
-    setLoading(true)
+    if (!modalConfig.id) return;
 
+    let success = false;
     if (modalConfig.type === 'DELETE') {
-      const { error } = await supabase.from('akce').delete().eq('id', modalConfig.id)
-      if (error) {
-        setStatusMessage('Nepodařilo se smazat akci: ' + error.message)
-      } else {
-        setStatusMessage('Akce smazána')
-        fetchAll()
-      }
+      success = await deleteProject(modalConfig.id);
+      if (success) setStatusMessage('Akce smazána');
     } else if (modalConfig.type === 'TOGGLE') {
-      const { error } = await supabase
-        .from('akce')
-        .update({ is_completed: !modalConfig.data.currentStatus })
-        .eq('id', modalConfig.id)
-
-      if (error) {
-        setStatusMessage(`Nepodařilo se změnit stav akce: ` + error.message)
-      } else {
-        setStatusMessage(`Stav akce změněn`)
-        fetchAll()
-      }
+      success = await toggleProjectStatus(modalConfig.id, modalConfig.data.currentStatus);
+      if (success) setStatusMessage('Stav akce změněn');
     }
 
-    setModalOpen(false)
-    setLoading(false)
+    if (!success) setStatusMessage('Operace se nezdařila');
+    setModalOpen(false);
   }
 
   const currency = (v: number) => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(v)
@@ -292,6 +231,12 @@ export default function AkcePage() {
       {statusMessage && (
         <div className={`mb-4 p-4 rounded ${statusMessage.includes('Nepodařilo') || statusMessage.includes('Chyba') ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-200' : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-200'}`}>
           {statusMessage}
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 p-4 rounded bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-200">
+          Chyba načítání dat: {error}
         </div>
       )}
 
@@ -387,11 +332,11 @@ export default function AkcePage() {
 
           <div className="md:col-span-2 flex justify-end gap-4">
             {editingId && (
-              <button type="button" onClick={cancelEdit} className="inline-flex items-center justify-center bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
+              <button type="button" onClick={() => { setEditingId(null); resetForm(); }} className="inline-flex items-center justify-center bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-full px-8 py-3 text-base shadow-sm hover:shadow-md transition">
                 Zrušit
               </button>
             )}
-            <button type="button" onClick={saveAkce} className="inline-flex items-center justify-center bg-[#E30613] text-white rounded-full px-8 py-3 text-base shadow-sm hover:bg-[#C00000] transition">
+            <button type="button" onClick={saveAkce} className="inline-flex items-center justify-center bg-[#E30613] text-white rounded-full px-8 py-3 text-base shadow-sm hover:bg-[#C00000] transition disabled:opacity-50" disabled={dataLoading}>
               {editingId ? 'Aktualizovat akci' : 'Uložit akci'}
             </button>
           </div>
@@ -402,8 +347,8 @@ export default function AkcePage() {
       <div className="overflow-x-auto">
         <div className="flex flex-col sm:flex-row justify-end mb-4 gap-4 items-center">
           <select
-            value={filterDivisionId || ''}
-            onChange={e => setFilterDivisionId(Number(e.target.value) || null)}
+            value={filters.divisionId || ''}
+            onChange={e => setFilters(prev => ({ ...prev, divisionId: Number(e.target.value) || null }))}
             className="rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 py-1.5 px-3 text-sm focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613] dark:text-white"
           >
             <option value="">Všechny divize</option>
@@ -414,15 +359,16 @@ export default function AkcePage() {
           <label className="inline-flex items-center cursor-pointer">
             <span className="mr-3 text-sm font-medium text-gray-600 dark:text-gray-400">Zobrazit ukončené</span>
             <span className="relative">
-              <input type="checkbox" checked={showCompleted} onChange={() => setShowCompleted(!showCompleted)} className="sr-only peer" />
+              <input type="checkbox" checked={filters.showCompleted} onChange={() => setFilters(prev => ({ ...prev, showCompleted: !filters.showCompleted }))} className="sr-only peer" />
               <div className="w-11 h-6 bg-gray-200 dark:bg-slate-700 rounded-full peer peer-focus:ring-4 peer-focus:ring-[#E30613]/30 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#E30613]"></div>
             </span>
           </label>
         </div>
+
         {/* Mobile */}
         <div className="space-y-3 md:hidden">
-          {loading && <div className="p-4 bg-white dark:bg-slate-900 rounded-lg shadow animate-pulse dark:text-white">Načítám...</div>}
-          {sortedAkce.map(a => (
+          {dataLoading && <div className="p-4 bg-white dark:bg-slate-900 rounded-lg shadow animate-pulse dark:text-white">Načítám...</div>}
+          {sortedProjects.map(a => (
             <div key={a.id} className={`bg-white dark:bg-slate-900 rounded-lg p-4 shadow-sm ${a.is_completed ? 'opacity-60' : ''}`}>
               <div className="flex justify-between items-start mb-2">
                 <div className={`font-medium dark:text-white ${a.is_completed ? 'line-through' : ''}`}>{a.nazev}</div>
@@ -535,7 +481,7 @@ export default function AkcePage() {
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-slate-700">
-              {sortedAkce.map(a => (
+              {sortedProjects.map(a => (
                 <tr key={a.id} className={`hover:bg-gray-50 dark:hover:bg-slate-800 ${a.is_completed ? 'bg-gray-50 dark:bg-slate-800/50 text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
                   <td className={`p-3 font-medium ${a.is_completed ? 'line-through' : ''}`}>{a.nazev}</td>
                   <td className="p-3">{formatDate(a.datum)}</td>
@@ -631,10 +577,10 @@ export default function AkcePage() {
 
               <button
                 onClick={confirmAction}
-                disabled={loading}
+                disabled={dataLoading}
                 className={`px-4 py-2 text-white rounded-md shadow-sm transition flex items-center ${modalConfig.actionClass}`}
               >
-                {loading ? 'Pracuji...' : modalConfig.actionLabel}
+                {dataLoading ? 'Pracuji...' : modalConfig.actionLabel}
               </button>
             </div>
           </div>
@@ -643,4 +589,3 @@ export default function AkcePage() {
     </div>
   )
 }
-
