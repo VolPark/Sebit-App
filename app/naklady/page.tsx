@@ -1,29 +1,28 @@
 'use client'
-import { useState, useEffect, useMemo, Fragment } from 'react'
-import { supabase } from '@/lib/supabase'
-import { Menu, Transition } from '@headlessui/react'
+import { useState, useMemo } from 'react'
+import { useFixedCostData } from '@/hooks/useFixedCostData'
 import { APP_START_YEAR } from '@/lib/config'
-import { CompanyConfig } from '@/lib/companyConfig'
+import { FixedCost } from '@/lib/types/finance-types'
 
 // Helper to get month name
 const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
 
 export default function NakladyPage() {
-    // Data state
-    const [costs, setCosts] = useState<any[]>([])
-    // We keep divisions separate to resolve names easily
-    const [divisions, setDivisions] = useState<any[]>([]);
+    const {
+        costs,
+        divisions,
+        loading,
+        error,
+        selectedDate,
+        changeMonth,
+        createCost,
+        updateCost,
+        deleteCost,
+        importPreviousMonth
+    } = useFixedCostData();
 
-    // UI state
-    const [loading, setLoading] = useState(true)
+    // Local UI State
     const [statusMessage, setStatusMessage] = useState('')
-    const [selectedDate, setSelectedDate] = useState(() => {
-        const now = new Date();
-        if (now.getFullYear() < APP_START_YEAR) {
-            return new Date(APP_START_YEAR, 0, 1);
-        }
-        return now;
-    })
 
     // Modal State
     const [modalOpen, setModalOpen] = useState(false)
@@ -47,158 +46,7 @@ export default function NakladyPage() {
     const [formCastka, setFormCastka] = useState('')
     const [formDivisionId, setFormDivisionId] = useState<number | null>(null);
 
-    useEffect(() => {
-        fetchData()
-    }, [selectedDate])
-
-    async function fetchData(forceRefresh = false) {
-        setLoading(true);
-        const year = selectedDate.getFullYear();
-        const month = selectedDate.getMonth() + 1;
-
-        // 1. Fetch Manual Fixed Costs
-        const { data: fixedData, error } = await supabase
-            .from('fixed_costs')
-            .select('*, divisions(nazev)')
-            .eq('rok', year)
-            .eq('mesic', month)
-            .order('nazev');
-
-        // 2. Fetch Divisions (for lookup)
-        const { data: divisionsData } = await supabase.from('divisions').select('id, nazev').order('id');
-        if (divisionsData) setDivisions(divisionsData);
-
-        // 3. Fetch Accounting Mapped Costs (if enabled)
-        let mappedData: any[] = [];
-        if (CompanyConfig.features.enableAccounting) {
-            const startDate = new Date(year, month - 1, 1); // Month is 0-indexed in Date
-            const endDate = new Date(year, month, 0); // Last day of month
-            // Adjust to cover full days in UTC/ISO. 
-            // We use YYYY-MM-DD string comparisons for simplicity with issue_date (DATE type usually)
-            // But Supabase Timestamptz requires full ISO.
-            // Let's use simple date construction that covers local day => UTC
-            // Or better: construct precise range.
-            const startStr = `${year}-${String(month).padStart(2, '0')}-01T00:00:00.000Z`; // Approximation (UTC)
-            const endD = new Date(year, month, 0);
-            const endStr = `${year}-${String(month).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}T23:59:59.999Z`;
-
-            // Wait, issue_date is DATE (YYYY-MM-DD). If it's DATE, exact comparison with strings works best.
-            // Or use gte/lte with "YYYY-MM-DD" format.
-            const dateStart = `${year}-${String(month).padStart(2, '0')}-01`;
-            const dateEnd = `${year}-${String(month).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}`;
-
-            const { data: accData } = await supabase
-                .from('accounting_documents')
-                .select('id, description, supplier_name, issue_date, tax_date, currency, amount_czk, exchange_rate, mappings:accounting_mappings(id, amount, amount_czk, cost_category, note, division_id)')
-                .gte('issue_date', dateStart)
-                .lte('issue_date', dateEnd);
-
-            if (accData) {
-                accData.forEach((doc: any) => {
-                    if (doc.mappings) {
-                        doc.mappings.forEach((m: any) => {
-                            if (m.cost_category === 'overhead') {
-                                // Resolve division name
-                                // @ts-ignore
-                                const divName = m.division_id && divisionsData ? divisionsData.find(d => d.id === m.division_id)?.nazev : null;
-
-                                mappedData.push({
-                                    id: `acc_${m.id}`,
-                                    nazev: m.note || doc.description || doc.supplier_name || 'Neznámý náklad',
-                                    castka: Number(m.amount_czk) || convertWithFallback(Number(m.amount), doc.currency),
-                                    original_amount: Number(m.amount),
-                                    currency: doc.currency,
-                                    divisions: divName ? { nazev: divName } : null,
-                                    division_id: m.division_id,
-                                    source: 'accounting',
-                                    doc_id: doc.id
-                                });
-
-                                // Trigger background sync if needed (no amount_czk but foreign currency)
-                                if ((!m.amount_czk || m.amount_czk === 0) && doc.currency !== 'CZK') {
-                                    // Fire and forget sync
-                                    fetch('/api/accounting/sync-currency', {
-                                        method: 'POST',
-                                        body: JSON.stringify({ docId: doc.id })
-                                    }).catch(e => console.error(e));
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-        }
-
-        if (error) {
-            console.error(error);
-            setStatusMessage('Chyba při načítání dat.');
-        } else {
-            // Merge lists
-            // Add 'source: manual' to fixedData items
-            const manualCosts = (fixedData || []).map(c => ({ ...c, source: 'manual' }));
-            const combined = [...manualCosts, ...mappedData];
-            combined.sort((a, b) => a.nazev.localeCompare(b.nazev));
-
-            setCosts(combined);
-        }
-        setLoading(false);
-    }
-
-    function convertWithFallback(amount: number, currency: string = 'CZK'): number {
-        if (!currency || currency === 'CZK') return amount;
-        // Fallback rates if sync hasn't happened yet
-        const RATES: Record<string, number> = { 'EUR': 25, 'USD': 23 };
-        return amount * (RATES[currency] || 1);
-    }
-
-    async function performAutoImport(targetYear: number, targetMonth: number): Promise<boolean> {
-        // Calculate previous month
-        let prevYear = targetYear;
-        let prevMonth = targetMonth - 1;
-        if (prevMonth === 0) {
-            prevMonth = 12;
-            prevYear -= 1;
-        }
-
-        // Fetch previous month data
-        const { data: prevData } = await supabase.from('fixed_costs').select('*').eq('rok', prevYear).eq('mesic', prevMonth);
-
-        if (!prevData || prevData.length === 0) {
-            return false;
-        }
-
-        // Prepare Insert
-        const newRows = prevData.map(c => ({
-            nazev: c.nazev,
-            castka: c.castka,
-            rok: targetYear,
-            mesic: targetMonth
-        }));
-
-        const { error } = await supabase.from('fixed_costs').insert(newRows);
-
-        if (!error) {
-            setStatusMessage(`Automaticky načteno ${newRows.length} položek z minulého měsíce.`);
-            return true;
-        } else {
-            console.error('Auto-import failed', error);
-            return false;
-        }
-    }
-
-    // --- Date navigation ---
-    const changeMonth = (offset: number) => {
-        setSelectedDate(currentDate => {
-            const newDate = new Date(currentDate);
-            newDate.setMonth(newDate.getMonth() + offset);
-            if (newDate.getFullYear() < APP_START_YEAR) {
-                return new Date(APP_START_YEAR, 0, 1);
-            }
-            return newDate;
-        });
-    }
-
-    // --- Actions ---
+    // -- Actions --
     const openAddModal = () => {
         setFormNazev('');
         setFormCastka('');
@@ -213,11 +61,11 @@ export default function NakladyPage() {
         setModalOpen(true);
     }
 
-    const openEditModal = (cost: any) => {
-        if (cost.source === 'accounting') return; // Should not happen via UI but safety check
+    const openEditModal = (cost: FixedCost) => {
+        if (cost.source === 'accounting') return;
         setFormNazev(cost.nazev);
         setFormCastka(String(cost.castka));
-        setFormDivisionId(cost.division_id);
+        setFormDivisionId(cost.division_id || null);
         setModalConfig({
             type: 'edit',
             id: cost.id,
@@ -241,67 +89,39 @@ export default function NakladyPage() {
     }
 
     const confirmAction = async () => {
-        setLoading(true);
-        const year = selectedDate.getFullYear();
-        const month = selectedDate.getMonth() + 1;
+        let success = false;
 
         if (modalConfig.type === 'DELETE' && modalConfig.id) {
-            // ... (delete logic unchanged)
-            const { error } = await supabase.from('fixed_costs').delete().eq('id', modalConfig.id);
-            if (!error) {
-                setStatusMessage('Položka smazána');
-                fetchData(true);
-            } else {
-                setStatusMessage('Chyba: ' + error.message);
-            }
+            success = await deleteCost(modalConfig.id);
+            if (success) setStatusMessage('Položka smazána');
         } else if (modalConfig.type === 'ADD') {
             if (!formNazev || !formCastka) {
                 alert('Vyplňte název a částku');
-                setLoading(false);
                 return;
             }
-            const { error } = await supabase.from('fixed_costs').insert({
+            success = await createCost({
                 nazev: formNazev,
                 castka: parseFloat(formCastka),
-                rok: year,
-                mesic: month,
                 division_id: formDivisionId
             });
-            if (!error) {
-                setStatusMessage('Náklad přidán');
-                fetchData(true);
-                setModalOpen(false);
-            } else {
-                setStatusMessage('Chyba: ' + error.message);
-            }
+            if (success) setStatusMessage('Náklad přidán');
         } else if (modalConfig.type === 'edit' && modalConfig.id) {
-            const { error } = await supabase.from('fixed_costs').update({
+            success = await updateCost(modalConfig.id, {
                 nazev: formNazev,
                 castka: parseFloat(formCastka),
                 division_id: formDivisionId
-            }).eq('id', modalConfig.id);
-            if (!error) {
-                setStatusMessage('Náklad upraven');
-                fetchData(true);
-                setModalOpen(false);
-            } else {
-                setStatusMessage('Chyba: ' + error.message);
-            }
+            });
+            if (success) setStatusMessage('Náklad upraven');
         }
-        if (modalConfig.type === 'DELETE') setModalOpen(false);
-    }
-    const importPreviousMonth = async () => {
-        setLoading(true);
-        const year = selectedDate.getFullYear();
-        const month = selectedDate.getMonth() + 1;
-        const success = await performAutoImport(year, month);
 
-        if (success) {
-            fetchData(true);
-        } else {
-            setStatusMessage('V minulém měsíci nebyly nalezeny žádné náklady.');
-            setLoading(false);
-        }
+        if (success) setModalOpen(false);
+        else setStatusMessage('Operace se nezdařila');
+    }
+
+    const handleImport = async () => {
+        const success = await importPreviousMonth();
+        if (success) setStatusMessage('Náklady načteny.');
+        // error handled by hook logic setting error state if needed, or we can check result
     }
 
     // --- UI Render ---
@@ -312,9 +132,9 @@ export default function NakladyPage() {
         <div className="p-4 sm:p-8 max-w-6xl mx-auto dark:text-gray-100">
             <h2 className="text-2xl font-bold text-black dark:text-white mb-4">Pravidelné měsíční náklady (Režie)</h2>
 
-            {statusMessage && (
-                <div className={`mb-4 p-4 rounded ${statusMessage.includes('Chyba') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                    {statusMessage}
+            {(statusMessage || error) && (
+                <div className={`mb-4 p-4 rounded ${error ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                    {error || statusMessage}
                 </div>
             )}
 
@@ -342,7 +162,7 @@ export default function NakladyPage() {
                 </div>
                 <div className="flex gap-3">
                     <button
-                        onClick={importPreviousMonth}
+                        onClick={handleImport}
                         className="px-4 py-2 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-full text-sm font-semibold hover:bg-gray-200 dark:hover:bg-slate-700 transition flex items-center gap-2"
                         title="Smaže aktuální seznam a nahraje položky z minulého měsíce"
                     >
@@ -391,10 +211,10 @@ export default function NakladyPage() {
                                 )}
                             </div>
                             <div className="flex items-center gap-4">
-                                <div className="font-bold text-gray-900 dark:text-white">{currency.format(c.castka)}</div>
+                                <div className="font-bold text-gray-900 dark:text-white">{currency.format(Number(c.castka))}</div>
                                 <div className="flex gap-2">
                                     {c.source === 'accounting' ? (
-                                        <div className="w-20"></div> // Spacer to keep alignment? Or just empty.
+                                        <div className="w-20"></div> // Spacer
                                     ) : (
                                         <>
                                             <button onClick={() => openEditModal(c)} className="p-2 text-gray-400 hover:text-blue-600 transition">
