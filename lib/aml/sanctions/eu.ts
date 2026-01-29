@@ -1,5 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import { createClient } from '@supabase/supabase-js';
+import { createLogger } from '@/lib/logger';
 
 // Create Admin Client for Backend Operations (Bypasses RLS)
 const supabaseAdmin = createClient(
@@ -15,18 +16,20 @@ const supabaseAdmin = createClient(
 
 const EU_LIST_URL = 'https://webgate.ec.europa.eu/europeaid/fsd/fsf/public/files/xmlFullSanctionsList/content?token=dG9rZW4tMjAxNw';
 
+const logger = createLogger({ module: 'AML:EU' });
+
 export const EUSanctionsService = {
     /**
      * Downloads the XML file from the EU Commission website.
      */
     fetchList: async (): Promise<string> => {
-        console.log('Fetching EU Sanctions List from:', EU_LIST_URL);
+        logger.info('Fetching EU Sanctions List from:', EU_LIST_URL);
         const response = await fetch(EU_LIST_URL);
         if (!response.ok) {
             throw new Error(`Failed to fetch EU list: ${response.statusText}`);
         }
         const xmlData = await response.text();
-        console.log('Downloaded XML size:', (xmlData.length / 1024 / 1024).toFixed(2), 'MB');
+        logger.info('Downloaded XML size:', (xmlData.length / 1024 / 1024).toFixed(2), 'MB');
         return xmlData;
     },
 
@@ -50,7 +53,7 @@ export const EUSanctionsService = {
                 message: 'Parsing started...'
             }]).select().single();
             if (data) logId = data.id;
-        } catch (e) { console.error('Failed to create start log', e); }
+        } catch (e) { logger.error('Failed to create start log', e); }
 
         try {
             const parser = new XMLParser({
@@ -67,7 +70,7 @@ export const EUSanctionsService = {
                 throw new Error('Invalid XML structure: sanctionEntity array not found');
             }
 
-            console.log(`Found ${entities.length} entities to process.`);
+            logger.info(`Found ${entities.length} entities to process.`);
 
             const batchSize = 100;
             let processed = 0;
@@ -218,7 +221,7 @@ export const EUSanctionsService = {
             return processed;
 
         } catch (error: any) {
-            console.error('EU Sanctions Update Failed:', error);
+            logger.error('EU Sanctions Update Failed:', error);
             // Error Log
             if (logId) {
                 await supabaseAdmin.from('aml_sanction_update_logs').update({
@@ -237,7 +240,7 @@ export const EUSanctionsService = {
             .upsert(batch, { onConflict: 'list_name,external_id' });
 
         if (error) {
-            console.error('Error upserting batch:', error);
+            logger.error('Error upserting batch:', error);
             throw error;
         }
     }
