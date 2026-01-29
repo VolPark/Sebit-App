@@ -1,4 +1,4 @@
-export type AMLSanctionList = 'EU' | 'UN' | 'OFAC' | 'CZ' | 'INTERNAL_WATCHLIST';
+export type AMLSanctionList = 'EU' | 'UN' | 'OFAC' | 'CZ' | 'AMLA' | 'INTERNAL_WATCHLIST';
 
 export type AMLRiskRating = 'low' | 'medium' | 'high' | 'critical';
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { EUSanctionsService } from '@/lib/aml/sanctions/eu';
+import { updateAllLists, updateList } from '@/lib/aml/sanctions';
 import { CompanyConfig } from '@/lib/companyConfig';
 
 import { AccountingService } from '@/lib/accounting/service';
@@ -20,18 +20,23 @@ export async function GET(req: NextRequest) {
     const results: any = {};
 
     try {
-        // 1. EU Sanctions Update
+        // 1. All Sanction Lists Update (EU, OFAC, CZ, etc.)
         if (CompanyConfig.features.enableAML) {
-            console.log('Starting EU Sanctions Update...');
+            console.log('Starting Sanction Lists Update (all active)...');
             try {
-                const xmlData = await EUSanctionsService.fetchList();
-                const count = await EUSanctionsService.parseAndSave(xmlData);
-                results.euSanctions = { status: 'success', count };
+                const syncResults = await updateAllLists();
+                results.sanctionLists = {
+                    status: syncResults.failed.length === 0 ? 'success' : 'partial',
+                    success: syncResults.success,
+                    failed: syncResults.failed,
+                    skipped: syncResults.skipped,
+                    totalRecords: syncResults.totalRecords,
+                };
             } catch (e: any) {
-                results.euSanctions = { status: 'failed', error: e.message };
+                results.sanctionLists = { status: 'failed', error: e.message };
             }
         } else {
-            results.euSanctions = { status: 'skipped', reason: 'AML Disabled' };
+            results.sanctionLists = { status: 'skipped', reason: 'AML Disabled' };
         }
 
         // 2. Accounting Sync

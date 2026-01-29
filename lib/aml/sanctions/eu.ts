@@ -1,37 +1,39 @@
+/**
+ * EU Consolidated Financial Sanctions List Provider
+ * 
+ * Source: European Commission
+ * Format: XML (FSF - Financial Sanctions Files)
+ */
+
 import { XMLParser } from 'fast-xml-parser';
 import { createClient } from '@supabase/supabase-js';
 import { createLogger } from '@/lib/logger';
-
-// Create Admin Client for Backend Operations (Bypasses RLS)
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
-
-const EU_LIST_URL = 'https://webgate.ec.europa.eu/europeaid/fsd/fsf/public/files/xmlFullSanctionsList/content?token=dG9rZW4tMjAxNw';
+import { SANCTION_LISTS, SanctionListConfig } from '../config';
+import { BaseSanctionProvider } from './base';
 
 const logger = createLogger({ module: 'AML:EU' });
 
-export const EUSanctionsService = {
-    /**
-     * Downloads the XML file from the EU Commission website.
-     */
-    fetchList: async (): Promise<string> => {
-        logger.info('Fetching EU Sanctions List from:', EU_LIST_URL);
-        const response = await fetch(EU_LIST_URL);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch EU list: ${response.statusText}`);
-        }
-        const xmlData = await response.text();
-        logger.info('Downloaded XML size:', (xmlData.length / 1024 / 1024).toFixed(2), 'MB');
-        return xmlData;
-    },
+// Admin client for database operations
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+);
+
+export class EUSanctionsProvider extends BaseSanctionProvider {
+    readonly listId = 'EU' as const;
+    readonly name = 'EU Consolidated Financial Sanctions List';
+
+    constructor(config?: SanctionListConfig) {
+        super(config || SANCTION_LISTS.EU);
+    }
+
+    async fetchList(): Promise<string> {
+        logger.info('Fetching EU Sanctions List from:', this.config.url);
+        const data = await super.fetchList();
+        logger.info('Downloaded EU XML size:', (data.length / 1024 / 1024).toFixed(2), 'MB');
+        return data;
+    }
 
     /**
      * Parses the XML data and extracts entities.
@@ -41,19 +43,21 @@ export const EUSanctionsService = {
      * - Birth Information (City, Region, Place)
      * - Identification Documents
      */
-    parseAndSave: async (xmlData: string) => {
+    async parseAndSave(xmlData: string): Promise<number> {
         const startTime = Date.now();
-        let logId = null;
+        let logId: number | null = null;
 
         // Start Log
         try {
-            const { data, error } = await supabaseAdmin.from('aml_sanction_update_logs').insert([{
-                list_name: 'EU',
+            const { data } = await supabaseAdmin.from('aml_sanction_update_logs').insert([{
+                list_name: this.listId,
                 status: 'running',
-                message: 'Parsing started...'
+                message: 'Parsing EU sanctions list...'
             }]).select().single();
             if (data) logId = data.id;
-        } catch (e) { logger.error('Failed to create start log', e); }
+        } catch (e) {
+            logger.error('Failed to create start log', e);
+        }
 
         try {
             const parser = new XMLParser({
@@ -62,30 +66,22 @@ export const EUSanctionsService = {
             });
             const jsonObj = parser.parse(xmlData);
 
-            // Access the list of entities (structure varies, simplified assumption based on FSF spec)
-            // Root -> export -> sanctionEntity
+            // Access the list of entities (structure: export -> sanctionEntity)
             const entities = jsonObj?.export?.sanctionEntity;
 
             if (!entities || !Array.isArray(entities)) {
                 throw new Error('Invalid XML structure: sanctionEntity array not found');
             }
 
-            logger.info(`Found ${entities.length} entities to process.`);
+            logger.info(`Found ${entities.length} EU entities to process.`);
 
             const batchSize = 100;
             let processed = 0;
-            let batch = [];
-
-            // Helpers to handle single/array XML nodes
-            const asArray = (item: any) => {
-                if (!item) return [];
-                return Array.isArray(item) ? item : [item];
-            };
+            let batch: any[] = [];
 
             for (const entity of entities) {
                 // 1. EXTRACT ALIASES
-                const nameAliases = asArray(entity.nameAlias);
-                // Prefer aliases with function or just the first one
+                const nameAliases = this.asArray(entity.nameAlias);
                 const mainNameObj = nameAliases.find((n: any) => n['@_function']) || nameAliases[0];
                 const wholeName = mainNameObj?.['@_wholeName'] || 'Unknown';
 
@@ -101,25 +97,25 @@ export const EUSanctionsService = {
                 }));
 
                 // 2. EXTRACT BIRTH DATES
-                const birthDates = asArray(entity.birthdate).map((b: any) => ({
+                const birthDates = this.asArray(entity.birthdate).map((b: any) => ({
                     date: b['@_birthdate'],
                     city: b['@_city'],
                     country: b['@_countryDescription'],
                     countryIso: b['@_countryIso2Code'],
                     place: b['@_place'],
                     region: b['@_region'],
-                    remark: b.remark // simple text node in some schema versions
+                    remark: b.remark
                 }));
 
                 // 3. EXTRACT CITIZENSHIPS
-                const citizenships = asArray(entity.citizenship).map((c: any) => ({
+                const citizenships = this.asArray(entity.citizenship).map((c: any) => ({
                     country: c['@_countryDescription'],
                     countryIso: c['@_countryIso2Code'],
                     region: c['@_region']
                 }));
 
                 // 4. EXTRACT ADDRESSES
-                const addresses = asArray(entity.address).map((a: any) => ({
+                const addresses = this.asArray(entity.address).map((a: any) => ({
                     street: a['@_street'] || a.street,
                     city: a['@_city'] || a.city,
                     zip: a['@_zipCode'] || a.zipCode,
@@ -129,7 +125,7 @@ export const EUSanctionsService = {
                 }));
 
                 // 5. EXTRACT IDENTIFICATIONS
-                const identifications = asArray(entity.identification).map((i: any) => ({
+                const identifications = this.asArray(entity.identification).map((i: any) => ({
                     type: i['@_identificationType'],
                     number: i['@_number'],
                     country: i['@_countryDescription'],
@@ -139,22 +135,17 @@ export const EUSanctionsService = {
                 }));
 
                 // 6. EXTRACT REGULATIONS (Deep Search)
-                // Collect regulationSummary from all nested objects that might have it
-                const rootRegs = asArray(entity.regulation);
-                const aliasRegs = nameAliases.flatMap((n: any) => asArray(n.regulationSummary));
-                const birthRegs = asArray(entity.birthdate).flatMap((b: any) => asArray(b.regulationSummary));
-                const citizenRegs = asArray(entity.citizenship).flatMap((c: any) => asArray(c.regulationSummary));
+                const rootRegs = this.asArray(entity.regulation);
+                const aliasRegs = nameAliases.flatMap((n: any) => this.asArray(n.regulationSummary));
+                const birthRegs = this.asArray(entity.birthdate).flatMap((b: any) => this.asArray(b.regulationSummary));
+                const citizenRegs = this.asArray(entity.citizenship).flatMap((c: any) => this.asArray(c.regulationSummary));
 
-                // Merge all sources
                 const rawRegs = [...rootRegs, ...aliasRegs, ...birthRegs, ...citizenRegs];
 
                 const uniqueRegs = new Map();
                 rawRegs.forEach((r: any) => {
-                    // Handle both <publicationUrl>http...</publicationUrl> and publicationUrl="http..."
                     const url = r.publicationUrl || r['@_publicationUrl'];
                     const title = r['@_numberTitle'];
-
-                    // Key by URL if available, else Title. Filter out empty ones.
                     const key = url || title;
                     if (key && !uniqueRegs.has(key)) {
                         uniqueRegs.set(key, {
@@ -169,7 +160,7 @@ export const EUSanctionsService = {
 
                 // Prepare Record
                 const record = {
-                    list_name: 'EU',
+                    list_name: this.listId,
                     external_id: entity['@_logicalId'],
                     name: wholeName,
                     details: {
@@ -186,8 +177,8 @@ export const EUSanctionsService = {
                         citizenships,
                         addresses,
                         identifications,
-                        regulations, // Now populated from deep search
-                        remarks: asArray(entity.remark)
+                        regulations,
+                        remarks: this.asArray(entity.remark)
                     },
                     type: entity.subjectType?.['@_code'] || 'unknown',
                     updated_at: new Date().toISOString()
@@ -196,7 +187,7 @@ export const EUSanctionsService = {
                 batch.push(record);
 
                 if (batch.length >= batchSize) {
-                    await EUSanctionsService.upsertBatch(batch);
+                    await this.upsertBatch(batch);
                     processed += batch.length;
                     batch = [];
                 }
@@ -204,7 +195,7 @@ export const EUSanctionsService = {
 
             // Final Batch
             if (batch.length > 0) {
-                await EUSanctionsService.upsertBatch(batch);
+                await this.upsertBatch(batch);
                 processed += batch.length;
             }
 
@@ -213,16 +204,16 @@ export const EUSanctionsService = {
                 await supabaseAdmin.from('aml_sanction_update_logs').update({
                     status: 'success',
                     records_count: processed,
-                    message: `Update completed. Processed ${processed} entities.`,
+                    message: `EU update completed. Processed ${processed} entities.`,
                     duration_ms: Date.now() - startTime
                 }).eq('id', logId);
             }
 
+            logger.info(`EU sync complete: ${processed} records processed`);
             return processed;
 
         } catch (error: any) {
             logger.error('EU Sanctions Update Failed:', error);
-            // Error Log
             if (logId) {
                 await supabaseAdmin.from('aml_sanction_update_logs').update({
                     status: 'failed',
@@ -232,16 +223,31 @@ export const EUSanctionsService = {
             }
             throw error;
         }
-    },
+    }
 
-    upsertBatch: async (batch: any[]) => {
+    private asArray(item: any): any[] {
+        if (!item) return [];
+        return Array.isArray(item) ? item : [item];
+    }
+
+    private async upsertBatch(batch: any[]): Promise<void> {
         const { error } = await supabaseAdmin
             .from('aml_sanction_list_items')
             .upsert(batch, { onConflict: 'list_name,external_id' });
 
         if (error) {
-            logger.error('Error upserting batch:', error);
+            logger.error('Error upserting EU batch:', error);
             throw error;
         }
     }
+}
+
+// Singleton instance
+export const euProvider = new EUSanctionsProvider();
+
+// Backward compatibility - export as EUSanctionsService
+export const EUSanctionsService = {
+    fetchList: () => euProvider.fetchList(),
+    parseAndSave: (xmlData: string) => euProvider.parseAndSave(xmlData),
+    upsertBatch: (batch: any[]) => (euProvider as any).upsertBatch(batch),
 };
