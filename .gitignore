@@ -40,5 +40,19 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.vercel
-.env*.local
+# Debug files and logs
+chat-error.log
+*_output.txt
+debug_*.js
+check_*.js
+reproduce_*.js
+verify_*.js
+*.dump
+record_*.json
+comparison_result.txt
+
+# Development SQL scripts (root level only)
+/deploy_fix.sql
+/fix_*.sql
+/setup_rbac.sql
+/schema_dump.sql

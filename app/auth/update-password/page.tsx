@@ -38,7 +38,7 @@ export default function UpdatePasswordPage() {
                         supabase.auth.setSession({
                             access_token: accessToken,
                             refresh_token: refreshToken
-                        }).then(({ data, error }) => {
+                        }).then(({ data, error }: { data: { session: any }, error: any }) => {
                             if (error) {
                                 console.error('UpdatePasswordPage: Manual setSession failed', error);
                             }

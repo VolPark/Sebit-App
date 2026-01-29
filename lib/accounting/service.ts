@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { UolClient, UolSalesInvoiceItem, UolPurchaseInvoiceItem, UolConfig } from './uol-client';
+import { logger } from '@/lib/logger';
 
 // Use service role key for writing to restricted tables/managing sync
 const supabaseAdmin = createClient(
@@ -92,7 +93,7 @@ export class AccountingService {
                 partial: isPartial
             };
         } catch (e: any) {
-            console.error('Sync failed', e);
+            logger.accounting.error('Sync failed', e);
             await this.completeLog(logId, 'error', e.message);
             throw e;
         }
@@ -123,10 +124,10 @@ export class AccountingService {
         while (hasNext) {
             if (Date.now() > deadline) break;
 
-            console.log(`Fetching Sales Invoices page ${page}`);
+            logger.accounting.debug(`Fetching Sales Invoices page ${page}`);
             const res = await this.uolClient.getSalesInvoices(page, 50);
             const items = res.items || [];
-            console.log(`Fetched ${items.length} sales invoices`);
+            logger.accounting.debug(`Fetched ${items.length} sales invoices`);
 
             if (items.length === 0) break;
 
@@ -210,7 +211,7 @@ export class AccountingService {
                     supplierIco = contact.company_number; // ICO
                     supplierDic = contact.vatin;          // DIC
                 } catch (e) {
-                    console.warn(`Failed to fetch contact for ${detail.invoice_id}`, e);
+                    logger.accounting.warn(`Failed to fetch contact for ${detail.invoice_id}`, e);
                 }
             }
         } else {
@@ -223,7 +224,7 @@ export class AccountingService {
                     supplierIco = contact.company_number;
                     supplierDic = contact.vatin;
                 } catch (e) {
-                    console.warn(`Failed to fetch contact for ${detail.invoice_id}`, e);
+                    logger.accounting.warn(`Failed to fetch contact for ${detail.invoice_id}`, e);
                 }
             }
         }
@@ -274,7 +275,7 @@ export class AccountingService {
             .single();
 
         if (fetchError && fetchError.code !== 'PGRST116') {
-            console.error('Error checking existence', fetchError);
+            logger.accounting.error('Error checking existence', fetchError);
             throw fetchError;
         }
 
@@ -289,7 +290,7 @@ export class AccountingService {
                 .update(payload)
                 .eq('id', existing.id);
             if (error) {
-                console.error('Error updating document', error);
+                logger.accounting.error('Error updating document', error);
                 throw error;
             }
         } else {
@@ -297,14 +298,14 @@ export class AccountingService {
                 .from('accounting_documents')
                 .insert(payload);
             if (error) {
-                console.error('Error inserting document', error);
+                logger.accounting.error('Error inserting document', error);
                 throw error;
             }
         }
     }
 
     async syncBankMovements(deadline: number) {
-        console.log('Starting Bank Movements Sync...');
+        logger.accounting.info('Starting Bank Movements Sync...');
         // 1. Get Accounts
         const accountsRes = await this.uolClient.getBankAccounts();
         const accounts = accountsRes.items || [];
@@ -325,7 +326,7 @@ export class AccountingService {
                 .single();
 
             const lastDate = lastMove?.date;
-            console.log(`Account ${acc.bank_account_id}: Last synced date ${lastDate || 'Never'}`);
+            logger.accounting.debug(`Account ${acc.bank_account_id}: Last synced date ${lastDate || 'Never'}`);
 
             // 3. Fetch from UOL
             let page = 1;
@@ -371,7 +372,7 @@ export class AccountingService {
                         .from('accounting_bank_movements')
                         .upsert(payload, { onConflict: 'movement_id', ignoreDuplicates: false });
 
-                    if (error) console.error('Error upserting movement', error);
+                    if (error) logger.accounting.error('Error upserting movement', error);
                     else totalSynced++;
                 }
 
@@ -379,12 +380,12 @@ export class AccountingService {
                 else hasNext = false;
             }
         }
-        console.log(`Bank Sync Complete. Synced ${totalSynced} movements.`);
+        logger.accounting.info(`Bank Sync Complete. Synced ${totalSynced} movements.`);
         return totalSynced;
     }
 
     async syncAccountingJournal(deadline: number) {
-        console.log('Starting General Ledger Sync...');
+        logger.accounting.info('Starting General Ledger Sync...');
 
         // Sync from 2025 up to current year
         const startYear = 2025;
@@ -393,7 +394,7 @@ export class AccountingService {
 
         for (let year = startYear; year <= currentYear; year++) {
             if (Date.now() > deadline) break;
-            console.log(`Syncing Journal for year ${year}...`);
+            logger.accounting.debug(`Syncing Journal for year ${year}...`);
             const start = `${year}-01-01`;
             const end = `${year}-12-31`;
 
@@ -452,7 +453,7 @@ export class AccountingService {
                     .upsert(payload, { onConflict: 'uol_id' });
 
                 if (upsertError) {
-                    console.error('Error upserting journal batch', upsertError);
+                    logger.accounting.error('Error upserting journal batch', upsertError);
                     throw upsertError;
                 }
 
@@ -463,19 +464,19 @@ export class AccountingService {
             }
         }
 
-        console.log(`Journal Sync Complete. Synced ${totalSynced} records.`);
+        logger.accounting.info(`Journal Sync Complete. Synced ${totalSynced} records.`);
         return totalSynced;
     }
 
     async syncAccounts() {
         // Currently accounts are seeded via SQL migration (15_accounting_accounts.sql).
         // In the future, if UOL provides an API for Chart of Accounts, we can implement it here.
-        console.log('Accounts: Using seeded Chart of Accounts.');
+        logger.accounting.debug('Accounts: Using seeded Chart of Accounts.');
         return 0;
     }
 
     async syncBankAccountsMetadata() {
-        console.log('Starting Bank Accounts Metadata Sync...');
+        logger.accounting.info('Starting Bank Accounts Metadata Sync...');
         const accountsRes = await this.uolClient.getBankAccounts();
         const items = accountsRes.items || [];
         let syncedCount = 0;
@@ -506,27 +507,27 @@ export class AccountingService {
                     .upsert(dbData, { onConflict: 'bank_account_id', ignoreDuplicates: false });
 
                 if (error) {
-                    console.error(`Error upserting bank account metadata for ${acc.bank_account_id}`, error);
+                    logger.accounting.error(`Error upserting bank account metadata for ${acc.bank_account_id}`, error);
                 } else {
                     syncedCount++;
                 }
             } catch (e) {
-                console.error(`Failed to sync metadata for account ${acc.bank_account_id}`, e);
+                logger.accounting.error(`Failed to sync metadata for account ${acc.bank_account_id}`, e);
             }
         }
-        console.log(`Bank Accounts Metadata Sync Complete. Synced ${syncedCount} accounts.`);
+        logger.accounting.info(`Bank Accounts Metadata Sync Complete. Synced ${syncedCount} accounts.`);
         return { count: syncedCount, items: syncedItems };
     }
 
     async syncReceivables(deadline?: number) {
-        console.log('Starting Receivables (Payment Status) Sync...');
+        logger.accounting.info('Starting Receivables (Payment Status) Sync...');
         let page = 1;
         let hasNext = true;
         let totalSynced = 0;
 
         while (hasNext) {
             if (deadline && Date.now() > deadline) break;
-            console.log(`Fetching Receivables page ${page}`);
+            logger.accounting.debug(`Fetching Receivables page ${page}`);
             try {
                 const res = await this.uolClient.getReceivables(page, 100);
                 const items = res.items || [];
@@ -559,7 +560,7 @@ export class AccountingService {
                         .eq('number', invoiceNumber); // Match by number (VS)
 
                     if (error) {
-                        console.error(`Error updating payment status for invoice ${invoiceNumber}`, error);
+                        logger.accounting.error(`Error updating payment status for invoice ${invoiceNumber}`, error);
                     } else {
                         totalSynced++;
                     }
@@ -571,18 +572,18 @@ export class AccountingService {
                     hasNext = false;
                 }
             } catch (e) {
-                console.error(`Error syncing receivables page ${page}`, e);
+                logger.accounting.error(`Error syncing receivables page ${page}`, e);
                 // Break loop or continue? Let's break to avoid infinite loops on error
                 break;
             }
         }
 
-        console.log(`Receivables Sync Complete.Updated ${totalSynced} records.`);
+        logger.accounting.info(`Receivables Sync Complete. Updated ${totalSynced} records.`);
         return totalSynced;
     }
 
     async syncPayables(deadline?: number) {
-        console.log('Starting Payables Sync (Smart Local Calculation)...');
+        logger.accounting.info('Starting Payables Sync (Smart Local Calculation)...');
 
         // 1. Fetch all Purchase Invoices (Active)
         const { data: invoices, error: invError } = await supabaseAdmin
@@ -691,7 +692,7 @@ export class AccountingService {
                 // Only apply if EXACTLY ONE candidate found to avoid false positives with recurring same-amount payments
                 if (candidates && candidates.length === 1) {
                     const m = candidates[0];
-                    console.log(`[SmartMatch] Matched Invoice ${inv.number} (${inv.amount}) with Movement ${m.id} (${m.amount}) on Date ${m.date}`);
+                    logger.accounting.debug(`[SmartMatch] Matched Invoice ${inv.number} (${inv.amount}) with Movement ${m.id} (${m.amount}) on Date ${m.date}`);
                     addPayment(inv.id, Math.abs(m.amount), m.id);
                 }
             }
@@ -712,18 +713,18 @@ export class AccountingService {
                     .eq('id', inv.id);
 
                 if (error) {
-                    console.error(`Error updating payable status for ${inv.number}`, error);
+                    logger.accounting.error(`Error updating payable status for ${inv.number}`, error);
                 } else {
                     totalUpdated++;
                 }
             }
         }
 
-        console.log(`Payables Sync Complete. Smart matched/updated ${totalUpdated} records.`);
+        logger.accounting.info(`Payables Sync Complete. Smart matched/updated ${totalUpdated} records.`);
         return totalUpdated;
     }
     async syncContacts(deadline?: number) {
-        console.log('Starting Contacts Sync...');
+        logger.accounting.info('Starting Contacts Sync...');
         let page = 1;
         let hasNext = true;
         let totalSynced = 0;
@@ -731,7 +732,7 @@ export class AccountingService {
         while (hasNext) {
             if (deadline && Date.now() > deadline) break;
 
-            console.log(`Fetching Contacts page ${page}`);
+            logger.accounting.debug(`Fetching Contacts page ${page}`);
             const res = await this.uolClient.getContacts(page, 100);
             const items = res.items || [];
 
@@ -760,7 +761,7 @@ export class AccountingService {
                 .upsert(payload, { onConflict: 'id' });
 
             if (error) {
-                console.error('Error upserting contacts', error);
+                logger.accounting.error('Error upserting contacts', error);
                 // Continue despite error?
             } else {
                 totalSynced += items.length;
@@ -769,12 +770,12 @@ export class AccountingService {
             if (res._meta.pagination?.next) page++;
             else hasNext = false;
         }
-        console.log(`Contacts Sync Complete. Synced ${totalSynced} contacts.`);
+        logger.accounting.info(`Contacts Sync Complete. Synced ${totalSynced} contacts.`);
         return totalSynced;
     }
 
     async linkInvoices(deadline?: number) {
-        console.log('Starting Invoice Linking...');
+        logger.accounting.info('Starting Invoice Linking...');
 
         // 1. Load Contacts Map
         const { data: contacts, error: cError } = await supabaseAdmin
@@ -782,7 +783,7 @@ export class AccountingService {
             .select('id, company_number, vatin');
 
         if (cError || !contacts) {
-            console.error('Error loading contacts for linking', cError);
+            logger.accounting.error('Error loading contacts for linking', cError);
             return;
         }
 
@@ -809,7 +810,7 @@ export class AccountingService {
                 .range(page * pageSize, (page + 1) * pageSize - 1);
 
             if (dError) {
-                console.error('Error fetching unlinked docs', dError);
+                logger.accounting.error('Error fetching unlinked docs', dError);
                 break;
             }
             if (!docs || docs.length === 0) break;
@@ -840,7 +841,7 @@ export class AccountingService {
             if (docs.length < pageSize) break;
             page++;
         }
-        console.log(`Invoice Linking Complete. Linked ${totalLinked} documents.`);
+        logger.accounting.info(`Invoice Linking Complete. Linked ${totalLinked} documents.`);
         return totalLinked;
     }
 }

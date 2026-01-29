@@ -95,7 +95,7 @@ const ActionDetailModal = ({ action, onClose }: Props) => {
                                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                                         <div>
                                                             <div className="text-slate-400 text-xs">Fakturace (Výnos)</div>
-                                                            <div className="font-medium">{currency(action.materialRevenue || 0)}</div>
+                                                            <div className="font-medium">{currency((action as any).materialRevenue || 0)}</div>
                                                         </div>
                                                         <div className="text-right">
                                                             <div className="text-slate-400 text-xs">Nákup (Náklad)</div>

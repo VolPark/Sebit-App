@@ -1,55 +1,10 @@
 import { supabase } from '@/lib/supabase';
 import { APP_START_YEAR } from '@/lib/config';
 import { CompanyConfig } from '@/lib/companyConfig';
+import { MonthlyData, DashboardData } from '@/lib/types/dashboard-types';
 
-export interface MonthlyData {
-  month: string;
-  monthIndex: number; // 0-11
-  year: number;
-  totalRevenue: number;
-  totalCosts: number;
-  grossProfit: number;
-  totalHours: number;
-  materialProfit: number;
-  totalMaterialKlient: number;
-  totalLaborCost: number;
-  totalOverheadCost: number;
-  totalMaterialCost: number;
-  totalEstimatedHours: number;
-  // KPI fields for detailed view
-  avgCompanyRate: number;
-  averageHourlyWage: number;
-  averageMonthlyWage: number;
-  estimatedVsActualHoursRatio: number;
-  topClients: { klient_id: number; nazev: string; total: number }[];
-  topWorkers: { pracovnik_id: number; jmeno: string; total: number }[];
-}
-
-export interface DashboardData {
-  totalRevenue: number;
-  totalCosts: number;
-  totalLaborCost: number;
-  totalOverheadCost: number;
-  totalMaterialCost: number;
-  grossProfit: number;
-  materialProfit: number;
-  totalHours: number;
-  totalEstimatedHours: number;
-  avgCompanyRate: number;
-  averageHourlyWage: number;
-  averageMonthlyWage: number;
-  estimatedVsActualHoursRatio: number;
-  topClients: { klient_id: number; nazev: string; total: number }[];
-  topWorkers: { pracovnik_id: number; jmeno: string; total: number }[];
-
-  monthlyData: MonthlyData[];
-
-  prevPeriod: {
-    totalRevenue: number;
-    totalCosts: number;
-    grossProfit: number;
-  }
-}
+// Re-export types for backward compatibility
+export type { MonthlyData, DashboardData } from '@/lib/types/dashboard-types';
 
 // Helper to get month name
 const monthNames = ["Led", "Úno", "Bře", "Dub", "Kvě", "Čvn", "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"];
@@ -1147,7 +1102,7 @@ export async function getDetailedStats(
 
   // 1. Build Map: Worker ID -> Base Hourly Rate
   const workerBaseRateMap = new Map<number, number>();
-  workers.forEach(w => {
+  workers.forEach((w: any) => {
     workerBaseRateMap.set(w.id, Number(w.hodinova_mzda) || 0);
   });
 
@@ -1380,7 +1335,7 @@ export async function getDetailedStats(
   });
 
   const finalWorkerStats: WorkerStats[] = Array.from(workerAggregates.values()).map((w: any) => {
-    const workerInfo = workers.find(wk => wk.id === w.id);
+    const workerInfo = workers.find((wk: any) => wk.id === w.id);
 
     // Calculate Real Hourly Rate (Pure: Total Wages Paid / Total Global Hours Worked)
     // We need to fetch global totals for this worker from the initial queries, regardless of current filters
@@ -1420,7 +1375,7 @@ export async function getDetailedStats(
           // Find client name
           let clientName = 'Neznámý';
           if (action.klient_id) {
-            const client = clients.find(c => c.id === action.klient_id);
+            const client = clients.find((c: any) => c.id === action.klient_id);
             if (client) clientName = client.nazev;
           }
 
@@ -1593,7 +1548,7 @@ export async function getDetailedStats(
       actions
     };
   })
-    .filter((c): c is ClientStats => c !== null)
+    .filter((c: ClientStats | null): c is ClientStats => c !== null)
     .sort((a: any, b: any) => b.revenue - a.revenue);
 
   return { workers: finalWorkerStats, clients: clientStats };

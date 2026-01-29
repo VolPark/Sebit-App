@@ -18,7 +18,7 @@ export function PdfDownloadButton({ document, fileName, label = "Tisk do PDF" }:
         try {
             // Dynamically import the renderer to ensure no SSR/hydration issues
             const { pdf } = await import('@react-pdf/renderer');
-            const blob = await pdf(document).toBlob();
+            const blob = await pdf(document as React.ReactElement<any>).toBlob();
             const url = URL.createObjectURL(blob);
 
             const link = window.document.createElement('a');

@@ -1,5 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { Nabidka } from '@/lib/types/nabidky-types';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger({ module: 'Nabidky' });
 
 export const getNabidky = async (divisionId?: number | null): Promise<Nabidka[]> => {
     let query = supabase
@@ -35,7 +38,7 @@ export const getNabidky = async (divisionId?: number | null): Promise<Nabidka[]>
     const { data, error } = await query;
 
     if (error) {
-        console.error('Error fetching nabidky:', error);
+        log.error('Error fetching nabidky:', error);
         return [];
     }
 
@@ -111,7 +114,7 @@ export const getNabidkaById = async (id: number): Promise<Nabidka | null> => {
         .single();
 
     if (error) {
-        console.error('Error fetching nabidka:', error);
+        log.error('Error fetching nabidka:', error);
         return null;
     }
 
@@ -187,7 +190,7 @@ export const getOfferItems = async (nabidkaId: number) => {
 };
 
 export const createOfferItem = async (item: any) => {
-    console.log('CreatesOfferItem payload:', item);
+    log.debug('CreateOfferItem payload:', item);
     const { data, error } = await supabase
         .from('polozky_nabidky')
         .insert([item])
@@ -195,7 +198,7 @@ export const createOfferItem = async (item: any) => {
         .single();
 
     if (error) {
-        console.error('Supabase Create Item Error:', JSON.stringify(error, null, 2));
+        log.error('Supabase Create Item Error:', error);
         throw error;
     }
 
@@ -233,7 +236,7 @@ export const uploadOfferImage = async (file: File): Promise<string | null> => {
         .upload(filePath, file);
 
     if (uploadError) {
-        console.error('Error uploading image:', uploadError);
+        log.error('Error uploading image:', uploadError);
         throw uploadError;
     }
 
@@ -253,7 +256,7 @@ export const updateOfferItem = async (id: number, updates: any) => {
         .single();
 
     if (error) {
-        console.error('Error updating item:', JSON.stringify(error, null, 2));
+        log.error('Error updating item:', error);
         throw error;
     }
 

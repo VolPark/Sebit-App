@@ -4,6 +4,7 @@ import { AuthProvider } from '@/context/AuthContext'
 import AppShell from '@/components/AppShell'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 import SignOutOverlay from '@/components/SignOutOverlay'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import { Metadata, Viewport } from 'next'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -50,9 +51,11 @@ export default function RootLayout({
         <AuthProvider>
           <ServiceWorkerRegister />
           <SignOutOverlay />
-          <AppShell>
-            {children}
-          </AppShell>
+          <ErrorBoundary>
+            <AppShell>
+              {children}
+            </AppShell>
+          </ErrorBoundary>
         </AuthProvider>
       </body>
     </html>

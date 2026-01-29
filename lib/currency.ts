@@ -1,5 +1,5 @@
-
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 // CNB Daily URL
 // Format: https://www.cnb.cz/cs/financni-trhy/devizovy-trh/kurzy-devizoveho-trhu/kurzy-devizoveho-trhu/denni_kurz.txt?date=DD.MM.YYYY
@@ -27,7 +27,7 @@ export async function getExchangeRate(dateStr: string, currency: string): Promis
     const year = dateObj.getFullYear();
     const formattedDate = `${day}.${month}.${year}`;
 
-    console.log(`Fetching CNB rates for ${formattedDate}...`);
+    logger.currency.debug(`Fetching CNB rates for ${formattedDate}...`);
 
     try {
         const response = await fetch(`${CNB_API_URL}?date=${formattedDate}`);
@@ -76,7 +76,7 @@ export async function getExchangeRate(dateStr: string, currency: string): Promis
         }
 
         if (foundRate === null) {
-            console.warn(`Currency ${currency} not found in CNB list for ${dateStr}. Using generic fallback.`);
+            logger.currency.warn(`Currency ${currency} not found in CNB list for ${dateStr}. Using generic fallback.`);
             // Fallback or throw? 
             // Throw might block UI. Return 0 or fallback?
             // Let's fallback to approx map if recent?
@@ -84,7 +84,7 @@ export async function getExchangeRate(dateStr: string, currency: string): Promis
         }
 
     } catch (e) {
-        console.error('CNB Fetch Error:', e);
+        logger.currency.error('CNB Fetch Error:', e);
         return 0;
     }
 

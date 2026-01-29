@@ -28,7 +28,11 @@ export const AMLService = {
                 status: 'error',
                 riskRating: 'low',
                 hits: [],
-                metadata: { error: error.message }
+                metadata: {
+                    checkedAt: new Date().toISOString(),
+                    provider: 'SEBIT_DB_ENGINE_PG_TRGM',
+                    error: error.message
+                }
             };
         }
 
@@ -73,7 +77,8 @@ export const AMLService = {
                 details: `Contains high-risk keyword: ${keywordMatch}`,
                 scoring: { nameScore: 80, dobScore: 0, countryScore: 0, totalScore: 80 }
             });
-            if (riskRating !== 'critical') riskRating = 'high';
+            // Only override if not already set to higher level
+            if (riskRating === 'low' || riskRating === 'medium') riskRating = 'high';
         }
 
         // Sort hits by score descending

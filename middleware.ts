@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    console.log('[Middleware] Path:', request.nextUrl.pathname, '| User:', user?.email || 'No user', '| Cookies:', request.cookies.getAll().map(c => c.name).join(', '));
+    console.debug('[Middleware] Path:', request.nextUrl.pathname, '| User:', user?.email || 'No user');
 
     // Protected Routes Logic
 

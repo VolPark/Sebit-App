@@ -43,7 +43,7 @@ const debugVatExcludingBank = async () => {
         console.log(`\nPERIOD: ${isoDateRequest}`);
 
         entries?.forEach(entry => {
-            const docType = entry.accounting_documents?.type;
+            const docType = (entry as any).accounting_documents?.type;
 
             // Exclude Bank Statements (assuming type 'bank_statement') and maybe others
             // UOL might label them variously. Let's list what we have.

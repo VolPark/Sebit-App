@@ -147,7 +147,7 @@ export default function PracovniciPage() {
       setStatusMessage('Pracovník úspěšně přidán')
       fetchData()
     } else {
-      setStatusMessage('Nepodařilo se přidat pracovníka: ' + error.message)
+      setStatusMessage('Nepodařilo se přidat pracovníka: ' + error?.message)
     }
     setLoading(false)
   }

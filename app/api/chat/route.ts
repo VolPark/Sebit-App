@@ -3,11 +3,20 @@ import { streamText, tool } from 'ai';
 import { createClient } from '@supabase/supabase-js';
 import { getDashboardData, getDetailedStats } from '@/lib/dashboard';
 import { z } from 'zod';
+import { checkRateLimit, getClientIdentifier, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
 
 // Allow streaming responses up to 60 seconds for larger context processing
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  // Rate limiting check
+  const clientId = getClientIdentifier(req);
+  const rateCheck = checkRateLimit(clientId, RATE_LIMITS.aiChat);
+
+  if (!rateCheck.allowed) {
+    return rateLimitResponse(rateCheck.resetAt);
+  }
+
   const { messages } = await req.json();
 
   // Use SERVICE_ROLE key to bypass RLS for AI context
@@ -679,6 +688,7 @@ export async function POST(req: Request) {
                 klientId: z.number().optional().describe('ID klienta pro filtrování.'),
                 pracovnikId: z.number().optional().describe('ID pracovníka pro filtrování.')
               }),
+              // @ts-ignore - AI SDK complex generics
               execute: async ({ period, divisionId, klientId, pracovnikId }: { period?: 'last12months' | 'thisYear' | 'lastYear', divisionId?: number, klientId?: number, pracovnikId?: number }) => {
                 console.log('[AI Tool] get_dashboard_stats calling...', { period, divisionId, klientId, pracovnikId });
                 const currentYear = new Date().getFullYear();
@@ -698,6 +708,7 @@ export async function POST(req: Request) {
                 klientId: z.number().optional().describe('ID klienta pro filtrování.'),
                 pracovnikId: z.number().optional().describe('ID pracovníka pro filtrování.')
               }),
+              // @ts-ignore - AI SDK complex generics
               execute: async ({ period, divisionId, klientId, pracovnikId }: { period?: 'last12months' | 'thisYear' | 'lastYear', divisionId?: number, klientId?: number, pracovnikId?: number }) => {
                 console.log('[AI Tool] get_detailed_stats calling...', { period, divisionId, klientId, pracovnikId });
                 try {

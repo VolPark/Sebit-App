@@ -6,7 +6,12 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 async function inspect() {
-    const client = new UolClient();
+    // @ts-ignore - Debug script, config would be loaded from env in real usage
+    const client = new UolClient({
+        baseUrl: process.env.UOL_API_BASE_URL || '',
+        email: process.env.UOL_API_EMAIL || '',
+        apiKey: process.env.UOL_API_KEY || ''
+    });
     console.log('Fetching Journal for 2025-10-01 to 2025-10-05...');
 
     const res = await client.getAccountingRecords({
