@@ -1,6 +1,6 @@
-
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 
 // Use service role for admin access to update provider config
 const supabaseAdmin = createClient(
@@ -8,7 +8,11 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+    // Security: Verify user session
+    const session = await verifySession(req);
+    if (!session) return unauthorizedResponse();
+
     try {
         const body = await req.json();
         const { code, name } = body;

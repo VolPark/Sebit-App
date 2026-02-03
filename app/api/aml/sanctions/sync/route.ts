@@ -3,6 +3,7 @@ import { CompanyConfig } from '@/lib/companyConfig';
 import { updateAllLists, updateList } from '@/lib/aml/sanctions';
 import { SanctionListId, getActiveListIds, logConfigStatus } from '@/lib/aml/config';
 import { createLogger } from '@/lib/logger';
+import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 
 const logger = createLogger({ module: 'API:AML:Sync' });
 
@@ -84,7 +85,11 @@ export async function POST(req: NextRequest) {
  * 
  * Returns current configuration status
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+    // Security: Verify user session
+    const session = await verifySession(req);
+    if (!session) return unauthorizedResponse();
+
     if (!CompanyConfig.features.enableAML) {
         return NextResponse.json({ error: 'AML Module Disabled' }, { status: 403 });
     }

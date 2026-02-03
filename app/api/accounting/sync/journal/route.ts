@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { UolClient } from '@/lib/accounting/uol-client';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { verifySession } from '@/lib/api/auth';
 
 const log = logger.sync.child('JournalSync');
 
@@ -13,7 +14,16 @@ const supabaseAdmin = createClient(
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes timeout
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+    // Security: Require either CRON_SECRET (for cron jobs) OR user session (for manual sync)
+    const authHeader = req.headers.get('Authorization');
+    const isCronAuth = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    const session = await verifySession(req);
+
+    if (!isCronAuth && !session) {
+        return new NextResponse('Unauthorized', { status: 401 });
+    }
+
     try {
         // 1. Get Config
         const { data: provider, error } = await supabaseAdmin

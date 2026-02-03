@@ -4,13 +4,21 @@ import { createClient } from '@supabase/supabase-js';
 import { getDashboardData, getDetailedStats } from '@/lib/dashboard';
 import { z } from 'zod';
 import { checkRateLimit, getClientIdentifier, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
+import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { NextRequest } from 'next/server';
 
 // Allow streaming responses up to 60 seconds for larger context processing
 export const maxDuration = 60;
 
-export async function POST(req: Request) {
-  // Rate limiting check
-  const clientId = getClientIdentifier(req);
+export async function POST(req: NextRequest) {
+  // Security: Verify user session first
+  const session = await verifySession(req);
+  if (!session) {
+    return unauthorizedResponse();
+  }
+
+  // Rate limiting check (now using authenticated user ID)
+  const clientId = getClientIdentifier(req, session.user?.id);
   const rateCheck = checkRateLimit(clientId, RATE_LIMITS.aiChat);
 
   if (!rateCheck.allowed) {

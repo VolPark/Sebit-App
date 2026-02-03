@@ -105,7 +105,7 @@ function MermaidDiagram({ code, isLoading = false }: MermaidDiagramProps) {
                 mermaid.initialize({
                     startOnLoad: false,
                     theme: isDark ? 'dark' : 'neutral',
-                    securityLevel: 'loose',
+                    securityLevel: 'strict',
                     fontFamily: 'ui-sans-serif, system-ui, sans-serif',
                     themeVariables: {
                         pie1: '#E30613',
