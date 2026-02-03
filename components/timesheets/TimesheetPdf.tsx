@@ -284,14 +284,13 @@ export default function TimesheetPdf({ reportType, period, entityName, items, to
                         });
                     })()
                 ) : (
-                    // Client Report - Grouped by Role + Worker
+                    // Client Report - Grouped by Role + Worker, then by Project (same as Worker report)
 
                     (() => {
                         // Group items by Worker Role + Name
                         // Key format: "Role|Name" to allow easy sorting/splitting
                         const groups: { [key: string]: TimesheetItem[] } = {};
                         items.forEach(item => {
-                            // Prefer Role grouping first? User said "combination".
                             const role = item.workerRole || 'Ostatní';
                             const name = item.workerName || 'Neznámý';
                             const key = `${role}|${name}`;
@@ -312,44 +311,67 @@ export default function TimesheetPdf({ reportType, period, entityName, items, to
                         return sortedKeys.map((key, groupIndex) => {
                             const groupItems = groups[key];
                             const [role, name] = key.split('|');
-                            // If role is 'Ostatní' (and was fallback), maybe don't show it if it's the only one? 
-                            // But 'Ostatní' implies missing role.
-                            // Let's use clean separate variables.
                             const displayRole = role === 'Ostatní' ? '' : role;
 
                             const headerTitle = displayRole ? `${displayRole} - ${name}` : name;
                             const workerTotalHours = groupItems.reduce((sum, item) => sum + item.hours, 0);
 
+                            // Group by Project within this Worker
+                            const projectGroups: { [key: string]: TimesheetItem[] } = {};
+                            groupItems.forEach(item => {
+                                const project = item.project || 'Bez projektu';
+                                if (!projectGroups[project]) projectGroups[project] = [];
+                                projectGroups[project].push(item);
+                            });
+                            const sortedProjects = Object.keys(projectGroups).sort((a, b) => a.localeCompare(b));
+
                             return (
                                 <View key={groupIndex} style={{ marginBottom: 20 }} break={groupIndex > 0}>
                                     {/* Worker Header */}
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, backgroundColor: SECONDARY_COLOR, padding: 5, borderRadius: 2 }}>
-                                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: SECTION_TEXT_COLOR }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, backgroundColor: SECONDARY_COLOR, padding: 8, borderRadius: 2 }}>
+                                        <Text style={{ fontSize: 14, fontWeight: 'bold', color: SECTION_TEXT_COLOR }}>
                                             {headerTitle}
                                         </Text>
-                                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: SECTION_TEXT_COLOR }}>
+                                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: SECTION_TEXT_COLOR }}>
                                             Celkem: {workerTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(workerTotalHours / 8).toFixed(2)} MD
                                         </Text>
                                     </View>
 
-                                    {/* Table for this Worker */}
-                                    <View style={[styles.table, { marginBottom: 5 }]}>
-                                        <View style={styles.tableHeader}>
-                                            <Text style={[styles.colDate, styles.headerText]}>Datum</Text>
-                                            {/* Worker Column Removed */}
-                                            <Text style={[styles.colProject, styles.headerText, { width: '25%' }]}>Projekt</Text>
-                                            <Text style={[styles.colDesc, styles.headerText, { width: '45%' }]}>Popis</Text>
-                                            <Text style={[styles.colHours, styles.headerText]}>Hodiny</Text>
-                                        </View>
-                                        {groupItems.map((item, index) => (
-                                            <View key={index} style={styles.tableRow}>
-                                                <Text style={[styles.colDate, styles.cellText]}>{new Date(item.date).toLocaleDateString('cs-CZ')}</Text>
-                                                <Text style={[styles.colProject, styles.cellText, { width: '25%' }]}>{item.project}</Text>
-                                                <Text style={[styles.colDesc, styles.cellText, { width: '45%' }]}>{item.description}</Text>
-                                                <Text style={[styles.colHours, styles.cellText]}>{item.hours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })}</Text>
+                                    {/* Projects Loop */}
+                                    {sortedProjects.map((projectName, projectIndex) => {
+                                        const projectItems = projectGroups[projectName];
+                                        const projectTotalHours = projectItems.reduce((sum, item) => sum + item.hours, 0);
+
+                                        return (
+                                            <View key={projectIndex} style={{ marginBottom: 15, paddingLeft: 10 }}>
+                                                {/* Project Header */}
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, backgroundColor: SECONDARY_COLOR, padding: 4, borderRadius: 2 }}>
+                                                    <Text style={{ fontSize: 11, fontWeight: 'bold', color: SECTION_TEXT_COLOR, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                                        {projectName}
+                                                    </Text>
+                                                    <Text style={{ fontSize: 10, fontWeight: 'bold', color: SECTION_TEXT_COLOR }}>
+                                                        {projectTotalHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })} hod / {(projectTotalHours / 8).toFixed(2)} MD
+                                                    </Text>
+                                                </View>
+
+                                                {/* Table for this Project */}
+                                                <View style={[styles.table, { marginBottom: 0 }]}>
+                                                    <View style={styles.tableHeader}>
+                                                        <Text style={[styles.colDate, styles.headerText]}>Datum</Text>
+                                                        <Text style={[styles.colDesc, styles.headerText, { width: '70%' }]}>Popis</Text>
+                                                        <Text style={[styles.colHours, styles.headerText]}>Hodiny</Text>
+                                                    </View>
+                                                    {projectItems.map((item, index) => (
+                                                        <View key={index} style={styles.tableRow}>
+                                                            <Text style={[styles.colDate, styles.cellText]}>{new Date(item.date).toLocaleDateString('cs-CZ')}</Text>
+                                                            <Text style={[styles.colDesc, styles.cellText, { width: '70%' }]}>{item.description}</Text>
+                                                            <Text style={[styles.colHours, styles.cellText]}>{item.hours.toLocaleString('cs-CZ', { minimumFractionDigits: 1 })}</Text>
+                                                        </View>
+                                                    ))}
+                                                </View>
                                             </View>
-                                        ))}
-                                    </View>
+                                        );
+                                    })}
                                 </View>
                             );
                         });
