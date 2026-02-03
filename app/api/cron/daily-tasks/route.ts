@@ -9,9 +9,9 @@ const log = createLogger({ module: 'Cron:DailyTasks' });
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+    // Security: Require CRON_SECRET for cron operations
     if (req.headers.get('Authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
-        // Keeping it open for now as per previous cron style or check Vercel docs
-        // return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const results: any = {};

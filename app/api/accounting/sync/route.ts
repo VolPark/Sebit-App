@@ -1,10 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { AccountingService } from '@/lib/accounting/service';
+import { verifySession } from '@/lib/api/auth';
 
 // Force dynamic since we use external APIs/DB
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+    // Security: Require either CRON_SECRET (for cron jobs) OR user session (for manual sync)
+    const authHeader = req.headers.get('Authorization');
+    const isCronAuth = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    const session = await verifySession(req);
+
+    if (!isCronAuth && !session) {
+        return new NextResponse('Unauthorized', { status: 401 });
+    }
+
     try {
         // 1. Load Config (Service init does this now)
         // 2. Init Service

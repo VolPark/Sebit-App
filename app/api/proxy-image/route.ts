@@ -5,12 +5,66 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger({ module: 'API:ProxyImage' });
 
+// Security: Allowlist of trusted image hosts
+const ALLOWED_HOSTS = [
+    'lguawicjrdzchwbwwmlf.supabase.co',  // Your Supabase storage
+    'demos-trade.cz',
+    'www.demos-trade.cz',
+    'cdn.demos-trade.cz',
+    // Add more trusted hosts as needed
+];
+
+// Check if hostname is a private/internal IP
+function isPrivateOrLocalhost(hostname: string): boolean {
+    const privatePatterns = [
+        /^localhost$/i,
+        /^127\./,
+        /^10\./,
+        /^172\.(1[6-9]|2\d|3[01])\./,
+        /^192\.168\./,
+        /^169\.254\./,  // Link-local
+        /^0\./,
+        /^\[::1\]$/,     // IPv6 localhost
+        /^\[fe80:/i,     // IPv6 link-local
+        /^\[fc00:/i,     // IPv6 private
+        /^\[fd00:/i,     // IPv6 private
+    ];
+    return privatePatterns.some(pattern => pattern.test(hostname));
+}
+
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const url = searchParams.get('url');
 
     if (!url) {
         return new NextResponse('Missing URL parameter', { status: 400 });
+    }
+
+    // Security: Validate URL
+    let parsedUrl: URL;
+    try {
+        parsedUrl = new URL(url);
+    } catch {
+        log.warn(`Invalid URL format: ${url}`);
+        return new NextResponse('Invalid URL format', { status: 400 });
+    }
+
+    // Security: Block private/internal IPs (SSRF protection)
+    if (isPrivateOrLocalhost(parsedUrl.hostname)) {
+        log.warn(`Blocked private/localhost URL: ${url}`);
+        return new NextResponse('Invalid URL: private addresses not allowed', { status: 403 });
+    }
+
+    // Security: Check allowlist
+    if (!ALLOWED_HOSTS.includes(parsedUrl.hostname)) {
+        log.warn(`Blocked non-allowlisted host: ${parsedUrl.hostname}`);
+        return new NextResponse('Invalid URL: host not in allowlist', { status: 403 });
+    }
+
+    // Security: Only allow HTTPS
+    if (parsedUrl.protocol !== 'https:') {
+        log.warn(`Blocked non-HTTPS URL: ${url}`);
+        return new NextResponse('Invalid URL: only HTTPS allowed', { status: 403 });
     }
 
     try {

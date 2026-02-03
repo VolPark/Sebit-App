@@ -1,8 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AMLService } from '@/lib/aml/services';
 import { CompanyConfig } from '@/lib/companyConfig';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function POST(req: NextRequest) {
+    // Security: Verify user session
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // Feature Flag Check
     if (!CompanyConfig.features.enableAML) {
         return NextResponse.json({ error: 'AML Module is disabled' }, { status: 403 });

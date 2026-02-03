@@ -16,6 +16,12 @@ const logger = createLogger({ module: 'API:AML:Sync' });
  * - all: boolean - Update all active lists (default if no listId)
  */
 export async function POST(req: NextRequest) {
+    // Security: Require CRON_SECRET for sync operations
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     if (!CompanyConfig.features.enableAML) {
         return NextResponse.json({ error: 'AML Module Disabled' }, { status: 403 });
     }

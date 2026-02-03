@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,7 +9,10 @@ const supabaseAdmin = createClient(
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const session = await verifySession(req);
+    if (!session) return unauthorizedResponse();
+
     try {
         const { id } = await params;
 

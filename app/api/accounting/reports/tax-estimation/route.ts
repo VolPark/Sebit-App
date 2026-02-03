@@ -1,6 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,9 +10,12 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET(request: Request) {
+export async function GET(req: NextRequest) {
+    const session = await verifySession(req);
+    if (!session) return unauthorizedResponse();
+
     try {
-        const { searchParams } = new URL(request.url);
+        const { searchParams } = new URL(req.url);
         const yearParam = searchParams.get('year') || new Date().getFullYear().toString();
         const year = Number(yearParam);
 

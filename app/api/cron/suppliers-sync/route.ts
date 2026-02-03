@@ -7,6 +7,12 @@ import { DemosTradeProvider } from '@/lib/suppliers/providers/demos-trade';
 SupplierService.registerProvider('sftp_demos', new DemosTradeProvider());
 
 export async function POST(req: NextRequest) {
+    // Security: Require CRON_SECRET for sync operations
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     try {
         const body = await req.json().catch(() => ({}));
         const { supplierId } = body;
