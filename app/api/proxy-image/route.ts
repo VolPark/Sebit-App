@@ -1,6 +1,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger({ module: 'API:ProxyImage' });
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
@@ -11,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        console.log(`Proxying image: ${url}`);
+        log.debug(`Proxying image: ${url}`);
         const response = await fetch(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -19,19 +22,19 @@ export async function GET(request: NextRequest) {
         });
 
         if (!response.ok) {
-            console.error(`Failed to fetch image: ${response.statusText} (${response.status}) for URL: ${url}`);
+            log.error(`Failed to fetch image: ${response.statusText} (${response.status}) for URL: ${url}`);
             return new NextResponse(`Failed to fetch image: ${response.statusText}`, { status: response.status });
         }
 
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.startsWith('image/')) {
-            console.error(`Invalid content-type: ${contentType} for URL: ${url}`);
+            log.error(`Invalid content-type: ${contentType} for URL: ${url}`);
             return new NextResponse(`Invalid content-type: ${contentType}`, { status: 400 });
         }
 
         const arrayBuffer = await response.arrayBuffer();
         if (arrayBuffer.byteLength === 0) {
-            console.error(`Empty image buffer for URL: ${url}`);
+            log.error(`Empty image buffer for URL: ${url}`);
             return new NextResponse('Empty image received', { status: 400 });
         }
 
@@ -42,7 +45,7 @@ export async function GET(request: NextRequest) {
             .jpeg({ quality: 90 })
             .toBuffer();
 
-        console.log(`Successfully converted image for URL: ${url}`);
+        log.debug(`Successfully converted image for URL: ${url}`);
         return new NextResponse(convertedBuffer as unknown as BodyInit, {
             headers: {
                 'Content-Type': 'image/jpeg',
@@ -50,7 +53,7 @@ export async function GET(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error('Error proxying image:', error);
+        log.error('Error proxying image:', error);
         return new NextResponse('Error proxying image', { status: 500 });
     }
 }

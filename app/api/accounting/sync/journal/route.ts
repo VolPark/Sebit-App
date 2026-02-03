@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { UolClient } from '@/lib/accounting/uol-client';
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
+
+const log = logger.sync.child('JournalSync');
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -94,7 +97,7 @@ export async function POST(req: Request) {
 
         let deletedCount = 0;
         if (idsToDelete.length > 0) {
-            console.log(`[Sync] Found ${idsToDelete.length} records to delete (not in source).`);
+            log.info(`Found ${idsToDelete.length} records to delete (not in source).`);
 
             // Delete in batches to avoid URL limits if many
             const BATCH_SIZE = 50;
@@ -105,7 +108,7 @@ export async function POST(req: Request) {
                     .delete()
                     .in('uol_id', batch);
 
-                if (delError) console.error('Error deleting batch:', delError);
+                if (delError) log.error('Error deleting batch:', delError);
             }
             deletedCount = idsToDelete.length;
         }
@@ -118,7 +121,7 @@ export async function POST(req: Request) {
         });
 
     } catch (e: any) {
-        console.error('Error syncing journal:', e);
+        log.error('Error syncing journal:', e);
         return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }

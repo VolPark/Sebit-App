@@ -1,7 +1,0 @@
-Parsed Entity Keys: regulation,subjectType,nameAlias,birthdate,@_designationDate,@_designationDetails,@_unitedNationId,@_logicalId
-Aliases Found: 2
-Root Regs Found: 1
-Summary Regs Found (Wrong location): 0
-Correct Summary Regs Found: 2
-Birth Regs Found: 1
-Root Reg URL: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv%3AOJ.L_.2022.053.01.0001.01.ENG&toc=OJ%3AL%3A2022%3A053%3ATOC
