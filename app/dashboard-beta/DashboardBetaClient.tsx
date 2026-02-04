@@ -94,6 +94,45 @@ export default function DashboardBetaClient({ initialData, initialDetailedStats,
 
 
 
+    // Aggregate KPI data from selected months
+    const kpiData = useMemo(() => {
+        if (!selectedMonths || selectedMonths.length === 0) return data;
+
+        const agg = {
+            totalRevenue: 0,
+            totalCosts: 0,
+            grossProfit: 0,
+            materialProfit: 0,
+            totalMaterialCost: 0,
+            totalLaborCost: 0,
+            totalOverheadCost: 0,
+            totalHours: 0,
+            totalEstimatedHours: 0,
+            averageHourlyWage: 0,
+            avgCompanyRate: 0,
+            totalMaterialKlient: 0,
+        };
+
+        selectedMonths.forEach(m => {
+            agg.totalRevenue += m.totalRevenue;
+            agg.totalCosts += m.totalCosts;
+            agg.grossProfit += m.grossProfit;
+            agg.materialProfit += m.materialProfit;
+            agg.totalMaterialCost += m.totalMaterialCost;
+            agg.totalLaborCost += m.totalLaborCost;
+            agg.totalOverheadCost += m.totalOverheadCost;
+            agg.totalHours += m.totalHours;
+            agg.totalEstimatedHours += m.totalEstimatedHours;
+            agg.totalMaterialKlient += m.totalMaterialKlient;
+        });
+
+        // Recalculate ratios
+        agg.averageHourlyWage = agg.totalHours > 0 ? agg.totalLaborCost / agg.totalHours : 0;
+        agg.avgCompanyRate = agg.totalHours > 0 ? (agg.totalRevenue - agg.totalMaterialKlient) / agg.totalHours : 0;
+
+        return agg;
+    }, [data, selectedMonths]);
+
     const aggregatedTopClients = useMemo(() => {
         if (selectedMonths.length === 0) return data?.topClients || [];
         const map = new Map<number, { klient_id: number; nazev: string; total: number }>();
@@ -130,6 +169,27 @@ export default function DashboardBetaClient({ initialData, initialDetailedStats,
         }
         return years;
     }, []);
+
+    const handleMonthClick = (monthData: MonthlyData, isMultiSelect: boolean) => {
+        if (isMultiSelect) {
+            // Multi-select mode - toggle month selection
+            const exists = selectedMonths.some(m => m.month === monthData.month && m.year === monthData.year);
+            if (exists) {
+                setSelectedMonths(selectedMonths.filter(m => !(m.month === monthData.month && m.year === monthData.year)));
+            } else {
+                setSelectedMonths([...selectedMonths, monthData]);
+            }
+        } else {
+            // Single-select mode - toggle or replace selection
+            if (selectedMonths.length === 1 && selectedMonths[0].month === monthData.month && selectedMonths[0].year === monthData.year) {
+                // Deselect if clicking the same single selected month
+                setSelectedMonths([]);
+            } else {
+                // Replace selection with this month
+                setSelectedMonths([monthData]);
+            }
+        }
+    };
 
     const getPeriodLabel = () => {
         if (period === 'last12months') return 'Posledních 12 měsíců';
@@ -213,43 +273,43 @@ export default function DashboardBetaClient({ initialData, initialDetailedStats,
             ) : (
                 <div className="space-y-6">
                     {/* Monthly Trend Chart - First for context */}
-                    <BarChart data={data.monthlyData} onMonthClick={() => { }} selectedMonths={selectedMonths} />
+                    <BarChart data={data.monthlyData} onMonthClick={handleMonthClick} selectedMonths={selectedMonths} />
 
                     {/* Hero Metrics Row */}
                     <div className={`grid grid-cols-1 ${getMaterialConfig().isVisible ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'} gap-6`}>
                         {/* Příjmy - Hero Card */}
                         <KPICard
                             title="Příjmy"
-                            value={currency.format(data.totalRevenue)}
+                            value={currency.format(kpiData.totalRevenue)}
                             helpText="Celkové příjmy"
                         />
 
                         {/* Zisk - Hero Card */}
                         <KPICard
                             title="Zisk"
-                            value={currency.format(data.grossProfit)}
+                            value={currency.format(kpiData.grossProfit)}
                             helpText="Příjmy - Náklady"
-                            percentage={data.totalRevenue > 0 ? `${((data.grossProfit / data.totalRevenue) * 100).toFixed(0)}%` : '0%'}
-                            percentageColor={data.grossProfit >= 0 ? "text-green-500" : "text-red-500"}
+                            percentage={kpiData.totalRevenue > 0 ? `${((kpiData.grossProfit / kpiData.totalRevenue) * 100).toFixed(0)}%` : '0%'}
+                            percentageColor={kpiData.grossProfit >= 0 ? "text-green-500" : "text-red-500"}
                         />
 
                         {/* Zisk na materiálu - Hero Card (conditional) */}
                         {getMaterialConfig().isVisible && (
                             <KPICard
                                 title={`Zisk (${getMaterialConfig().labelLowercase})`}
-                                value={currency.format(data.materialProfit)}
+                                value={currency.format(kpiData.materialProfit)}
                                 helpText={`Marže na ${getMaterialConfig().labelLowercase}u`}
-                                percentage={data.totalRevenue > 0 ? `${((data.materialProfit / data.totalRevenue) * 100).toFixed(0)}%` : '0%'}
-                                percentageColor={data.materialProfit >= 0 ? "text-green-500" : "text-red-500"}
+                                percentage={kpiData.totalRevenue > 0 ? `${((kpiData.materialProfit / kpiData.totalRevenue) * 100).toFixed(0)}%` : '0%'}
+                                percentageColor={kpiData.materialProfit >= 0 ? "text-green-500" : "text-red-500"}
                             />
                         )}
 
                         {/* Profit Margin - Hero Card */}
                         <KPICard
                             title="Profit Margin"
-                            value={data.totalRevenue > 0 ? `${((data.grossProfit / data.totalRevenue) * 100).toFixed(1)}%` : '0%'}
+                            value={kpiData.totalRevenue > 0 ? `${((kpiData.grossProfit / kpiData.totalRevenue) * 100).toFixed(1)}%` : '0%'}
                             helpText="Zisková marže"
-                            percentageColor={data.grossProfit >= 0 ? "text-green-500" : "text-red-500"}
+                            percentageColor={kpiData.grossProfit >= 0 ? "text-green-500" : "text-red-500"}
                         />
                     </div>
 
@@ -260,13 +320,13 @@ export default function DashboardBetaClient({ initialData, initialDetailedStats,
                             <div className="flex justify-between items-start mb-4">
                                 <div>
                                     <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">Náklady</p>
-                                    <p className="text-3xl font-bold mt-1 text-[#333333] dark:text-white">{currency.format(data.totalCosts)}</p>
+                                    <p className="text-3xl font-bold mt-1 text-[#333333] dark:text-white">{currency.format(kpiData.totalCosts)}</p>
                                     <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
                                         {getMaterialConfig().isVisible ? `${getMaterialConfig().label} + Mzdy + Režie` : 'Mzdy + Režie'}
                                     </p>
                                 </div>
                                 <span className="text-lg font-bold text-red-500">
-                                    {data.totalRevenue > 0 ? `${((data.totalCosts / data.totalRevenue) * 100).toFixed(0)}%` : '0%'}
+                                    {kpiData.totalRevenue > 0 ? `${((kpiData.totalCosts / kpiData.totalRevenue) * 100).toFixed(0)}%` : '0%'}
                                 </span>
                             </div>
 
@@ -274,63 +334,63 @@ export default function DashboardBetaClient({ initialData, initialDetailedStats,
                                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Rozpad nákladů</p>
 
                                 {/* Material Cost Bar (conditional) */}
-                                {getMaterialConfig().isVisible && data.totalCosts > 0 && (
+                                {getMaterialConfig().isVisible && kpiData.totalCosts > 0 && (
                                     <div className="space-y-1">
                                         <div className="flex justify-between text-sm">
                                             <span className="text-gray-600 dark:text-gray-300">{getMaterialConfig().label}</span>
                                             <span className="font-semibold dark:text-white">
-                                                {currency.format(data.totalMaterialCost)}
+                                                {currency.format(kpiData.totalMaterialCost)}
                                                 <span className="ml-2 text-xs text-gray-400">
-                                                    {((data.totalMaterialCost / data.totalCosts) * 100).toFixed(0)}%
+                                                    {((kpiData.totalMaterialCost / kpiData.totalCosts) * 100).toFixed(0)}%
                                                 </span>
                                             </span>
                                         </div>
                                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                                             <div
                                                 className="bg-purple-500 h-2 rounded-full transition-all"
-                                                style={{ width: `${Math.min((data.totalMaterialCost / data.totalCosts) * 100, 100)}%` }}
+                                                style={{ width: `${Math.min((kpiData.totalMaterialCost / kpiData.totalCosts) * 100, 100)}%` }}
                                             />
                                         </div>
                                     </div>
                                 )}
 
                                 {/* Labor Cost Bar */}
-                                {data.totalCosts > 0 && (
+                                {kpiData.totalCosts > 0 && (
                                     <div className="space-y-1">
                                         <div className="flex justify-between text-sm">
                                             <span className="text-gray-600 dark:text-gray-300">Mzdy</span>
                                             <span className="font-semibold dark:text-white">
-                                                {currency.format(data.totalLaborCost)}
+                                                {currency.format(kpiData.totalLaborCost)}
                                                 <span className="ml-2 text-xs text-gray-400">
-                                                    {((data.totalLaborCost / data.totalCosts) * 100).toFixed(0)}%
+                                                    {((kpiData.totalLaborCost / kpiData.totalCosts) * 100).toFixed(0)}%
                                                 </span>
                                             </span>
                                         </div>
                                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                                             <div
                                                 className="bg-blue-500 h-2 rounded-full transition-all"
-                                                style={{ width: `${Math.min((data.totalLaborCost / data.totalCosts) * 100, 100)}%` }}
+                                                style={{ width: `${Math.min((kpiData.totalLaborCost / kpiData.totalCosts) * 100, 100)}%` }}
                                             />
                                         </div>
                                     </div>
                                 )}
 
                                 {/* Overhead Cost Bar */}
-                                {data.totalCosts > 0 && (
+                                {kpiData.totalCosts > 0 && (
                                     <div className="space-y-1">
                                         <div className="flex justify-between text-sm">
                                             <span className="text-gray-600 dark:text-gray-300">Režie</span>
                                             <span className="font-semibold dark:text-white">
-                                                {currency.format(data.totalOverheadCost)}
+                                                {currency.format(kpiData.totalOverheadCost)}
                                                 <span className="ml-2 text-xs text-gray-400">
-                                                    {((data.totalOverheadCost / data.totalCosts) * 100).toFixed(0)}%
+                                                    {((kpiData.totalOverheadCost / kpiData.totalCosts) * 100).toFixed(0)}%
                                                 </span>
                                             </span>
                                         </div>
                                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                                             <div
                                                 className="bg-orange-500 h-2 rounded-full transition-all"
-                                                style={{ width: `${Math.min((data.totalOverheadCost / data.totalCosts) * 100, 100)}%` }}
+                                                style={{ width: `${Math.min((kpiData.totalOverheadCost / kpiData.totalCosts) * 100, 100)}%` }}
                                             />
                                         </div>
                                     </div>
@@ -344,12 +404,12 @@ export default function DashboardBetaClient({ initialData, initialDetailedStats,
                                 <div>
                                     <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">Produktivita</p>
                                     <p className="text-3xl font-bold mt-1 text-[#333333] dark:text-white">
-                                        {data.totalHours.toLocaleString('cs-CZ')} h
+                                        {kpiData.totalHours.toLocaleString('cs-CZ')} h
                                     </p>
                                     <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Celkem odpracováno</p>
                                 </div>
-                                <span className={`text-lg font-bold ${data.totalEstimatedHours > 0 && (data.totalHours / data.totalEstimatedHours) <= 1 ? "text-green-500" : "text-red-500"}`}>
-                                    {data.totalEstimatedHours > 0 ? `${((data.totalHours / data.totalEstimatedHours) * 100).toFixed(0)}%` : '0%'}
+                                <span className={`text-lg font-bold ${kpiData.totalEstimatedHours > 0 && (kpiData.totalHours / kpiData.totalEstimatedHours) <= 1 ? "text-green-500" : "text-red-500"}`}>
+                                    {kpiData.totalEstimatedHours > 0 ? `${((kpiData.totalHours / kpiData.totalEstimatedHours) * 100).toFixed(0)}%` : '0%'}
                                 </span>
                             </div>
 
@@ -357,21 +417,21 @@ export default function DashboardBetaClient({ initialData, initialDetailedStats,
                                 <div>
                                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Realita / Plán</p>
                                     <p className="text-lg font-bold dark:text-white">
-                                        {data.totalHours.toLocaleString('cs-CZ')} / {data.totalEstimatedHours.toLocaleString('cs-CZ')}
+                                        {kpiData.totalHours.toLocaleString('cs-CZ')} / {kpiData.totalEstimatedHours.toLocaleString('cs-CZ')}
                                     </p>
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Hodinová mzda</p>
-                                    <p className="text-lg font-bold dark:text-white">{formatRate(data.averageHourlyWage)}</p>
+                                    <p className="text-lg font-bold dark:text-white">{formatRate(kpiData.averageHourlyWage)}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Sazba firmy</p>
-                                    <p className="text-lg font-bold dark:text-white">{formatRate(data.avgCompanyRate)}</p>
+                                    <p className="text-lg font-bold dark:text-white">{formatRate(kpiData.avgCompanyRate)}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Marže / hodina</p>
                                     <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                                        {formatRate(data.avgCompanyRate - data.averageHourlyWage)}
+                                        {formatRate(kpiData.avgCompanyRate - kpiData.averageHourlyWage)}
                                     </p>
                                 </div>
                             </div>

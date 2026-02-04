@@ -27,23 +27,6 @@ const createEmptyMonthlyData = (date: Date): MonthlyData => ({
   topClients: [], topWorkers: []
 });
 
-/**
- * Builds OR filters for monthly-based queries (mzdy, fixed_costs)
- * Returns array of filter strings like "(rok.eq.2025,mesic.eq.3)"
- */
-function buildMonthlyFilters(startDate: Date, endDate: Date): string[] {
-  const monthFilters: string[] = [];
-
-  let currDate = new Date(startDate);
-  while (currDate <= endDate) {
-    const year = currDate.getFullYear();
-    const month = currDate.getMonth() + 1; // mesic in DB is 1-indexed
-    monthFilters.push(`(rok.eq.${year},mesic.eq.${month})`);
-    currDate.setMonth(currDate.getMonth() + 1);
-  }
-
-  return monthFilters;
-}
 
 // Main data fetching function
 // Main data fetching function
@@ -104,31 +87,17 @@ export async function getDashboardDataBeta(
   }
 
   // Mzdy needs a slightly wider range to be safe or just matching years. Always GLOBAL for rate calc.
-  let mzdyQuery = client.from('mzdy').select('rok, mesic, celkova_castka, pracovnik_id');
+  // Fetch mzdy for all months in the year range (filtered in JS later)
+  let mzdyQuery = client.from('mzdy')
+    .select('rok, mesic, celkova_castka, pracovnik_id')
+    .gte('rok', startDate.getFullYear())
+    .lte('rok', endDate.getFullYear());
 
-  if (isLast12Months || (typeof period === 'object' && period.month !== undefined)) {
-    const monthFilters = buildMonthlyFilters(startDate, endDate);
-    if (monthFilters.length > 0) {
-      mzdyQuery = mzdyQuery.or(monthFilters.join(','));
-    }
-  } else {
-    mzdyQuery = mzdyQuery
-      .gte('rok', startDate.getFullYear())
-      .lte('rok', endDate.getFullYear());
-  }
-
-  let fixedCostsQuery = client.from('fixed_costs').select('rok, mesic, castka, division_id');
-
-  if (isLast12Months || (typeof period === 'object' && period.month !== undefined)) {
-    const monthFilters = buildMonthlyFilters(startDate, endDate);
-    if (monthFilters.length > 0) {
-      fixedCostsQuery = fixedCostsQuery.or(monthFilters.join(','));
-    }
-  } else {
-    fixedCostsQuery = fixedCostsQuery
-      .gte('rok', startDate.getFullYear())
-      .lte('rok', endDate.getFullYear());
-  }
+  // Fetch fixed costs for all months in the year range (filtered in JS later)
+  let fixedCostsQuery = client.from('fixed_costs')
+    .select('rok, mesic, castka, division_id')
+    .gte('rok', startDate.getFullYear())
+    .lte('rok', endDate.getFullYear());
 
   // Apply Filters
   if (filters.klientId) {
@@ -170,8 +139,27 @@ export async function getDashboardDataBeta(
 
   const akceData = akceRes.data || [];
   const praceData = praceRes.data || []; // Filtered data
-  const mzdyData = mzdyRes.data || [];
-  const fixedCostsData = fixedCostsRes.data || [];
+
+  // Filter mzdy by month range for last12months/specific month periods
+  const filteredMzdy = (mzdyRes.data || []).filter((m: any) => {
+    if (!isLast12Months && !(typeof period === 'object' && period.month !== undefined)) {
+      return true; // Full year - no filtering
+    }
+    const mDate = new Date(m.rok, m.mesic - 1, 1); // mesic is 1-indexed in DB
+    return mDate >= startDate && mDate <= endDate;
+  });
+
+  // Filter fixed costs by month range
+  const filteredFixedCosts = (fixedCostsRes.data || []).filter((fc: any) => {
+    if (!isLast12Months && !(typeof period === 'object' && period.month !== undefined)) {
+      return true; // Full year - no filtering
+    }
+    const fcDate = new Date(fc.rok, fc.mesic - 1, 1);
+    return fcDate >= startDate && fcDate <= endDate;
+  });
+
+  const mzdyData = filteredMzdy;
+  const fixedCostsData = filteredFixedCosts;
   const workersData = workersRes.data || [];
   const financeData = financeRes.data || [];
   // @ts-ignore
@@ -996,18 +984,10 @@ export async function getDetailedStatsBeta(
   // Prepare queries (Logs)
   let praceQuery = client.from('prace').select('*').gte('datum', start).lte('datum', end);
 
-  let fixedCostsQuery = client.from('fixed_costs').select('*');
-
-  if (isLast12Months || (typeof period === 'object' && period.month !== undefined)) {
-    const monthFilters = buildMonthlyFilters(startDate, endDate);
-    if (monthFilters.length > 0) {
-      fixedCostsQuery = fixedCostsQuery.or(monthFilters.join(','));
-    }
-  } else {
-    fixedCostsQuery = fixedCostsQuery
-      .gte('rok', startDate.getFullYear())
-      .lte('rok', endDate.getFullYear());
-  }
+  let fixedCostsQuery = client.from('fixed_costs')
+    .select('*')
+    .gte('rok', startDate.getFullYear())
+    .lte('rok', endDate.getFullYear());
   let financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
 
   // Accounting Query
@@ -1032,23 +1012,11 @@ export async function getDetailedStatsBeta(
   }
 
   // Mzdy query with wider range (year-1 to year+1) for rate calculation context
-  const mzdyStartDate = new Date(startDate);
-  mzdyStartDate.setFullYear(mzdyStartDate.getFullYear() - 1);
-  const mzdyEndDate = new Date(endDate);
-  mzdyEndDate.setFullYear(mzdyEndDate.getFullYear() + 1);
-
-  let mzdyQuery = client.from('mzdy').select('*');
-
-  if (isLast12Months) {
-    const monthFilters = buildMonthlyFilters(mzdyStartDate, mzdyEndDate);
-    if (monthFilters.length > 0) {
-      mzdyQuery = mzdyQuery.or(monthFilters.join(','));
-    }
-  } else {
-    mzdyQuery = mzdyQuery
-      .gte('rok', startDate.getFullYear() - 1)
-      .lte('rok', endDate.getFullYear() + 1);
-  }
+  // Fetch mzdy with wider range for rate calculation (year-1 to year+1)
+  let mzdyQuery = client.from('mzdy')
+    .select('*')
+    .gte('rok', startDate.getFullYear() - 1)
+    .lte('rok', endDate.getFullYear() + 1);
 
   const [workersRes, clientsRes, praceRes, mzdyRes, fixedCostsRes, globalHoursRes, financeRes, accountingQueryRes] = await Promise.all([
     client.from('pracovnici').select('*'),
@@ -1065,7 +1033,17 @@ export async function getDetailedStatsBeta(
   const clients = clientsRes.data || [];
   const prace = praceRes.data || [];
   const mzdy = mzdyRes.data || [];
-  const fixedCosts = fixedCostsRes?.data || [];
+
+  // Filter fixed costs by month range for last12months/specific month periods
+  const filteredFixedCosts = (fixedCostsRes?.data || []).filter((fc: any) => {
+    if (!isLast12Months && !(typeof period === 'object' && period.month !== undefined)) {
+      return true; // Full year - no filtering
+    }
+    const fcDate = new Date(fc.rok, fc.mesic - 1, 1);
+    return fcDate >= startDate && fcDate <= endDate;
+  });
+
+  const fixedCosts = filteredFixedCosts;
   const globalPrace = globalHoursRes.data || [];
   // @ts-ignore
   const financeData = (financeRes?.data || []) as any[];
