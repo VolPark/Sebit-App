@@ -1148,9 +1148,19 @@ export async function getDetailedStatsBeta(
   });
 
   // 2b. Build Accounting Map: Action ID -> { revenue, cost, materialCost }
+  // IMPORTANT: Only include documents within the selected period
   const accountingActionMap = new Map<number, { revenue: number, cost: number, materialCost: number }>();
   if (accountingDocs.length > 0) {
+    const periodStart = new Date(start);
+    const periodEnd = new Date(end);
+
     accountingDocs.forEach((doc: any) => {
+      // CHECK: Verify document date is within period
+      const docDate = new Date(doc.tax_date || doc.issue_date);
+      if (docDate < periodStart || docDate > periodEnd) {
+        return; // Skip documents outside the selected period
+      }
+
       // Filter out internal transfers
       const desc = (doc.description || '').toLowerCase();
       if (
@@ -1492,13 +1502,23 @@ export async function getDetailedStatsBeta(
       if (!CompanyConfig.features.enableAccounting) {
         // ===== ACCOUNTING DISABLED: Use data from action and finance tables =====
 
-        if ((a.project_type || 'STANDARD') === 'STANDARD') {
-          // STANDARD projects: use fixed price from action
-          aRevenue = Number(a.cena_klient) || 0;
-        } else {
-          // Service/TM projects: sum of linked finance records
-          const aFinance = financeData.filter((f: any) => f.akce_id === a.id);
+        // PRIORITY 1: Check for finance records in the period (for ALL project types)
+        const aFinance = financeData.filter((f: any) => f.akce_id === a.id);
+
+        if (aFinance.length > 0) {
+          // If finance records exist in period, use them (HIGHEST PRIORITY)
           aRevenue = aFinance.reduce((sum: number, f: any) => sum + (Number(f.castka) || 0), 0);
+        } else if ((a.project_type || 'STANDARD') === 'STANDARD') {
+          // PRIORITY 2: STANDARD projects without finance records - use fixed price only if action date is in period
+          const actionDateStr = a.datum;  // Already in YYYY-MM-DD format from DB
+          if (actionDateStr >= start && actionDateStr <= end) {
+            aRevenue = Number(a.cena_klient) || 0;
+          } else {
+            aRevenue = 0; // Action outside period, no revenue for this period
+          }
+        } else {
+          // Service/TM projects without finance records in period
+          aRevenue = 0;
         }
 
         // Material costs and revenue from action
@@ -1506,13 +1526,36 @@ export async function getDetailedStatsBeta(
         aMaterialRevenue = Number(a.material_klient) || 0;
 
       } else {
-        // ===== ACCOUNTING ENABLED: Use data from accounting mappings ONLY =====
+        // ===== ACCOUNTING ENABLED: Use data from accounting mappings =====
 
         if (accStats) {
+          // Use accounting mappings if available
           aRevenue = accStats.revenue;
           aMaterialCost = accStats.materialCost;
-          // Additional costs (overhead, other) from accounting that are not material or labor
           additionalCosts = accStats.cost - accStats.materialCost;
+        } else {
+          // FALLBACK: If no accounting mappings for this action, use same logic as non-accounting
+          // This handles cases where invoice tax_date is outside period but action has activity in period
+
+          // PRIORITY 1: Check for finance records in the period
+          const aFinance = financeData.filter((f: any) => f.akce_id === a.id);
+
+          if (aFinance.length > 0) {
+            aRevenue = aFinance.reduce((sum: number, f: any) => sum + (Number(f.castka) || 0), 0);
+          } else if ((a.project_type || 'STANDARD') === 'STANDARD') {
+            // PRIORITY 2: STANDARD projects - use fixed price only if action date is in period
+            const actionDateStr = a.datum;
+            if (actionDateStr >= start && actionDateStr <= end) {
+              aRevenue = Number(a.cena_klient) || 0;
+            } else {
+              aRevenue = 0;
+            }
+          } else {
+            // Service/TM projects without finance records
+            aRevenue = 0;
+          }
+
+          aMaterialCost = Number(a.material_my) || 0;
         }
 
         // Note: Material revenue is not tracked in accounting mappings,
