@@ -211,6 +211,9 @@ export default function DashboardBetaClient({ initialData, initialDetailedStats,
                 <DashboardSkeleton view={view} />
             ) : (
                 <div className="space-y-6">
+                    {/* Monthly Trend Chart - First for context */}
+                    <BarChart data={data.monthlyData} onMonthClick={() => { }} selectedMonths={selectedMonths} />
+
                     {/* Hero Metrics Row */}
                     <div className={`grid grid-cols-1 ${getMaterialConfig().isVisible ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'} gap-6`}>
                         {/* Příjmy - Hero Card */}
@@ -373,8 +376,6 @@ export default function DashboardBetaClient({ initialData, initialDetailedStats,
                             </div>
                         </div>
                     </div>
-
-                    <BarChart data={data.monthlyData} onMonthClick={() => { }} selectedMonths={selectedMonths} />
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
