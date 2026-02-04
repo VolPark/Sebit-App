@@ -20,6 +20,7 @@ export const NAVIGATION_STRUCTURE: NavGroup[] = [
             { name: 'Zaměstnanci', href: '/dashboard?tab=workers', iconKey: 'UserGroup' },
             { name: 'Klienti', href: '/dashboard?tab=clients', iconKey: 'Users' },
             { name: 'Experimentální', href: '/dashboard?tab=experimental', iconKey: 'Action' },
+            { name: 'Firma BETA', href: '/dashboard-beta', iconKey: 'Dashboard' },
             { name: 'Manažerský přehled', href: '/management', iconKey: 'Chart' },
             { name: 'AI Asistent', href: '/dashboard?tab=ai', iconKey: 'Chat' },
         ]
@@ -108,6 +109,8 @@ export function getFilteredNavigation(role: string | undefined | null): NavGroup
             if (!CompanyConfig.features.enableDashboardExperimental) items = items.filter(i => i.name !== 'Experimentální');
             if (!CompanyConfig.features.enableAccounting) items = items.filter(i => i.name !== 'Manažerský přehled');
             if (!CompanyConfig.features.enableAI) items = items.filter(i => i.name !== 'AI Asistent');
+            // Beta dashboard - only for admin
+            if (role !== 'admin') items = items.filter(i => i.name !== 'Firma BETA');
         }
 
         if (group.title === 'Administrace') {

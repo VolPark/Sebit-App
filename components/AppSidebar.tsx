@@ -158,6 +158,7 @@ export default function AppSidebar() {
                                             isActive = pathname.startsWith(item.href);
                                         }
 
+
                                         // Resolve Icon
                                         const IconComponent = Icons[item.iconKey as keyof typeof Icons] || Icons.Dashboard;
 
@@ -181,7 +182,12 @@ export default function AppSidebar() {
                                                     `}
                                                         aria-hidden="true"
                                                     />
-                                                    {item.name}
+                                                    <span className="flex-1">{item.name}</span>
+                                                    {item.name.includes('BETA') && (
+                                                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded uppercase tracking-wide">
+                                                            BETA
+                                                        </span>
+                                                    )}
                                                 </Link>
                                             </li>
                                         );
