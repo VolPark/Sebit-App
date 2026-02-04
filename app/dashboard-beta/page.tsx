@@ -4,7 +4,8 @@ import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import DashboardBetaClient from '@/app/dashboard-beta/DashboardBetaClient';
-import { getDashboardData, getDetailedStats, getExperimentalStats } from '@/lib/dashboard';
+import { getDashboardDataBeta, getDetailedStatsBeta } from '@/lib/dashboard-beta';
+import { getExperimentalStats } from '@/lib/dashboard';
 
 export default async function DashboardBetaPage() {
     const cookieStore = await cookies();
@@ -36,8 +37,8 @@ export default async function DashboardBetaPage() {
     const filters = {};
 
     const [dashboardData, detailedStats, experimentalData] = await Promise.all([
-        getDashboardData(period, filters),
-        getDetailedStats(period, filters),
+        getDashboardDataBeta(period, filters),
+        getDetailedStatsBeta(period, filters),
         getExperimentalStats(filters)
     ]);
 

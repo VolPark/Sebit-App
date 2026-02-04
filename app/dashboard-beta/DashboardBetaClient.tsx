@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { getDashboardData, getDetailedStats, getExperimentalStats } from '@/lib/dashboard';
+import { getDashboardDataBeta, getDetailedStatsBeta } from '@/lib/dashboard-beta';
+import { getExperimentalStats } from '@/lib/dashboard';
 import type { DashboardData, MonthlyData, WorkerStats, ClientStats, ActionStats, ExperimentalStats } from '@/lib/dashboard';
 import { supabase } from '@/lib/supabase';
 import BarChart from '@/components/BarChart';
@@ -77,8 +78,8 @@ export default function DashboardBetaClient({ initialData, initialDetailedStats,
             }
 
             const [dashboardData, stats, expStats] = await Promise.all([
-                getDashboardData(periodParam, filters),
-                getDetailedStats(periodParam, filters),
+                getDashboardDataBeta(periodParam, filters),
+                getDetailedStatsBeta(periodParam, filters),
                 getExperimentalStats(filters)
             ]);
 
