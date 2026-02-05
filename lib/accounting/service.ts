@@ -400,6 +400,7 @@ export class AccountingService {
 
             let page = 1;
             let hasNext = true;
+            const allUolIds: string[] = []; // Collect all UOL IDs for cleanup
 
             while (hasNext) {
                 if (Date.now() > deadline) break;
@@ -447,6 +448,9 @@ export class AccountingService {
                     };
                 });
 
+                // Collect UOL IDs for later cleanup
+                payload.forEach(p => allUolIds.push(p.uol_id));
+
                 // Upsert
                 const { error: upsertError } = await supabaseAdmin
                     .from('accounting_journal')
@@ -461,6 +465,21 @@ export class AccountingService {
 
                 if (res._meta.pagination?.next) page++;
                 else hasNext = false;
+            }
+
+            // Delete records that no longer exist in UOL (were deleted/replaced in UOL)
+            if (allUolIds.length > 0 && Date.now() < deadline) {
+                const { error: deleteError } = await supabaseAdmin
+                    .from('accounting_journal')
+                    .delete()
+                    .eq('fiscal_year', year)
+                    .not('uol_id', 'in', `(${allUolIds.join(',')})`);
+
+                if (deleteError) {
+                    logger.accounting.error('Error cleaning up deleted journal entries', deleteError);
+                } else {
+                    logger.accounting.debug(`Cleaned up stale entries for year ${year}`);
+                }
             }
         }
 
