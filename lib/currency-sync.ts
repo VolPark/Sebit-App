@@ -9,7 +9,7 @@ export async function syncDocumentCurrency(docId: number) {
         .select('id, issue_date, currency, amount')
         .eq('id', docId)
         .single();
-
+    //aa
     if (error || !doc) return;
     if (doc.currency === 'CZK') {
         // Just set amount_czk = amount
