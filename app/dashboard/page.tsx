@@ -14,6 +14,9 @@ import ActionDetailModal from '@/components/ActionDetailModal';
 import WorkerDetailModal from '@/components/WorkerDetailModal';
 import AiChat, { Message } from '@/components/AiChat';
 import { formatRate, getRateUnit, formatRateValue } from '@/lib/formatting';
+import { useAuth } from '@/context/AuthContext';
+import BetaFirmaView from '@/components/dashboard/BetaFirmaView';
+import BetaToggle from '@/components/dashboard/BetaToggle';
 
 type FilterOption = { id: number; name: string };
 // ... (rest of imports)
@@ -688,6 +691,21 @@ function DashboardContent() {
   const [selectedAction, setSelectedAction] = useState<ActionStats | null>(null);
   const [selectedWorker, setSelectedWorker] = useState<WorkerStats | null>(null);
 
+  // Beta mode state with localStorage persistence
+  const { role } = useAuth();
+  const [betaMode, setBetaMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('dashboard_beta_mode');
+      // Default to true if not set, otherwise respect stored preference
+      return stored === null ? true : stored === 'true';
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('dashboard_beta_mode', String(betaMode));
+  }, [betaMode]);
+
   // Load selected period from URL or default to current year
   const [selectedPeriod, setSelectedPeriod] = useState<{ year: number; month?: number } | 'last12months'>('last12months');
 
@@ -790,17 +808,22 @@ function DashboardContent() {
   return (
     <div className="w-full px-4 md:px-6 mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-black dark:text-white">
-          {view === 'firma' && 'Přehled firmy'}
-          {view === 'workers' && 'Produktivita zaměstnanců'}
-          {view === 'clients' && 'Přehled klientů'}
-          {view === 'experimental' && 'Experimentální přehled'}
-          {view === 'ai' && 'AI Asistent'}
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-3xl font-bold text-black dark:text-white">
+            {view === 'firma' && 'Přehled firmy'}
+            {view === 'workers' && 'Produktivita zaměstnanců'}
+            {view === 'clients' && 'Přehled klientů'}
+            {view === 'experimental' && 'Experimentální přehled'}
+            {view === 'ai' && 'AI Asistent'}
+          </h2>
+          {view === 'firma' && (role === 'admin' || role === 'owner') && (
+            <BetaToggle enabled={betaMode} onChange={setBetaMode} />
+          )}
+        </div>
       </div>
 
-      {/* Filters (Desktop) */}
-      {!['experimental', 'ai'].includes(view) && (
+      {/* Filters (Desktop) - hidden when beta mode is on for firma view */}
+      {!['experimental', 'ai'].includes(view) && !(betaMode && view === 'firma') && (
         <div className="hidden md:block">
           <DashboardControls
             filters={filters} setFilters={setFilters}
@@ -851,7 +874,9 @@ function DashboardContent() {
         <DashboardSkeleton view={view} />
       ) : (
         <>
-          {view === 'firma' && (
+          {view === 'firma' && betaMode ? (
+            <BetaFirmaView onActionClick={setSelectedAction} />
+          ) : view === 'firma' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="space-y-6">
                 <BarChart
