@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+
+const updateBankAccountSchema = z.object({
+    bank_account_id: z.string().min(1, 'bank_account_id is required'),
+    custom_name: z.string().optional(),
+});
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,11 +20,16 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { bank_account_id, custom_name } = body;
+        const parsed = updateBankAccountSchema.safeParse(body);
 
-        if (!bank_account_id) {
-            return NextResponse.json({ error: 'Missing bank_account_id' }, { status: 400 });
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+                { status: 400 }
+            );
         }
+
+        const { bank_account_id, custom_name } = parsed.data;
 
         const { error } = await supabaseAdmin
             .from('accounting_bank_accounts')

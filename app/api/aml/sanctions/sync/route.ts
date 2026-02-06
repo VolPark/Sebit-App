@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { CompanyConfig } from '@/lib/companyConfig';
 import { updateAllLists, updateList } from '@/lib/aml/sanctions';
 import { SanctionListId, getActiveListIds, logConfigStatus } from '@/lib/aml/config';
@@ -6,6 +7,10 @@ import { createLogger } from '@/lib/logger';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 
 const logger = createLogger({ module: 'API:AML:Sync' });
+
+const syncSchema = z.object({
+    listId: z.enum(['EU', 'OFAC', 'CZ', 'AMLA']).optional(),
+}).optional();
 
 /**
  * POST /api/aml/sanctions/sync
@@ -30,8 +35,17 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const body = await req.json().catch(() => ({}));
-        const { listId } = body as { listId?: SanctionListId };
+        const rawBody = await req.json().catch(() => ({}));
+        const parsed = syncSchema.safeParse(rawBody);
+
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+                { status: 400 }
+            );
+        }
+
+        const { listId } = (parsed.data || {}) as { listId?: SanctionListId };
 
         // Log current configuration
         logConfigStatus();

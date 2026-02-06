@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
 import { SupplierService } from '@/lib/suppliers/service';
 import { DemosTradeProvider } from '@/lib/suppliers/providers/demos-trade';
 import { CompanyConfig } from '@/lib/companyConfig';
+
+const supplierSyncSchema = z.object({
+    supplierId: z.string().uuid().optional(),
+}).optional();
 
 // Register providers (in real app, do this globally)
 SupplierService.registerProvider('sftp_demos', new DemosTradeProvider());
@@ -24,8 +29,17 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const body = await req.json().catch(() => ({}));
-        const { supplierId } = body;
+        const rawBody = await req.json().catch(() => ({}));
+        const parsed = supplierSyncSchema.safeParse(rawBody);
+
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+                { status: 400 }
+            );
+        }
+
+        const { supplierId } = parsed.data || {};
 
         let query = supabase.from('suppliers').select('*').eq('is_active', true);
         if (supplierId) {

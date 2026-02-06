@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { syncDocumentCurrency } from '@/lib/currency-sync';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+
+const syncCurrencySchema = z.object({
+    docId: z.coerce.number({ message: 'docId must be a number' }),
+});
 
 // POST /api/accounting/sync-currency
 export async function POST(req: NextRequest) {
@@ -10,11 +15,16 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { docId } = body;
+        const parsed = syncCurrencySchema.safeParse(body);
 
-        if (!docId) {
-            return NextResponse.json({ error: 'Missing docId' }, { status: 400 });
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+                { status: 400 }
+            );
         }
+
+        const { docId } = parsed.data;
 
         await syncDocumentCurrency(docId);
         return NextResponse.json({ success: true });

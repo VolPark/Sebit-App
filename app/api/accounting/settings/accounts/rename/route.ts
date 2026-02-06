@@ -1,6 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+
+const renameSchema = z.object({
+    code: z.string().min(1, 'Code is required'),
+    name: z.string().min(1, 'Name is required'),
+});
 
 // Use service role for admin access to update provider config
 const supabaseAdmin = createClient(
@@ -15,11 +21,16 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { code, name } = body;
+        const parsed = renameSchema.safeParse(body);
 
-        if (!code || !name) {
-            return NextResponse.json({ error: 'Missing code or name' }, { status: 400 });
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+                { status: 400 }
+            );
         }
+
+        const { code, name } = parsed.data;
 
         // 1. Fetch current config for 'uol' provider (or make dynamic later)
         const { data: provider, error: fetchError } = await supabaseAdmin
