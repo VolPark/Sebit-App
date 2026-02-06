@@ -1,8 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo, Fragment, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { getDashboardData, getDetailedStats, getExperimentalStats, DashboardData, MonthlyData, WorkerStats, ClientStats, ActionStats, ExperimentalStats, ProjectHealthStats } from '@/lib/dashboard';
-import { getMaterialConfig } from '@/lib/material-config';
+import { useSearchParams } from 'next/navigation';
+import { getDashboardData, getDetailedStats, getExperimentalStats, DashboardData, MonthlyData, WorkerStats, ClientStats, ActionStats, ExperimentalStats } from '@/lib/dashboard';
 import { supabase } from '@/lib/supabase';
 import { APP_START_YEAR } from '@/lib/config';
 import BarChart from '@/components/BarChart';
@@ -13,28 +12,16 @@ import CompanyActionsTable from '@/components/CompanyActionsTable';
 import ActionDetailModal from '@/components/ActionDetailModal';
 import WorkerDetailModal from '@/components/WorkerDetailModal';
 import AiChat, { Message } from '@/components/AiChat';
-import { formatRate, getRateUnit, formatRateValue } from '@/lib/formatting';
 import { useAuth } from '@/context/AuthContext';
 import BetaFirmaView from '@/components/dashboard/BetaFirmaView';
 import BetaToggle from '@/components/dashboard/BetaToggle';
+// Extracted components
+import { KPICard } from '@/components/ui/KPICard';
+import { DashboardKpiGrid } from '@/components/dashboard/DashboardKpiGrid';
+import { WorkersTable } from '@/components/dashboard/WorkersTable';
+import { ClientsTable } from '@/components/dashboard/ClientsTable';
 
 type FilterOption = { id: number; name: string };
-// ... (rest of imports)
-
-// ...
-
-const KPICard = ({ title, value, helpText, percentage, percentageColor }: { title: string, value: string, helpText?: string, percentage?: string, percentageColor?: string }) => {
-  return (
-    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
-      <div className="flex justify-between items-start">
-        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">{title}</p>
-        {percentage && <span className={`text-lg font-bold ${percentageColor}`}>{percentage}</span>}
-      </div>
-      <p className="text-2xl md:text-3xl font-bold mt-2 text-[#333333] dark:text-white">{value}</p>
-      {helpText && <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">{helpText}</p>}
-    </div>
-  );
-};
 
 const DashboardControls = ({ filters, setFilters, workers, clients, divisions, showFilters, period, setPeriod }: any) => {
   const selectedClient = filters.klientId
@@ -124,536 +111,7 @@ const DashboardControls = ({ filters, setFilters, workers, clients, divisions, s
   );
 };
 
-const DashboardKpiGrid = ({ data, selectedMonths }: { data: DashboardData, selectedMonths: MonthlyData[] }) => {
-  // Aggregate data if months are selected
-  const kpiData = useMemo(() => {
-    if (!selectedMonths || selectedMonths.length === 0) return data;
-
-    // Aggregation Logic
-    const agg = {
-      totalRevenue: 0,
-      totalCosts: 0,
-      grossProfit: 0,
-      materialProfit: 0,
-      totalMaterialCost: 0,
-      totalLaborCost: 0,
-      totalOverheadCost: 0,
-      totalHours: 0,
-      totalEstimatedHours: 0,
-      averageHourlyWage: 0,
-      avgCompanyRate: 0,
-    };
-
-    selectedMonths.forEach(m => {
-      agg.totalRevenue += m.totalRevenue;
-      agg.totalCosts += m.totalCosts;
-      agg.grossProfit += m.grossProfit;
-      agg.materialProfit += m.materialProfit;
-      agg.totalMaterialCost += m.totalMaterialCost;
-      agg.totalLaborCost += m.totalLaborCost;
-      agg.totalOverheadCost += m.totalOverheadCost;
-      agg.totalHours += m.totalHours;
-      agg.totalEstimatedHours += m.totalEstimatedHours;
-    });
-
-    // Recalculate Ratios
-    agg.averageHourlyWage = agg.totalHours > 0 ? agg.totalLaborCost / agg.totalHours : 0;
-    agg.avgCompanyRate = agg.totalHours > 0 ? (agg.totalRevenue - (agg.totalMaterialCost + agg.materialProfit)) / agg.totalHours : 0; // Approx logic matching Dashboard
-
-    // Note: Dashboard logic for avgCompanyRate is (Revenue - Material) / Hours. 
-    // MaterialCost + MaterialProfit = TotalMaterial (Price to client).
-    // Let's use the same logic as dashboard.ts: (totalRevenue - totalMaterialKlient) / totalHours
-    // But we don't have totalMaterialKlient in agg yet.
-    // Let's simpler way: Weighted average? No, simple division of sums is correct for rates.
-    // We need totalMaterialKlient to be accurate.
-    let totalMaterialKlient = 0;
-    selectedMonths.forEach(m => totalMaterialKlient += m.totalMaterialKlient);
-
-    agg.avgCompanyRate = agg.totalHours > 0 ? (agg.totalRevenue - totalMaterialKlient) / agg.totalHours : 0;
-
-    return agg;
-  }, [data, selectedMonths]);
-
-
-  const currency = new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 });
-
-  const titleSuffix = selectedMonths.length > 0
-    ? `(${selectedMonths.length === 1 ? selectedMonths[0].month : `${selectedMonths.length} měsíců`}) `
-    : '';
-
-  const helpText = selectedMonths.length > 0
-    ? `Data za vybrané období: ${selectedMonths.map(m => m.month).join(', ')}`
-    : "Data za celé období";
-
-  const costsPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.totalCosts / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
-  const profitPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.grossProfit / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
-  const materialProfitPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.materialProfit / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
-
-  const materialPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.totalMaterialCost / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
-  const laborPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.totalLaborCost / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
-  const overheadPercentage = kpiData.totalRevenue > 0 ? `${(kpiData.totalOverheadCost / kpiData.totalRevenue * 100).toFixed(0)}%` : `0%`;
-
-  // Hours Ratio
-  const hoursRatio = kpiData.totalEstimatedHours > 0
-    ? (kpiData.totalHours / kpiData.totalEstimatedHours * 100)
-    : 0;
-  const hoursData = `${kpiData.totalHours.toLocaleString('cs-CZ')} / ${kpiData.totalEstimatedHours.toLocaleString('cs-CZ')}`;
-
-  return (
-    <div className="space-y-6">
-      {/* Row 1: Finance (Revenue, Profit) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <KPICard
-          title={`${titleSuffix}Příjmy`}
-          value={currency.format(kpiData.totalRevenue)}
-          helpText="Celkové příjmy za fakturace klientům"
-        />
-        <KPICard
-          title={`${titleSuffix}Zisk`}
-          value={currency.format(kpiData.grossProfit)}
-          helpText="Zisk = Příjmy - Celkové náklady"
-          percentage={profitPercentage}
-          percentageColor={kpiData.grossProfit >= 0 ? "text-green-500" : "text-red-500"}
-        />
-        {getMaterialConfig().isVisible && (
-          <KPICard
-            title={`Zisk (${getMaterialConfig().labelLowercase})`}
-            value={currency.format(kpiData.materialProfit)}
-            helpText={`Rozdíl mezi fakturací ${getMaterialConfig().labelLowercase}u klientovi a nákupní cenou`}
-            percentage={materialProfitPercentage}
-            percentageColor={kpiData.materialProfit >= 0 ? "text-green-500" : "text-red-500"}
-          />
-        )}
-      </div>
-
-      {/* Row 2: Costs Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KPICard
-          title={`${titleSuffix}Náklady`}
-          value={currency.format(kpiData.totalCosts)}
-          helpText={`Součet všech nákladů (${getMaterialConfig().isVisible ? getMaterialConfig().label + ' + ' : ''}Mzdy + Režie)`}
-          percentage={costsPercentage}
-          percentageColor="text-red-500"
-        />
-        {getMaterialConfig().isVisible && (
-          <KPICard
-            title={getMaterialConfig().label}
-            value={currency.format(kpiData.totalMaterialCost)}
-            helpText={`Nákupní cena ${getMaterialConfig().labelLowercase}u`}
-            percentage={materialPercentage}
-            percentageColor="text-red-500"
-          />
-        )}
-        <KPICard
-          title="Mzdy"
-          value={currency.format(kpiData.totalLaborCost)}
-          helpText="Náklady na vyplacené mzdy pracovníků"
-          percentage={laborPercentage}
-          percentageColor="text-red-500"
-        />
-        <KPICard
-          title="Režie"
-          value={currency.format(kpiData.totalOverheadCost)}
-          helpText="Fixní náklady + Ostatní provozní náklady"
-          percentage={overheadPercentage}
-          percentageColor="text-red-500"
-        />
-      </div>
-
-      {/* Row 3: Stats & Hours */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KPICard
-          title="Odpracované hodiny"
-          value={`${kpiData.totalHours.toLocaleString('cs-CZ')} h`}
-          helpText="Celkový počet vykázaných hodin"
-        />
-        <KPICard
-          title="Hodiny (realita / plán)"
-          value={hoursData}
-          helpText="Poměr odpracovaných hodin vůči odhadu"
-          percentage={`${hoursRatio.toFixed(0)}%`}
-          percentageColor={hoursRatio <= 100 ? "text-green-500" : "text-red-500"}
-        />
-        <KPICard
-          title="Průměrná hodinová mzda"
-          value={formatRate(kpiData.averageHourlyWage)}
-          helpText="Průměrná vyplacená mzda"
-        />
-        <KPICard
-          title="Průměrná sazba firmy"
-          value={formatRate(kpiData.avgCompanyRate)}
-          helpText="Průměrná fakturovaná sazba (Příjmy / Hodiny)"
-        />
-      </div>
-    </div>
-  );
-};
-
-const WorkersTable = ({ data, onWorkerClick }: { data: WorkerStats[], onWorkerClick: (worker: WorkerStats) => void }) => (
-  <>
-    {/* Desktop Table View */}
-    <div className="hidden md:block bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 overflow-hidden overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-gray-50 dark:bg-slate-800 border-b dark:border-slate-700 text-gray-600 dark:text-gray-400">
-          <tr>
-            <th className="p-4 whitespace-nowrap">Jméno</th>
-            <th className="p-4 text-right whitespace-nowrap">Odpracováno</th>
-            <th className="p-4 text-right whitespace-nowrap">Vyplaceno (Mzdy)</th>
-            <th className="p-4 text-right group relative cursor-help w-[180px]">
-              <div className="flex items-center justify-end gap-1">
-                <span>Prům. sazba <span className="font-normal text-xs text-slate-500 block">({getRateUnit()})</span></span>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gray-400 shrink-0">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-                </svg>
-              </div>
-              <div className="invisible group-hover:visible absolute right-0 top-full mt-1 w-72 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-[100] font-normal text-left">
-                <p className="font-semibold mb-1 border-b border-slate-600 pb-1">Fakturovaná sazba</p>
-                <p className="mb-2 text-slate-300">Vážený průměr sjednaných sazeb na projektech.</p>
-                <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 font-mono text-[10px] text-slate-400">
-                  Příklad: (10h × 2000 Kč + 90h × 1000 Kč) / 100h = 1100 Kč/h
-                </div>
-              </div>
-            </th>
-            <th className="p-4 text-right font-bold text-gray-800 dark:text-gray-200 group relative cursor-help w-[180px]">
-              <div className="flex items-center justify-end gap-1">
-                <span>Reálná sazba <span className="font-normal text-xs text-slate-400 block">({getRateUnit()})</span></span>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gray-400 shrink-0">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-                </svg>
-              </div>
-              <div className="invisible group-hover:visible absolute right-0 top-full mt-1 w-72 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-[100] font-normal text-left">
-                <p className="font-semibold mb-1 border-b border-slate-600 pb-1">Nákladová sazba</p>
-                <p className="mb-2 text-slate-300">Skutečné náklady na hodinu práce (včetně odvodů).</p>
-                <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 font-mono text-[10px] text-slate-400">
-                  Příklad: 80 000 Kč (Mzdy) / 160h (Odpracováno) = 500 Kč/h
-                </div>
-              </div>
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-          {data.map(w => (
-            <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors" onClick={() => onWorkerClick(w)}>
-              <td className="p-4 font-medium text-gray-900 dark:text-white">{w.name}</td>
-              <td className="p-4 text-right dark:text-gray-300">{w.totalHours.toLocaleString('cs-CZ')} h</td>
-              <td className="p-4 text-right dark:text-gray-300">{w.totalWages.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</td>
-              <td className="p-4 text-right text-gray-500 dark:text-gray-400">{formatRateValue(w.avgHourlyRate)}</td>
-              <td className="p-4 text-right font-bold text-gray-900 dark:text-white">{formatRateValue(w.realHourlyRate || 0)}</td>
-            </tr>
-          ))}
-          {data.length === 0 && <tr><td colSpan={5} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
-        </tbody>
-      </table>
-    </div>
-
-    {/* Mobile Card View */}
-    <div className="md:hidden space-y-4">
-      {data.map(w => (
-        <div key={w.id} className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 cursor-pointer active:scale-[0.98] transition-all" onClick={() => onWorkerClick(w)}>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-lg text-gray-900 dark:text-white">{w.name}</h3>
-            <div className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-semibold text-slate-600 dark:text-slate-300">
-              {w.totalHours.toLocaleString('cs-CZ')} h
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Vyplaceno</p>
-              <p className="font-bold text-slate-900 dark:text-white">{w.totalWages.toLocaleString('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 })}</p>
-            </div>
-            <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
-              <p className="text-xs text-blue-600 dark:text-blue-400 mb-1 font-semibold">Reálná sazba</p>
-              <p className="font-bold text-blue-700 dark:text-blue-300">{formatRate(w.realHourlyRate || 0)}</p>
-            </div>
-            <div className="col-span-2 text-center text-xs text-gray-400">
-              Sazba (Alokovaná): {formatRate(w.avgHourlyRate)}
-            </div>
-          </div>
-        </div>
-      ))}
-      {data.length === 0 && (
-        <div className="p-8 text-center text-gray-500 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-gray-300 dark:border-slate-700">
-          Žádná data k zobrazení
-        </div>
-      )}
-    </div>
-  </>
-);
-
-const ClientsTable = ({ data, onActionClick }: { data: ClientStats[], onActionClick: (action: ActionStats) => void }) => {
-  const [expandedClients, setExpandedClients] = useState<Set<number>>(new Set());
-  const [sortConfig, setSortConfig] = useState<{ key: keyof ClientStats; direction: 'asc' | 'desc' } | null>(null);
-
-  const toggleClient = (id: number) => {
-    const newExpanded = new Set(expandedClients);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
-    setExpandedClients(newExpanded);
-  };
-
-  const requestSort = (key: keyof ClientStats) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedData = useMemo(() => {
-    let sortableItems = [...data];
-    if (sortConfig !== null) {
-      sortableItems.sort((a, b) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
-
-        // Handle potential undefined/types
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          return sortConfig.direction === 'asc'
-            ? aValue.localeCompare(bValue, 'cs')
-            : bValue.localeCompare(aValue, 'cs');
-        }
-
-        // For numbers
-        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-    return sortableItems;
-  }, [data, sortConfig]);
-
-  const currency = (val: number) => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(val);
-
-  return (
-    <>
-      {/* Desktop Table View */}
-      <div className="hidden md:block bg-white dark:bg-slate-900 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 overflow-hidden overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 border-b dark:border-slate-700">
-            <tr>
-              <th className="p-3 whitespace-nowrap w-8"></th>
-              <th className="p-3 whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('name')}>
-                <div className="flex items-center gap-1">Klient {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-              </th>
-              <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('totalHours')}>
-                <div className="flex items-center justify-end gap-1">Hodiny {sortConfig?.key === 'totalHours' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-              </th>
-              <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('revenue')}>
-                <div className="flex items-center justify-end gap-1">Příjmy {sortConfig?.key === 'revenue' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-              </th>
-              {getMaterialConfig().isVisible && (
-                <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('materialCost')}>
-                  <div className="flex items-center justify-end gap-1">{getMaterialConfig().label} {sortConfig?.key === 'materialCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                </th>
-              )}
-              <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('laborCost')}>
-                <div className="flex items-center justify-end gap-1">Mzdy {sortConfig?.key === 'laborCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-              </th>
-              <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('overheadCost')}>
-                <div className="flex items-center justify-end gap-1">Režie {sortConfig?.key === 'overheadCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-              </th>
-              <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('totalCost')}>
-                <div className="flex items-center justify-end gap-1">Náklady {sortConfig?.key === 'totalCost' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-              </th>
-              <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('profit')}>
-                <div className="flex items-center justify-end gap-1">Zisk {sortConfig?.key === 'profit' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-              </th>
-              <th className="p-3 text-right whitespace-nowrap cursor-pointer hover:bg-gray-200 transition-colors select-none" onClick={() => requestSort('margin')}>
-                <div className="flex items-center justify-end gap-1">Marže {sortConfig?.key === 'margin' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {sortedData.map(c => (
-              <Fragment key={c.id}>
-                <tr className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => toggleClient(c.id)}>
-                  <td className="p-3 text-center">
-                    <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className={`w-4 h-4 transform transition-transform ${expandedClients.has(c.id) ? 'rotate-90' : ''}`}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                      </svg>
-                    </button>
-                  </td>
-                  <td className="p-3 font-medium text-gray-900 dark:text-white">{c.name}</td>
-                  <td className="p-3 text-right font-medium dark:text-gray-200">{c.totalHours.toLocaleString('cs-CZ')} h</td>
-                  <td className="p-3 text-right font-medium dark:text-gray-200">{currency(c.revenue)}</td>
-                  {getMaterialConfig().isVisible && <td className="p-3 text-right text-gray-600 dark:text-gray-400">{currency(c.materialCost)}</td>}
-                  <td className="p-3 text-right text-gray-600 dark:text-gray-400">{currency(c.laborCost)}</td>
-                  <td className="p-3 text-right text-gray-600 dark:text-gray-400">{currency(c.overheadCost)}</td>
-                  <td className="p-3 text-right text-red-600 dark:text-red-400 font-medium">{currency(c.totalCost)}</td>
-                  <td className={`p-3 text-right font-bold ${c.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{currency(c.profit)}</td>
-                  <td className={`p-3 text-right ${c.margin >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{c.margin.toFixed(1)}%</td>
-                </tr>
-                {expandedClients.has(c.id) && (
-                  <tr className="bg-gray-50/50 dark:bg-slate-800/30">
-                    <td colSpan={10} className="p-0">
-                      <div className="py-2 pl-4 pr-4 border-b border-gray-100 dark:border-slate-800 shadow-inner bg-gray-50 dark:bg-slate-900/50">
-                        <table className="w-full text-xs">
-                          <thead className="text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-slate-700">
-                            <tr>
-                              <th className="py-2 pl-10 text-left font-medium uppercase tracking-wider">Akce</th>
-                              <th className="py-2 text-right font-medium uppercase tracking-wider">Hodiny</th>
-                              <th className="py-2 text-right font-medium uppercase tracking-wider">Příjmy</th>
-                              {getMaterialConfig().isVisible && <th className="py-2 text-right font-medium uppercase tracking-wider">{getMaterialConfig().label}</th>}
-                              <th className="py-2 text-right font-medium uppercase tracking-wider">Mzdy</th>
-                              <th className="py-2 text-right font-medium uppercase tracking-wider">Režie</th>
-                              <th className="py-2 text-right font-medium uppercase tracking-wider">Náklady</th>
-                              <th className="py-2 text-right font-medium uppercase tracking-wider">Zisk</th>
-                              <th className="py-2 text-right font-medium uppercase tracking-wider">Marže</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {c.actions.map(action => (
-                              <tr key={action.id} className="hover:bg-gray-100/50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors" onClick={() => onActionClick(action)}>
-                                <td className="py-2 pl-10 text-gray-700 dark:text-gray-300">
-                                  <span className={action.isCompleted ? 'line-through text-gray-400' : ''}>{action.name}</span>
-                                </td>
-                                <td className="py-2 text-right text-gray-600 dark:text-gray-400">{action.totalHours.toLocaleString('cs-CZ')} h</td>
-                                <td className="py-2 text-right text-gray-600 dark:text-gray-400">{currency(action.revenue)}</td>
-                                {getMaterialConfig().isVisible && <td className="py-2 text-right text-gray-500 dark:text-gray-500">{currency(action.materialCost)}</td>}
-                                <td className="py-2 text-right text-gray-500 dark:text-gray-500">{currency(action.laborCost)}</td>
-                                <td className="py-2 text-right text-gray-500 dark:text-gray-500">{currency(action.overheadCost)}</td>
-                                <td className="py-2 text-right text-red-500 dark:text-red-400">{currency(action.totalCost)}</td>
-                                <td className={`py-2 text-right font-medium ${action.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{currency(action.profit)}</td>
-                                <td className={`py-2 text-right ${action.margin >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{action.margin.toFixed(1)}%</td>
-                              </tr>
-                            ))}
-                            {c.actions.length === 0 && (
-                              <tr>
-                                <td colSpan={9} className="py-4 text-center text-gray-400 italic">Žádné akce pro toto období</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-            {sortedData.length === 0 && <tr><td colSpan={10} className="p-4 text-center text-gray-500">Žádná data</td></tr>}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-4">
-        {/* Mobile sort options could go here */}
-        {sortedData.map(c => {
-          const isExpanded = expandedClients.has(c.id);
-          return (
-            <div key={c.id} className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
-              <div onClick={() => toggleClient(c.id)} className="flex justify-between items-start mb-4 cursor-pointer">
-                <div>
-                  <h3 className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
-                    {c.name}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                      className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{c.totalHours.toLocaleString('cs-CZ')} hod</p>
-                </div>
-                <div className="text-right">
-                  <p className={`font-bold text-lg ${c.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {currency(c.profit)}
-                  </p>
-                  <p className="text-xs text-gray-400 uppercase font-semibold">Zisk</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Příjmy</p>
-                  <p className="font-semibold text-slate-800 dark:text-slate-200">{currency(c.revenue)}</p>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Náklady Celkem</p>
-                  <p className="font-semibold text-red-600 dark:text-red-400">{currency(c.totalCost)}</p>
-                </div>
-              </div>
-
-              {isExpanded && (
-                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/30 p-4 border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-1 duration-200">
-                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 border-b border-gray-200 dark:border-slate-700 pb-2">Rozpad Nákladů</h4>
-                  <div className="space-y-2 text-sm mb-4">
-                    {getMaterialConfig().isVisible && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">{getMaterialConfig().label}:</span>
-                        <span className="font-medium text-gray-900 dark:text-gray-200">{currency(c.materialCost)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Mzdy:</span>
-                      <span className="font-medium text-gray-900 dark:text-gray-200">{currency(c.laborCost)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Režie:</span>
-                      <span className="font-medium text-gray-900 dark:text-gray-200">{currency(c.overheadCost)}</span>
-                    </div>
-                  </div>
-
-                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 border-b border-gray-200 dark:border-slate-700 pb-2">Akce ({c.actions.length})</h4>
-                  <div className="space-y-3">
-                    {c.actions.map(action => (
-                      <div key={action.id} className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm cursor-pointer active:scale-[0.99] transition-all" onClick={() => onActionClick(action)}>
-                        <div className="flex justify-between items-start mb-2">
-                          <span className={`font-semibold text-sm ${action.isCompleted ? 'line-through text-gray-400' : 'text-gray-900 dark:text-gray-200'}`}>{action.name}</span>
-                          <span className={`${action.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} font-bold text-sm`}>{currency(action.profit)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                          <span>{action.totalHours.toLocaleString('cs-CZ')} hod</span>
-                          <span>Marže: {action.margin.toFixed(0)}%</span>
-                        </div>
-                      </div>
-                    ))}
-                    {c.actions.length === 0 && <p className="text-xs text-gray-400 italic text-center">Žádné akce</p>}
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                <span className="text-sm text-gray-500">Marže</span>
-                <span className={`font-bold ${c.margin >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {c.margin.toFixed(1)}%
-                </span>
-              </div>
-            </div>
-          );
-        })}
-        {sortedData.length === 0 && (
-          <div className="p-8 text-center text-gray-500 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-gray-300 dark:border-slate-700">
-            Žádná data k zobrazení
-          </div>
-        )}
-      </div>
-    </>
-  );
-};
-
-
-
-
-
-
 function DashboardContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   // Default to 'firma' if no tab param is present
   const currentTab = (searchParams.get('tab') as 'firma' | 'workers' | 'clients' | 'experimental' | 'ai') || 'firma';
@@ -665,21 +123,13 @@ function DashboardContent() {
     setView(currentTab);
   }, [currentTab]);
 
-  // Update URL manually if needed
-  const handleSetView = (newView: 'firma' | 'workers' | 'clients' | 'experimental' | 'ai') => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('tab', newView);
-    router.push(`/dashboard?${params.toString()}`);
-  }
-
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-
-  // Dashboard State
+// Dashboard State
   const [aiMessages, setAiMessages] = useState<Message[]>([]);
   const [data, setData] = useState<DashboardData | null>(null);
   const [detailedStats, setDetailedStats] = useState<{ workers: WorkerStats[], clients: ClientStats[] } | null>(null);
   const [experimentalData, setExperimentalData] = useState<ExperimentalStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Filter State
   const [period, setPeriod] = useState<string>('last12months');
@@ -706,18 +156,23 @@ function DashboardContent() {
     localStorage.setItem('dashboard_beta_mode', String(betaMode));
   }, [betaMode]);
 
-  // Load selected period from URL or default to current year
-  const [selectedPeriod, setSelectedPeriod] = useState<{ year: number; month?: number } | 'last12months'>('last12months');
-
   useEffect(() => {
     async function loadFilters() {
-      const { data: workerData } = await supabase.from('pracovnici').select('id, jmeno').order('jmeno');
-      const { data: clientData } = await supabase.from('klienti').select('id, nazev').order('nazev');
-      const { data: divisionData } = await supabase.from('divisions').select('id, nazev').order('nazev');
+      try {
+        const { data: workerData, error: workerError } = await supabase.from('pracovnici').select('id, jmeno').order('jmeno');
+        const { data: clientData, error: clientError } = await supabase.from('klienti').select('id, nazev').order('nazev');
+        const { data: divisionData, error: divisionError } = await supabase.from('divisions').select('id, nazev').order('nazev');
 
-      setWorkers(workerData?.map(w => ({ id: w.id, name: w.jmeno })) || []);
-      setClients(clientData?.map(c => ({ id: c.id, name: c.nazev })) || []);
-      setDivisions(divisionData?.map(d => ({ id: d.id, name: d.nazev })) || []);
+        if (workerError || clientError || divisionError) {
+          console.error('Filter loading error:', workerError || clientError || divisionError);
+        }
+
+        setWorkers(workerData?.map(w => ({ id: w.id, name: w.jmeno })) || []);
+        setClients(clientData?.map(c => ({ id: c.id, name: c.nazev })) || []);
+        setDivisions(divisionData?.map(d => ({ id: d.id, name: d.nazev })) || []);
+      } catch (err) {
+        console.error('Failed to load filters:', err);
+      }
     }
     loadFilters();
   }, []);
@@ -725,28 +180,34 @@ function DashboardContent() {
   useEffect(() => {
     async function loadDashboard() {
       setLoading(true);
+      setError(null);
 
-      let periodParam: 'last12months' | { year: number; month?: number };
-      if (period === 'thisYear') {
-        periodParam = { year: new Date().getFullYear() };
-      } else if (period === 'lastYear') {
-        periodParam = { year: new Date().getFullYear() - 1 };
-      } else {
-        periodParam = 'last12months';
+      try {
+        let periodParam: 'last12months' | { year: number; month?: number };
+        if (period === 'thisYear') {
+          periodParam = { year: new Date().getFullYear() };
+        } else if (period === 'lastYear') {
+          periodParam = { year: new Date().getFullYear() - 1 };
+        } else {
+          periodParam = 'last12months';
+        }
+
+        const [dashboardData, stats, expStats] = await Promise.all([
+          getDashboardData(periodParam, filters),
+          getDetailedStats(periodParam, filters),
+          getExperimentalStats(filters)
+        ]);
+
+        setData(dashboardData);
+        setDetailedStats(stats);
+        setExperimentalData(expStats);
+        setSelectedMonths([]);
+      } catch (err) {
+        console.error('Failed to load dashboard:', err);
+        setError('Nepodařilo se načíst dashboard. Zkuste to prosím znovu.');
+      } finally {
+        setLoading(false);
       }
-
-      const [dashboardData, stats, expStats] = await Promise.all([
-        getDashboardData(periodParam, filters),
-        getDetailedStats(periodParam, filters),
-        getExperimentalStats(filters)
-      ]);
-
-      setData(dashboardData);
-      setDetailedStats(stats);
-      setExperimentalData(expStats);
-
-      setSelectedMonths([]);
-      setLoading(false);
     }
     loadDashboard();
   }, [filters, period]);
@@ -821,6 +282,24 @@ function DashboardContent() {
           )}
         </div>
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-800 dark:text-red-400 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-3 py-1 text-sm font-medium bg-red-100 dark:bg-red-800 hover:bg-red-200 dark:hover:bg-red-700 rounded-lg transition-colors"
+          >
+            Zkusit znovu
+          </button>
+        </div>
+      )}
 
       {/* Filters (Desktop) - hidden when beta mode is on for firma view */}
       {!['experimental', 'ai'].includes(view) && !(betaMode && view === 'firma') && (

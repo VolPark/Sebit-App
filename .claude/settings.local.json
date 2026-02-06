@@ -5,7 +5,8 @@
       "Bash(npm run lint:*)",
       "Bash(npx tsc:*)",
       "Bash(find:*)",
-      "Bash(ls \"c:\\\\Users\\\\Sebek\\\\sebit-app\\\\components\\\\dashboard\"\" 2>/dev/null || echo \"Directory does not exist \")"
+      "Bash(ls \"c:\\\\Users\\\\Sebek\\\\sebit-app\\\\components\\\\dashboard\"\" 2>/dev/null || echo \"Directory does not exist \")",
+      "Bash(npx next build:*)"
     ]
   }
 }

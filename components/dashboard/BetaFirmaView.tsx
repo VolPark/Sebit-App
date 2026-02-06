@@ -9,23 +9,9 @@ import DashboardSkeleton from '@/components/DashboardSkeleton';
 import CompanyActionsTable from '@/components/CompanyActionsTable';
 import { getMaterialConfig } from '@/lib/material-config';
 import { formatRate } from '@/lib/formatting';
+import { KPICard } from '@/components/ui/KPICard';
 
-const KPICard = ({ title, value, helpText, percentage, percentageColor }: {
-    title: string;
-    value: string;
-    helpText?: string;
-    percentage?: string;
-    percentageColor?: string;
-}) => (
-    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
-        <div className="flex justify-between items-start">
-            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">{title}</p>
-            {percentage && <span className={`text-lg font-bold ${percentageColor}`}>{percentage}</span>}
-        </div>
-        <p className="text-2xl md:text-3xl font-bold mt-2 text-[#333333] dark:text-white">{value}</p>
-        {helpText && <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">{helpText}</p>}
-    </div>
-);
+
 
 interface BetaFirmaViewProps {
     onActionClick: (action: ActionStats) => void;
