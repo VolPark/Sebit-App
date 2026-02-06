@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EUSanctionsService } from '@/lib/aml/sanctions/eu';
 import { CompanyConfig } from '@/lib/companyConfig';
+import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 
 export async function POST(req: NextRequest) {
+    // Auth check
+    const session = await verifySession(req);
+    if (!session) {
+        return unauthorizedResponse();
+    }
+
     if (!CompanyConfig.features.enableAML) {
         return NextResponse.json({ error: 'AML Module Disabled' }, { status: 403 });
     }
