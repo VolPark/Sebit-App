@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { SupplierService } from '@/lib/suppliers/service';
 import { DemosTradeProvider } from '@/lib/suppliers/providers/demos-trade';
+import { CompanyConfig } from '@/lib/companyConfig';
 
 // Register providers (in real app, do this globally)
 SupplierService.registerProvider('sftp_demos', new DemosTradeProvider());
@@ -11,6 +12,15 @@ export async function POST(req: NextRequest) {
     const authHeader = req.headers.get('Authorization');
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Feature Flag Check
+    if (!CompanyConfig.features.enableInventory) {
+        return NextResponse.json({
+            success: true,
+            status: 'skipped',
+            reason: 'Inventory Disabled'
+        });
     }
 
     try {
