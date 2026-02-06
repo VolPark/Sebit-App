@@ -164,7 +164,7 @@ export default function BetaFirmaView({ onActionClick }: BetaFirmaViewProps) {
                     </span>
                 </h1>
 
-                <div className="flex gap-2 items-center">
+                <div className="flex flex-wrap gap-2 items-center">
                     <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
                         <button
                             onClick={() => setPeriod('last12months')}

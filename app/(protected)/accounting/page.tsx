@@ -64,9 +64,9 @@ function AccountingContent() {
 
     return (
         <div className="space-y-6 p-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Účetnictví</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Účetnictví</h1>
                     <p className="text-muted-foreground text-slate-500">Přehled faktur a nákladů z UOL</p>
                 </div>
                 <div className="flex gap-2">
@@ -91,7 +91,7 @@ function AccountingContent() {
             {/* Tabs */}
             <div className="space-y-4">
                 <div className="border-b border-slate-200 dark:border-slate-700">
-                    <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                    <nav className="-mb-px flex space-x-4 md:space-x-8 overflow-x-auto no-scrollbar" aria-label="Tabs">
                         <button
                             onClick={() => setActiveTab('overview')}
                             className={`${activeTab === 'overview' ? 'border-slate-900 text-slate-900 dark:border-white dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}

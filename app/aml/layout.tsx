@@ -34,7 +34,7 @@ export default function AmlLayout({ children }: { children: React.ReactNode }) {
 
             {/* Sub Navigation */}
             <div className="border-b border-gray-200 dark:border-gray-800">
-                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                <nav className="-mb-px flex space-x-4 md:space-x-8 overflow-x-auto no-scrollbar" aria-label="Tabs">
                     {tabs.map((tab) => {
                         const isActive = pathname.startsWith(tab.href);
                         return (

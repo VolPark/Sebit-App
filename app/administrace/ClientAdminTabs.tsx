@@ -26,7 +26,7 @@ export default function ClientAdminTabs({ users, divisions }: ClientAdminTabsPro
 
             {/* Tabs */}
             <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                <nav className="-mb-px flex space-x-4 md:space-x-8 overflow-x-auto no-scrollbar" aria-label="Tabs">
                     <button
                         onClick={() => setActiveTab('users')}
                         className={`

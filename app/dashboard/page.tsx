@@ -70,7 +70,7 @@ const DashboardControls = ({ filters, setFilters, workers, clients, divisions, s
         </h1>
 
         {/* Period Selector */}
-        <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
+        <div className="flex flex-wrap bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
           {periodOptions.map((opt) => (
             <button
               key={opt.id}
