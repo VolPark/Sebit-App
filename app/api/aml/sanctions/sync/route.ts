@@ -17,10 +17,12 @@ const logger = createLogger({ module: 'API:AML:Sync' });
  * - all: boolean - Update all active lists (default if no listId)
  */
 export async function POST(req: NextRequest) {
-    // Security: Require CRON_SECRET for sync operations
+    // Security: Allow CRON_SECRET (for cron jobs) or user session (for admin UI)
     const authHeader = req.headers.get('Authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    if (!isCron) {
+        const session = await verifySession(req);
+        if (!session) return unauthorizedResponse();
     }
 
     if (!CompanyConfig.features.enableAML) {

@@ -31,7 +31,7 @@ export interface SanctionListConfig {
 const DEFAULT_URLS: Record<SanctionListId, string> = {
     EU: 'https://webgate.ec.europa.eu/europeaid/fsd/fsf/public/files/xmlFullSanctionsList/content?token=dG9rZW4tMjAxNw',
     OFAC: 'https://www.treasury.gov/ofac/downloads/sdn.xml',
-    CZ: 'https://www.mzv.cz/file/5765975/vnitrostatni_sankcni_seznam.csv',
+    CZ: 'https://mzv.gov.cz/file/5832469/VnitrostatniSankcniSeznam23102025.csv',
     AMLA: '', // Placeholder - not yet available
 };
 

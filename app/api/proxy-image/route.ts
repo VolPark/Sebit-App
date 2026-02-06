@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { createLogger } from '@/lib/logger';
+import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 
 const log = createLogger({ module: 'API:ProxyImage' });
 
@@ -33,6 +34,9 @@ function isPrivateOrLocalhost(hostname: string): boolean {
 }
 
 export async function GET(request: NextRequest) {
+    const session = await verifySession(request);
+    if (!session) return unauthorizedResponse();
+
     const searchParams = request.nextUrl.searchParams;
     const url = searchParams.get('url');
 

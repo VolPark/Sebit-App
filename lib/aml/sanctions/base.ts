@@ -58,6 +58,11 @@ export abstract class BaseSanctionProvider implements SanctionListProvider {
             throw new Error(`Failed to fetch ${this.listId} list: ${response.statusText}`);
         }
 
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.startsWith('image/') || contentType.startsWith('application/octet-stream')) {
+            throw new Error(`${this.listId}: URL returned unexpected content-type "${contentType}" instead of text/xml/csv. The source URL may have changed.`);
+        }
+
         return response.text();
     }
 
