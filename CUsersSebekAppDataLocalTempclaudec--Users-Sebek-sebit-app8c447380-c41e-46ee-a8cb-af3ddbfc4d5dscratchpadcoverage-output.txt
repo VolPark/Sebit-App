@@ -1,0 +1,78 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90mc:/Users/Sebek/sebit-app[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+ [32m✓[39m lib/services/__tests__/transaction-service.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m lib/__tests__/logger.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 75[2mms[22m[39m
+ [32m✓[39m lib/services/__tests__/project-service.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 43[2mms[22m[39m
+[90mstdout[2m | tests/api/aml.test.ts[2m > [22m[2mAML API Endpoints[2m > [22m[2mPOST /api/aml/check[2m > [22m[2mshould accept valid request with name
+[22m[39m[API:AMLCheck] AML check completed { name: [32m'John Doe'[39m, userId: [32m'test-user'[39m }
+
+[90mstdout[2m | tests/api/aml.test.ts[2m > [22m[2mAML API Endpoints[2m > [22m[2mPOST /api/aml/check[2m > [22m[2mshould accept optional fields
+[22m[39m[API:AMLCheck] AML check completed { name: [32m'John Doe'[39m, userId: [32m'test-user'[39m }
+
+ [31m❯[39m tests/api/accounting.test.ts [2m([22m[2m11 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 304[2mms[22m[39m
+       [32m✓[39m should return 401 when not authenticated[32m 146[2mms[22m[39m
+       [32m✓[39m should return 400 for invalid body[32m 11[2mms[22m[39m
+       [32m✓[39m should accept valid request body[32m 1[2mms[22m[39m
+       [32m✓[39m should return 401 when not authenticated[32m 11[2mms[22m[39m
+       [32m✓[39m should return 400 for empty code[32m 1[2mms[22m[39m
+       [32m✓[39m should return 400 for missing name[32m 0[2mms[22m[39m
+       [32m✓[39m should return 401 when not authenticated[32m 22[2mms[22m[39m
+       [32m✓[39m should return 400 for missing docId[32m 1[2mms[22m[39m
+       [32m✓[39m should coerce string docId to number[32m 1[2mms[22m[39m
+[31m       [31m×[31m should return 401 without CRON_SECRET[39m[32m 91[2mms[22m[39m
+[31m       [31m×[31m should return 401 without CRON_SECRET[39m[32m 17[2mms[22m[39m
+[90mstdout[2m | tests/api/aml.test.ts[2m > [22m[2mAML API Endpoints[2m > [22m[2mPOST /api/aml/sanctions/sync[2m > [22m[2mshould accept valid listId EU
+[22m[39m[AML:Config] === AML Sanction Lists Configuration ===
+[AML:Config] Active lists: EU, CZ
+[AML:Config]   EU: ✓ ACTIVE - EU Consolidated List
+[AML:Config]     URL: https://webgate.ec.europa.eu/europeaid/fsd/fsf/public/files/...
+[AML:Config]   OFAC: ✗ INACTIVE - US OFAC SDN
+[AML:Config]     URL: https://www.treasury.gov/ofac/downloads/sdn.xml...
+[AML:Config]   CZ: ✓ ACTIVE - CZ MZV List
+[AML:Config]     URL: https://mzv.gov.cz/file/5832469/VnitrostatniSankcniSeznam231...
+[AML:Config]   AMLA: ✗ INACTIVE - EU AMLA
+[API:AML:Sync] Updating single list: EU
+[AML:Registry] Updating EU Consolidated Financial Sanctions List...
+[AML:EU] Fetching EU Sanctions List from: https://webgate.ec.europa.eu/europeaid/fsd/fsf/public/files/xmlFullSanctionsList/content?token=dG9rZW4tMjAxNw
+
+ [32m✓[39m lib/__tests__/rate-limit.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m lib/api/__tests__/auth.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m lib/services/__tests__/fixed-cost-service.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 92[2mms[22m[39m
+ [31m❯[39m tests/api/other.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 478[2mms[22m[39m
+[31m       [31m×[31m should return 401 without CRON_SECRET[39m[33m 356[2mms[22m[39m
+       [32m✓[39m should return 401 without CRON_SECRET[32m 96[2mms[22m[39m
+       [32m✓[39m should return 400 for invalid UUID[32m 4[2mms[22m[39m
+[31m       [31m×[31m should return 401 when not authenticated[39m[32m 20[2mms[22m[39m
+ [32m✓[39m lib/__tests__/formatting.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m lib/aml/__tests__/services.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m lib/services/__tests__/payroll-service.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m lib/services/__tests__/timesheet-service.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [31m❯[39m tests/api/aml.test.ts [2m([22m[2m9 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 635[2mms[22m[39m
+       [32m✓[39m should return 401 when not authenticated[32m 103[2mms[22m[39m
+       [32m✓[39m should return 400 for missing name[32m 13[2mms[22m[39m
+       [32m✓[39m should return 400 for empty name[32m 1[2mms[22m[39m
+       [32m✓[39m should accept valid request with name[32m 12[2mms[22m[39m
+       [32m✓[39m should accept optional fields[32m 1[2mms[22m[39m
+       [32m✓[39m should return 401 when not authenticated and no CRON_SECRET[32m 113[2mms[22m[39m
+       [32m✓[39m should return 400 for invalid listId[32m 3[2mms[22m[39m
+[31m       [31m×[31m should accept valid listId EU[39m[33m 372[2mms[22m[39m
+       [32m✓[39m should return 401 when not authenticated[32m 16[2mms[22m[39m
+ [32m✓[39m lib/aml/utils/__tests__/scoring.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m lib/__tests__/currency-sync.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m lib/__tests__/platby.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m lib/__tests__/currency.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m lib/services/dashboard/__tests__/cost-service.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m lib/services/dashboard/__tests__/revenue-service.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m lib/services/dashboard/__tests__/labor-service.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m lib/__tests__/formatDate.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m CUsersSebekAppDataLocalTempclaudetest-minimal.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m lib/accounting/__tests__/uol-client.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 10127[2mms[22m[39m
+       [33m[2m✓[22m[39m respects MAX_PAGES safety limit (50) [33m 10106[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m20 passed[39m[22m[90m (23)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m258 passed[39m[22m[90m (263)[39m
+[2m   Start at [22m 19:10:44
+[2m   Duration [22m 12.95s[2m (transform 1.22s, setup 2.83s, import 1.34s, tests 11.95s, environment 10.99s)[22m
+

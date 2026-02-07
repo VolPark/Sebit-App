@@ -5,6 +5,7 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   test: {
+    pool: 'vmForks',
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
@@ -13,12 +14,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      include: ['lib/**/*.ts'],
       exclude: [
-        'node_modules/',
-        '.next/',
-        'vitest.config.ts',
-        'vitest.setup.ts',
         '**/*.d.ts',
+        '**/*.test.ts',
+        '**/__tests__/**',
+        'lib/types/**',
+        'lib/database.types.ts',
+        'lib/__mocks__/**',
       ],
     },
   },

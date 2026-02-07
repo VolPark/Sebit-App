@@ -37,7 +37,8 @@ vi.mock('@/lib/companyConfig', () => ({
     CompanyConfig: {
         features: {
             enableInventory: true,
-            enableAccounting: true
+            enableAccounting: true,
+            enableAML: true
         }
     }
 }));
@@ -45,6 +46,7 @@ vi.mock('@/lib/companyConfig', () => ({
 vi.mock('@/lib/suppliers/service', () => ({
     SupplierService: {
         registerProvider: vi.fn(),
+        getProvider: vi.fn(),
         syncSupplier: vi.fn().mockResolvedValue({ success: true })
     }
 }));
@@ -53,18 +55,60 @@ vi.mock('@/lib/suppliers/providers/demos-trade', () => ({
     DemosTradeProvider: vi.fn()
 }));
 
+vi.mock('@/lib/aml/sanctions', () => ({
+    updateAllLists: vi.fn().mockResolvedValue({ success: [], failed: [], skipped: [], totalRecords: 0 }),
+    updateList: vi.fn().mockResolvedValue({ success: true, records: 0 })
+}));
+
+vi.mock('@/lib/accounting/service', () => ({
+    AccountingService: {
+        init: vi.fn().mockResolvedValue({
+            syncAll: vi.fn().mockResolvedValue({}),
+            syncAccountingJournal: vi.fn().mockResolvedValue(0)
+        })
+    }
+}));
+
+vi.mock('@/lib/logger', () => {
+    const noop = vi.fn();
+    const childFn = vi.fn(() => ({ info: noop, warn: noop, error: noop, debug: noop, child: childFn }));
+    return {
+        createLogger: vi.fn(() => ({ info: noop, warn: noop, error: noop, debug: noop, child: childFn })),
+        logger: { sync: { child: childFn } }
+    };
+});
+
+vi.mock('@supabase/supabase-js', () => ({
+    createClient: vi.fn(() => ({
+        from: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            insert: vi.fn().mockReturnThis(),
+            update: vi.fn().mockReturnThis(),
+            upsert: vi.fn().mockReturnThis(),
+            delete: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            in: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({ data: null, error: null }),
+            then: vi.fn((resolve) => resolve({ data: [], error: null }))
+        })),
+        auth: {
+            getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null })
+        }
+    }))
+}));
+
 describe('CRON API Endpoints', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockSessionUser = { user: { id: 'test-user' } };
     });
 
-    describe('POST /api/cron/daily-tasks', () => {
+    describe('GET /api/cron/daily-tasks', () => {
         it('should return 401 without CRON_SECRET', async () => {
-            const { POST } = await import('@/app/api/cron/daily-tasks/route');
-            const req = createMockRequest('POST', '/api/cron/daily-tasks');
+            const { GET } = await import('@/app/api/cron/daily-tasks/route');
+            const req = createMockRequest('GET', '/api/cron/daily-tasks');
 
-            const response = await POST(req);
+            const response = await GET(req);
             expect(response.status).toBe(401);
         });
     });
@@ -101,14 +145,12 @@ describe('Admin API Endpoints', () => {
         mockSessionUser = { user: { id: 'test-user' } };
     });
 
-    describe('POST /api/admin/sync-journal', () => {
+    describe('GET /api/admin/sync-journal', () => {
         it('should return 401 when not authenticated', async () => {
-            mockSessionUser = null;
+            const { GET } = await import('@/app/api/admin/sync-journal/route');
+            const req = createMockRequest('GET', '/api/admin/sync-journal');
 
-            const { POST } = await import('@/app/api/admin/sync-journal/route');
-            const req = createMockRequest('POST', '/api/admin/sync-journal');
-
-            const response = await POST(req);
+            const response = await GET(req);
             expect(response.status).toBe(401);
         });
     });

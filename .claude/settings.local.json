@@ -13,7 +13,20 @@
       "Bash(wc -l \"c:\\\\Users\\\\Sebek\\\\sebit-app\"libapi__tests__*.ts)",
       "Bash(dir:*)",
       "Bash(npm install:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(npx vitest run:*)",
+      "Bash(npm ls:*)",
+      "Bash(node -e:*)",
+      "Bash(npx vitest:*)",
+      "Bash(node --version:*)",
+      "Bash(echo:*)",
+      "Bash(npx tsx:*)",
+      "Bash(DEBUG=vitest:*)",
+      "WebFetch(domain:vitest.dev)",
+      "Bash(del:*)",
+      "Bash(findstr:*)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

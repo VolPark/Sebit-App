@@ -42,6 +42,40 @@ vi.mock('@/lib/companyConfig', () => ({
     }
 }));
 
+vi.mock('@/lib/aml/sanctions/eu', () => ({
+    EUSanctionsService: {
+        fetchList: vi.fn().mockResolvedValue('<xml></xml>'),
+        parseAndSave: vi.fn().mockResolvedValue(10)
+    },
+    EUSanctionsProvider: vi.fn().mockImplementation(() => ({})),
+    euProvider: {}
+}));
+
+vi.mock('@/lib/aml/sanctions', () => ({
+    updateList: vi.fn().mockResolvedValue({ success: true, records: 5 }),
+    updateAllLists: vi.fn().mockResolvedValue({ success: ['EU'], failed: [], skipped: [], totalRecords: 5 })
+}));
+
+vi.mock('@/lib/aml/config', () => ({
+    getActiveListIds: vi.fn().mockReturnValue(['EU', 'CZ']),
+    logConfigStatus: vi.fn(),
+    SANCTION_LISTS: {
+        EU: { id: 'EU', name: 'EU Consolidated List', url: 'https://example.com/eu', enabled: true, format: 'xml', description: '' },
+        OFAC: { id: 'OFAC', name: 'US OFAC SDN', url: 'https://example.com/ofac', enabled: false, format: 'xml', description: '' },
+        CZ: { id: 'CZ', name: 'CZ MZV List', url: 'https://example.com/cz', enabled: true, format: 'csv', description: '' },
+        AMLA: { id: 'AMLA', name: 'EU AMLA', url: '', enabled: false, format: 'xml', description: '' },
+    },
+}));
+
+vi.mock('@/lib/logger', () => {
+    const noop = vi.fn();
+    const childFn = vi.fn(() => ({ info: noop, warn: noop, error: noop, debug: noop, child: childFn }));
+    return {
+        createLogger: vi.fn(() => ({ info: noop, warn: noop, error: noop, debug: noop, child: childFn })),
+        logger: { sync: { child: childFn } }
+    };
+});
+
 describe('AML API Endpoints', () => {
     beforeEach(() => {
         vi.clearAllMocks();
