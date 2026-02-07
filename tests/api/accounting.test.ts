@@ -41,7 +41,10 @@ vi.mock('@supabase/supabase-js', () => ({
             insert: vi.fn().mockReturnThis(),
             update: vi.fn().mockReturnThis(),
             upsert: vi.fn().mockReturnThis(),
+            delete: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
+            in: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({ data: null, error: null }),
             then: vi.fn((resolve) => resolve({ data: [], error: null }))
         })),
         rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -59,6 +62,31 @@ vi.mock('@/lib/api/auth', () => ({
         status: 401,
         headers: { 'Content-Type': 'application/json' }
     }))
+}));
+
+vi.mock('@/lib/accounting/service', () => ({
+    AccountingService: {
+        init: vi.fn().mockResolvedValue({
+            syncAll: vi.fn().mockResolvedValue({})
+        })
+    }
+}));
+
+vi.mock('@/lib/accounting/uol-client', () => ({
+    UolClient: vi.fn()
+}));
+
+vi.mock('@/lib/logger', () => {
+    const noop = vi.fn();
+    const childFn = vi.fn(() => ({ info: noop, warn: noop, error: noop, debug: noop, child: childFn }));
+    return {
+        createLogger: vi.fn(() => ({ info: noop, warn: noop, error: noop, debug: noop, child: childFn })),
+        logger: { sync: { child: childFn } }
+    };
+});
+
+vi.mock('@/lib/currency-sync', () => ({
+    syncDocumentCurrency: vi.fn().mockResolvedValue(undefined)
 }));
 
 describe('Accounting API Endpoints - Auth Tests', () => {
@@ -175,6 +203,7 @@ describe('Accounting API Endpoints - Auth Tests', () => {
 describe('Accounting API Endpoints - CRON Tests', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        mockSessionUser = null; // CRON tests: no user session
     });
 
     describe('POST /api/accounting/sync', () => {
