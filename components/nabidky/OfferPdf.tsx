@@ -326,13 +326,14 @@ export default function OfferPdf({ offer, items, imageMap }: OfferPdfProps) {
                 </View>
 
                 {/* Items */}
-                {items.map((item) => {
+                {items.map((item, index) => {
                     const itemVatRate = item.sazba_dph || 21;
                     const itemTotal = Number(item.celkem) || 0;
                     const itemTotalVat = itemTotal * (1 + itemVatRate / 100);
+                    const isLast = index === items.length - 1;
 
                     return (
-                        <View key={item.id} style={styles.itemContainer}>
+                        <View key={item.id} style={styles.itemContainer} minPresenceAhead={isLast ? 80 : 0}>
                             {/* Top info line */}
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
                                 <Text style={{ fontSize: 11, fontWeight: 'bold' }}>{item.nazev}</Text>
@@ -366,7 +367,7 @@ export default function OfferPdf({ offer, items, imageMap }: OfferPdfProps) {
                 })}
 
                 {/* Final Totals */}
-                <View style={styles.finalTotals}>
+                <View style={styles.finalTotals} wrap={false}>
                     <View style={styles.finalRow}>
                         <Text style={styles.finalLabel}>Cena celkem bez DPH:</Text>
                         <Text style={styles.finalValue}>{currency.format(totalWithoutVat)}</Text>
