@@ -44,6 +44,7 @@ export const NAVIGATION_STRUCTURE: NavGroup[] = [
             { name: 'Akce', href: '/akce', iconKey: 'Action' },
             { name: 'Klienti', href: '/klienti', iconKey: 'Users' },
             { name: 'Pracovníci', href: '/pracovnici', iconKey: 'UserGroup' },
+            { name: 'Flotila', href: '/flotila', iconKey: 'Truck' },
         ]
     },
     {
@@ -115,6 +116,7 @@ export function getFilteredNavigation(role: string | undefined | null): NavGroup
             if (!CompanyConfig.features.enableAdminActions) items = items.filter(i => i.name !== 'Akce');
             if (!CompanyConfig.features.enableAdminClients) items = items.filter(i => i.name !== 'Klienti');
             if (!CompanyConfig.features.enableAdminWorkers) items = items.filter(i => i.name !== 'Pracovníci');
+            if (!CompanyConfig.features.enableFleet) items = items.filter(i => i.name !== 'Flotila');
         }
 
         if (group.title === 'Finance') {

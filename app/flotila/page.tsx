@@ -1,14 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getVozidla, getFleetStats, type VozidloSRelacemi, type FleetStats, type StavVozidla } from '@/lib/api/flotila-api';
+import { getVozidla, getFleetStats, type VozidloSRelacemi, type FleetStats as FleetStatsType, type StavVozidla } from '@/lib/api/flotila-api';
 import FleetTable from '@/components/flotila/FleetTable';
 import FleetStats from '@/components/flotila/FleetStats';
 import VehicleModal from '@/components/flotila/VehicleModal';
+import { createLogger } from '@/lib/logger';
+import { getErrorMessage } from '@/lib/errors';
+
+const logger = createLogger({ module: 'Flotila Page' });
 
 export default function FlotilaPage() {
   const [vozidla, setVozidla] = useState<VozidloSRelacemi[]>([]);
-  const [stats, setStats] = useState<FleetStats | null>(null);
+  const [stats, setStats] = useState<FleetStatsType | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<StavVozidla | 'vse'>('vse');
   const [search, setSearch] = useState('');
@@ -27,8 +31,8 @@ export default function FlotilaPage() {
       ]);
       setVozidla(vehiclesData);
       setStats(statsData);
-    } catch (e) {
-      console.error('Error loading fleet data:', e);
+    } catch (error) {
+      logger.error('Error loading fleet data', { error: getErrorMessage(error) });
     } finally {
       setLoading(false);
     }

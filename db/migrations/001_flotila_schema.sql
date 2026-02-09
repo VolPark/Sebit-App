@@ -140,3 +140,17 @@ CREATE TRIGGER trigger_vozidla_updated_at
   BEFORE UPDATE ON vozidla
   FOR EACH ROW
   EXECUTE FUNCTION update_vozidla_updated_at();
+
+-- ============================================================================
+-- BMW OAuth State Management (CSRF Protection)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS bmw_oauth_states (
+  id bigserial PRIMARY KEY,
+  csrf_token varchar(64) NOT NULL UNIQUE,
+  vehicle_id bigint NOT NULL REFERENCES vozidla(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bmw_oauth_states_csrf ON bmw_oauth_states(csrf_token);
+CREATE INDEX IF NOT EXISTS idx_bmw_oauth_states_expiry ON bmw_oauth_states(expires_at);

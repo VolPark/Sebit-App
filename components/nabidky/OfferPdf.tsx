@@ -241,9 +241,10 @@ const styles = StyleSheet.create({
 interface OfferPdfProps {
     offer: Nabidka;
     items: NabidkaPolozka[];
+    imageMap?: Record<string, string>;
 }
 
-export default function OfferPdf({ offer, items }: OfferPdfProps) {
+export default function OfferPdf({ offer, items, imageMap }: OfferPdfProps) {
     const currency = new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 });
 
     const totalWithoutVat = offer.celkova_cena; // Assuming stored price is without VAT? Usually business logic defines this. Let's assume input is without VAT or handle based on sazba_dph.
@@ -342,13 +343,13 @@ export default function OfferPdf({ offer, items }: OfferPdfProps) {
                                 </View>
                             </View>
 
-                            <View style={{ position: 'relative', minHeight: item.obrazek_url ? 120 : 0, paddingLeft: item.obrazek_url ? 155 : 0 }}>
+                            <View style={{ position: 'relative', minHeight: imageMap?.[item.obrazek_url!] ? 120 : 0, paddingLeft: imageMap?.[item.obrazek_url!] ? 155 : 0 }}>
                                 {/* Image - Positioned Absolutely */}
-                                {item.obrazek_url && (
+                                {item.obrazek_url && imageMap?.[item.obrazek_url!] && (
                                     <View style={[styles.imageContainer, { position: 'absolute', top: 0, left: 0 }]} wrap={false}>
                                         <Image
                                             style={styles.itemImage}
-                                            src={`/api/proxy-image?url=${encodeURIComponent(item.obrazek_url)}&t=${Date.now()}`}
+                                            src={imageMap[item.obrazek_url!]}
                                         />
                                     </View>
                                 )}

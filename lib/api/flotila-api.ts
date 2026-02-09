@@ -4,6 +4,9 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger({ module: 'Flotila API' });
 
 // ============================================================================
 // TYPES
@@ -57,7 +60,13 @@ export interface Vozidlo {
   updated_at: string;
 }
 
-export interface VozidloSRelacemi extends Vozidlo {
+/**
+ * Client-safe vehicle type (excludes OAuth tokens)
+ * Used for client-side queries to prevent credential exposure
+ */
+export type VozidloClientSafe = Omit<Vozidlo, 'bmw_client_id' | 'bmw_refresh_token' | 'bmw_access_token' | 'bmw_token_expiry'>;
+
+export interface VozidloSRelacemi extends VozidloClientSafe {
   prideleny_pracovnik?: {
     id: number;
     jmeno: string;
@@ -142,15 +151,41 @@ export interface VozidloFormData {
 
 /**
  * Get all vehicles with optional filters
+ * NOTE: Explicitly excludes BMW OAuth tokens for security
  */
 export const getVozidla = async (filters?: {
   stav?: StavVozidla;
   hledani?: string;
 }): Promise<VozidloSRelacemi[]> => {
+  // Explicitly select fields to exclude BMW tokens
   let query = supabase
     .from('vozidla')
     .select(`
-      *,
+      id,
+      organization_id,
+      vin,
+      spz,
+      znacka,
+      model,
+      rok_vyroby,
+      typ_paliva,
+      barva,
+      stav,
+      najezd_km,
+      prideleny_pracovnik_id,
+      pojisteni_do,
+      pojistovna,
+      stk_do,
+      emisni_kontrola_do,
+      datum_porizeni,
+      kupni_cena,
+      leasing,
+      leasing_mesicni_splatka,
+      leasing_do,
+      bmw_cardata_aktivni,
+      poznamka,
+      created_at,
+      updated_at,
       prideleny_pracovnik:pracovnici!prideleny_pracovnik_id(id, jmeno)
     `)
     .order('spz', { ascending: true });
@@ -160,38 +195,67 @@ export const getVozidla = async (filters?: {
   }
 
   if (filters?.hledani) {
-    query = query.or(`spz.ilike.%${filters.hledani}%,znacka.ilike.%${filters.hledani}%,model.ilike.%${filters.hledani}%,vin.ilike.%${filters.hledani}%`);
+    // Sanitize search input to prevent SQL-like injections (though Supabase parameterizes)
+    const sanitized = filters.hledani.replace(/[%_]/g, '\\$&');
+    query = query.or(`spz.ilike.%${sanitized}%,znacka.ilike.%${sanitized}%,model.ilike.%${sanitized}%,vin.ilike.%${sanitized}%`);
   }
 
   const { data, error } = await query;
 
   if (error) {
-    console.error('Error fetching vozidla:', error);
+    logger.error('Error fetching vozidla', { error: error.message });
     throw error;
   }
 
-  return data as VozidloSRelacemi[];
+  // TypeScript doesn't infer Supabase foreign key joins correctly, so we use unknown intermediate
+  return data as unknown as VozidloSRelacemi[];
 };
 
 /**
  * Get single vehicle by ID
+ * NOTE: Explicitly excludes BMW OAuth tokens for security
  */
 export const getVozidlo = async (id: number): Promise<VozidloSRelacemi | null> => {
   const { data, error } = await supabase
     .from('vozidla')
     .select(`
-      *,
+      id,
+      organization_id,
+      vin,
+      spz,
+      znacka,
+      model,
+      rok_vyroby,
+      typ_paliva,
+      barva,
+      stav,
+      najezd_km,
+      prideleny_pracovnik_id,
+      pojisteni_do,
+      pojistovna,
+      stk_do,
+      emisni_kontrola_do,
+      datum_porizeni,
+      kupni_cena,
+      leasing,
+      leasing_mesicni_splatka,
+      leasing_do,
+      bmw_cardata_aktivni,
+      poznamka,
+      created_at,
+      updated_at,
       prideleny_pracovnik:pracovnici!prideleny_pracovnik_id(id, jmeno)
     `)
     .eq('id', id)
     .single();
 
   if (error) {
-    console.error('Error fetching vozidlo:', error);
+    logger.error('Error fetching vozidlo', { id, error: error.message });
     throw error;
   }
 
-  return data as VozidloSRelacemi;
+  // TypeScript doesn't infer Supabase foreign key joins correctly, so we use unknown intermediate
+  return data as unknown as VozidloSRelacemi;
 };
 
 /**
@@ -205,7 +269,7 @@ export const createVozidlo = async (vozidlo: VozidloFormData): Promise<Vozidlo> 
     .single();
 
   if (error) {
-    console.error('Error creating vozidlo:', error);
+    logger.error('Error creating vozidlo', { error: error.message });
     throw error;
   }
 
@@ -224,7 +288,7 @@ export const updateVozidlo = async (id: number, updates: Partial<VozidloFormData
     .single();
 
   if (error) {
-    console.error('Error updating vozidlo:', error);
+    logger.error('Error updating vozidlo', { id, error: error.message });
     throw error;
   }
 
@@ -241,7 +305,7 @@ export const deleteVozidlo = async (id: number): Promise<void> => {
     .eq('id', id);
 
   if (error) {
-    console.error('Error deleting vozidlo:', error);
+    logger.error('Error deleting vozidlo', { id, error: error.message });
     throw error;
   }
 };
@@ -261,7 +325,7 @@ export const getUdrzba = async (vozidloId: number): Promise<VozidloUdrzba[]> => 
     .order('datum_od', { ascending: false });
 
   if (error) {
-    console.error('Error fetching udrzba:', error);
+    logger.error('Error fetching udrzba', { vozidloId, error: error.message });
     throw error;
   }
 
@@ -279,7 +343,7 @@ export const addUdrzba = async (udrzba: Omit<VozidloUdrzba, 'id' | 'created_at'>
     .single();
 
   if (error) {
-    console.error('Error adding udrzba:', error);
+    logger.error('Error adding udrzba', { vozidloId: udrzba.vozidlo_id, error: error.message });
     throw error;
   }
 
@@ -305,7 +369,7 @@ export const getPalivoLogs = async (vozidloId: number, limit = 50): Promise<Vozi
     .limit(limit);
 
   if (error) {
-    console.error('Error fetching palivo logs:', error);
+    logger.error('Error fetching palivo logs', { vozidloId, error: error.message });
     throw error;
   }
 
@@ -316,14 +380,14 @@ export const getPalivoLogs = async (vozidloId: number, limit = 50): Promise<Vozi
  * Add fuel log
  */
 export const addPalivoLog = async (log: Omit<VozidloPalivo, 'id' | 'created_at' | 'ridic'>): Promise<VozidloPalivo> => {
-  const { data, error} = await supabase
+  const { data, error } = await supabase
     .from('vozidla_palivo')
     .insert([log])
     .select()
     .single();
 
   if (error) {
-    console.error('Error adding palivo log:', error);
+    logger.error('Error adding palivo log', { vozidloId: log.vozidlo_id, error: error.message });
     throw error;
   }
 
@@ -343,7 +407,7 @@ export const getFleetStats = async (): Promise<FleetStats> => {
     .select('stav, kupni_cena, leasing_mesicni_splatka, stk_do, pojisteni_do');
 
   if (error) {
-    console.error('Error fetching fleet stats:', error);
+    logger.error('Error fetching fleet stats', { error: error.message });
     throw error;
   }
 

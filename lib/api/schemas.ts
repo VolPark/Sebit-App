@@ -33,3 +33,16 @@ export function parseYearParam(searchParams: URLSearchParams): { year: number } 
     }
     return { year: result.data };
 }
+
+/**
+ * Fleet module schemas
+ */
+export const vehicleIdSchema = z.object({
+    vehicleId: z.number().int().positive('Vehicle ID must be positive'),
+});
+
+export const bmwOAuthStateSchema = z.object({
+    vehicleId: z.number().int().positive(),
+    csrf: z.string().min(32, 'CSRF token must be at least 32 characters'),
+    timestamp: z.number().int().positive(),
+});

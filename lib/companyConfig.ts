@@ -53,6 +53,7 @@ export const CompanyConfig = {
         enableAccounting: process.env.NEXT_PUBLIC_ENABLE_ACCOUNTING === 'true',
         enableAML: process.env.NEXT_PUBLIC_ENABLE_AML === 'true',
         enableInventory: process.env.NEXT_PUBLIC_ENABLE_INVENTORY === 'true',
+        enableFleet: process.env.NEXT_PUBLIC_ENABLE_FLEET === 'true',
     },
     api: {
         uol: {

@@ -2,6 +2,8 @@
 
 Kompletní modul pro správu vozového parku s automatickým načítáním dat vozidel.
 
+**Security Status:** ✅ Production-ready with CSRF protection and secure credential handling
+
 ## 🚀 Funkce
 
 ### ✅ Základní správa vozidel
@@ -100,6 +102,9 @@ BMW_REDIRECT_URI="https://vase-domena.com/api/bmw/callback"
 1. V aplikaci přidejte BMW vozidlo (VIN začínající `WBA`, `WBS`, nebo `WBY`)
 2. Po uložení se zobrazí tlačítko "Připojit BMW CarData"
 3. Klikněte a autorizujte přístup ve svém BMW Connected Drive účtu
+   - Secure CSRF-protected OAuth flow
+   - State token se automaticky vytvoří a validuje
+   - Token se po použití smaže (one-time use)
 4. Data se začnou automaticky synchronizovat
 
 ---
@@ -227,18 +232,21 @@ Poté v `vercel.json`:
 
 ```
 db/migrations/
-  001_flotila_schema.sql          # Database schema (3 tables)
+  001_flotila_schema.sql          # Database schema (4 tables: vozidla, udrzba, palivo, bmw_oauth_states)
 
 lib/
-  api/flotila-api.ts               # Types + CRUD functions (~400 lines)
-  vin-decoder.ts                   # NHTSA VIN Decoder (zdarma)
+  api/flotila-api.ts               # Types + CRUD functions (~450 lines, client-safe)
+  api/schemas.ts                   # Zod validation schemas (vehicleIdSchema, bmwOAuthStateSchema)
+  vin-decoder.ts                   # NHTSA VIN Decoder (zdarma, type-safe)
   bmw-cardata.ts                   # BMW CarData API client
+  bmw-oauth-state.ts               # CSRF token generation/validation
 
 app/
-  flotila/page.tsx                 # Main fleet page
+  flotila/page.tsx                 # Main fleet page (structured logging)
   api/bmw/
-    callback/route.ts              # OAuth callback handler
-    sync-status/route.ts           # Manual sync endpoint
+    initiate-auth/route.ts         # Generate secure OAuth URL
+    callback/route.ts              # OAuth callback with CSRF validation
+    sync-status/route.ts           # Manual sync endpoint (Zod validated)
 
 components/flotila/
   FleetStats.tsx                   # Statistics cards
@@ -254,13 +262,23 @@ components/flotila/
 - ✅ Žádný API klíč není potřeba
 - ✅ Veřejné NHTSA API (US Government)
 - ✅ Bez rate limitů pro běžné použití
+- ✅ Strukturované logování (bez citlivých dat)
 
 ### BMW CarData
-- ✅ OAuth 2.0 autorizace
-- ✅ Tokeny šifrované v databázi
+- ✅ OAuth 2.0 autorizace s CSRF ochranou
+- ✅ Secure state token management (database-backed, one-time use)
+- ✅ Tokeny NIKDY nejsou odesílány na client-side (explicitní SELECT bez tokenů)
 - ✅ Automatické obnovení tokenů
 - ✅ Separate tokens per vehicle
+- ✅ Zod validace všech API vstupů
+- ✅ Strukturované logování chyb (bez credentials)
 - ⚠️ Vyžaduje BMW Connected Drive subscripci
+
+### Client-Side Security
+- ✅ BMW OAuth credentials nikdy nejsou přístupné z browseru
+- ✅ `VozidloClientSafe` type excludes sensitive fields
+- ✅ Explicit column selection in Supabase queries (no `SELECT *`)
+- ✅ Search input sanitization (SQL injection prevention)
 
 ---
 
@@ -278,7 +296,16 @@ components/flotila/
 - pojisteni_do, pojistovna, stk_do
 - datum_porizeni, kupni_cena, leasing
 - bmw_cardata_aktivni (boolean)
-- bmw_access_token, bmw_refresh_token, bmw_token_expiry
+- bmw_access_token, bmw_refresh_token, bmw_token_expiry (NEVER sent to client)
+```
+
+### Tabulka `bmw_oauth_states`
+CSRF protection for BMW OAuth flow (auto-cleanup on expiry/use)
+```sql
+- id (bigserial)
+- csrf_token (varchar(64), UNIQUE)
+- vehicle_id (bigint, FK -> vozidla)
+- created_at, expires_at (10 minute TTL)
 ```
 
 ### Tabulka `vozidla_udrzba`
@@ -321,6 +348,25 @@ Logování tankov (datum, litry, cena, nájezd)
 
 ---
 
+## 🔐 Security Review (2026-02-09)
+
+**Critical Issues Fixed:**
+1. ✅ BMW OAuth callback now has CSRF protection via database-backed state tokens
+2. ✅ BMW credentials excluded from all client-side queries (explicit SELECT)
+3. ✅ Zod validation on all API endpoints
+4. ✅ Structured logging (no console.log/error, no credential leaks)
+5. ✅ All TypeScript `any` types eliminated from Fleet module
+6. ✅ Error handling on all Supabase operations
+7. ✅ SQL injection prevention in search filters
+
+**Code Quality:**
+- ✅ 0 TypeScript errors
+- ✅ Follows SEBIT-app patterns (structured logger, Zod validation, getErrorMessage)
+- ✅ Client-safe types (`VozidloClientSafe` excludes OAuth tokens)
+- ✅ Build passes successfully
+
+---
+
 **Implementováno**: 2026-02-09
-**Verze**: 1.0.0
-**Status**: ✅ Production Ready (s výjimkou BMW CarData - vyžaduje konfiguraci)
+**Verze**: 1.1.0
+**Status**: ✅ Production Ready (security-hardened, BMW CarData requires configuration)

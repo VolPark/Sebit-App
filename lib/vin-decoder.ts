@@ -3,6 +3,10 @@
  * Works for vehicles from EU/US manufacturers
  */
 
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger({ module: 'VIN Decoder' });
+
 export interface VINDecodeResult {
   success: boolean;
   data?: {
@@ -13,6 +17,15 @@ export interface VINDecodeResult {
     barva?: string;
   };
   error?: string;
+}
+
+interface NHTSAResultItem {
+  VariableId: number;
+  Value: string | null;
+}
+
+interface NHTSAResponse {
+  Results: NHTSAResultItem[];
 }
 
 /**
@@ -57,7 +70,7 @@ export async function decodeVIN(vin: string): Promise<VINDecodeResult> {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    const data = await response.json();
+    const data: NHTSAResponse = await response.json();
 
     if (!data.Results || data.Results.length === 0) {
       return {
@@ -69,7 +82,7 @@ export async function decodeVIN(vin: string): Promise<VINDecodeResult> {
     // Map NHTSA response to our format
     const results = data.Results;
     const getValue = (variableId: number) => {
-      const item = results.find((r: any) => r.VariableId === variableId);
+      const item = results.find((r) => r.VariableId === variableId);
       const value = item?.Value;
       // Filter out empty, null, "Not Applicable", "N/A" etc.
       if (!value || value === 'null' || value === 'Not Applicable' || value === 'N/A' || value.trim() === '') {
@@ -117,7 +130,7 @@ export async function decodeVIN(vin: string): Promise<VINDecodeResult> {
 
     // Validate we got at least manufacturer
     if (!make) {
-      console.log('VIN decode debug - no make:', { make, model, modelYear, rawResults: results.slice(0, 10) });
+      logger.info('VIN decode - no manufacturer found', { make, model, modelYear, vin: vin.substring(0, 8) + '...' });
       return {
         success: false,
         error: 'VIN dekódován, ale chybí výrobce. Zkuste zadat údaje ručně nebo zkontrolujte VIN.'
@@ -126,7 +139,7 @@ export async function decodeVIN(vin: string): Promise<VINDecodeResult> {
 
     // Year and Model are now optional - return partial data
     if (!modelYear) {
-      console.log('VIN decode debug - no year:', { make, model, modelYear, vin, yearCode: vin.charAt(9) });
+      logger.info('VIN decode - no year found, using fallback', { make, model, vin: vin.substring(0, 8) + '...', yearCode: vin.charAt(9) });
       modelYear = new Date().getFullYear().toString(); // Default to current year
     }
 
@@ -165,10 +178,10 @@ export async function decodeVIN(vin: string): Promise<VINDecodeResult> {
       }
     };
 
-    console.log('VIN decode success:', result.data);
+    logger.info('VIN decode success', { znacka: make, model, rok: parseInt(modelYear) });
     return result;
   } catch (error) {
-    console.error('VIN decode error:', error);
+    logger.error('VIN decode error', { error: error instanceof Error ? error.message : 'Unknown error' });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Chyba při dekódování VIN'

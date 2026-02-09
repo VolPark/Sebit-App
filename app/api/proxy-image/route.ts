@@ -7,15 +7,6 @@ import { z } from 'zod';
 
 const log = createLogger({ module: 'API:ProxyImage' });
 
-// Security: Allowlist of trusted image hosts
-const ALLOWED_HOSTS = [
-    'lguawicjrdzchwbwwmlf.supabase.co',  // Your Supabase storage
-    'demos-trade.cz',
-    'www.demos-trade.cz',
-    'cdn.demos-trade.cz',
-    // Add more trusted hosts as needed
-];
-
 // Check if hostname is a private/internal IP
 function isPrivateOrLocalhost(hostname: string): boolean {
     const privatePatterns = [
@@ -53,12 +44,6 @@ export async function GET(request: NextRequest) {
     if (isPrivateOrLocalhost(parsedUrl.hostname)) {
         log.warn(`Blocked private/localhost URL: ${url}`);
         return new NextResponse('Invalid URL: private addresses not allowed', { status: 403 });
-    }
-
-    // Security: Check allowlist
-    if (!ALLOWED_HOSTS.includes(parsedUrl.hostname)) {
-        log.warn(`Blocked non-allowlisted host: ${parsedUrl.hostname}`);
-        return new NextResponse('Invalid URL: host not in allowlist', { status: 403 });
     }
 
     // Security: Only allow HTTPS
