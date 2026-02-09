@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { createLogger } from '@/lib/logger';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { z } from 'zod';
 
 const log = createLogger({ module: 'API:ProxyImage' });
 
@@ -38,20 +39,15 @@ export async function GET(request: NextRequest) {
     if (!session) return unauthorizedResponse();
 
     const searchParams = request.nextUrl.searchParams;
-    const url = searchParams.get('url');
-
-    if (!url) {
-        return new NextResponse('Missing URL parameter', { status: 400 });
+    const urlSchema = z.string().url('Invalid URL format');
+    const urlResult = urlSchema.safeParse(searchParams.get('url'));
+    if (!urlResult.success) {
+        return new NextResponse('Missing or invalid URL parameter', { status: 400 });
     }
+    const url = urlResult.data;
 
     // Security: Validate URL
-    let parsedUrl: URL;
-    try {
-        parsedUrl = new URL(url);
-    } catch {
-        log.warn(`Invalid URL format: ${url}`);
-        return new NextResponse('Invalid URL format', { status: 400 });
-    }
+    const parsedUrl = new URL(url); // Safe - already validated by Zod
 
     // Security: Block private/internal IPs (SSRF protection)
     if (isPrivateOrLocalhost(parsedUrl.hostname)) {

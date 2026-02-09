@@ -2,7 +2,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { parseYearParam } from '@/lib/api/schemas';
 
+import { getErrorMessage } from '@/lib/errors';
 export const dynamic = 'force-dynamic';
 
 const supabaseAdmin = createClient(
@@ -16,8 +18,9 @@ export async function GET(req: NextRequest) {
 
     try {
         const { searchParams } = new URL(req.url);
-        const yearParam = searchParams.get('year') || new Date().getFullYear().toString();
-        const year = Number(yearParam);
+        const yearResult = parseYearParam(searchParams);
+        if (yearResult instanceof NextResponse) return yearResult;
+        const { year } = yearResult;
 
         // DPPO Rate (21% for 2024+)
         const TAX_RATE = 0.21;
@@ -171,8 +174,8 @@ export async function GET(req: NextRequest) {
             }
         });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Error in tax estimation:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

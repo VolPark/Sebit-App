@@ -6,6 +6,7 @@ import { ArrowLeft, Search, RefreshCw, BookText } from 'lucide-react';
 import { toast } from 'sonner';
 import { PdfDownloadButton } from '@/components/accounting/reports/PdfDownloadButton';
 import { JournalPdf } from '@/components/accounting/reports/JournalPdf';
+import { getErrorMessage } from '@/lib/errors';
 
 export default function JournalPage() {
     const [entries, setEntries] = useState<any[]>([]);
@@ -25,8 +26,8 @@ export default function JournalPage() {
             if (!res.ok) throw new Error(data.error || 'Failed to fetch');
 
             setEntries(data.items || []);
-        } catch (e: any) {
-            toast.error(e.message);
+        } catch (e: unknown) {
+            toast.error(getErrorMessage(e));
         } finally {
             setLoading(false);
         }

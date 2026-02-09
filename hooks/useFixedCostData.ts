@@ -3,6 +3,7 @@ import { FixedCost, Division } from '@/lib/types/finance-types';
 import { FixedCostService } from '@/lib/services/fixed-cost-service';
 import { APP_START_YEAR } from '@/lib/config';
 
+import { getErrorMessage } from '@/lib/errors';
 export function useFixedCostData() {
     const [costs, setCosts] = useState<FixedCost[]>([]);
     const [divisions, setDivisions] = useState<Division[]>([]);
@@ -28,8 +29,8 @@ export function useFixedCostData() {
             );
             setCosts(c);
             setDivisions(d);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load costs');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Failed to load costs');
         } finally {
             setLoading(false);
         }
@@ -52,8 +53,8 @@ export function useFixedCostData() {
             await FixedCostService.createCost(payload);
             await loadData();
             return true;
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err));
             setLoading(false);
             return false;
         }
@@ -65,8 +66,8 @@ export function useFixedCostData() {
             await FixedCostService.updateCost(id, data);
             await loadData();
             return true;
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err));
             setLoading(false);
             return false;
         }
@@ -78,8 +79,8 @@ export function useFixedCostData() {
             await FixedCostService.deleteCost(id);
             await loadData();
             return true;
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err));
             setLoading(false);
             return false;
         }
@@ -96,8 +97,8 @@ export function useFixedCostData() {
                 setError('V minulém měsíci nebyly nalezeny žádné náklady.');
                 return false;
             }
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err));
             return false;
         } finally {
             setLoading(false);

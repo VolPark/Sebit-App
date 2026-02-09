@@ -26,7 +26,13 @@
       "WebFetch(domain:vitest.dev)",
       "Bash(del:*)",
       "Bash(findstr:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(if not exist \"c:\\\\Users\\\\Sebek\\\\sebit-app\\\\lib\\\\accounting\\\\__tests__\" mkdir \"c:\\\\Users\\\\Sebek\\\\sebit-app\\\\lib\\\\accounting\\\\__tests__\")",
+      "Bash(python:*)",
+      "Bash(tee:*)",
+      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && grep -E \"\"\\(import.*getErrorMessage|catch.*: unknown\\)\"\" {} | head -3')",
+      "Bash(cut:*)",
+      "Bash(npm test:*)"
     ]
   }
 }

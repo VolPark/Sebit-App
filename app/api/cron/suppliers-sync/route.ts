@@ -5,6 +5,7 @@ import { SupplierService } from '@/lib/suppliers/service';
 import { DemosTradeProvider } from '@/lib/suppliers/providers/demos-trade';
 import { CompanyConfig } from '@/lib/companyConfig';
 
+import { getErrorMessage } from '@/lib/errors';
 const supplierSyncSchema = z.object({
     supplierId: z.string().uuid().optional(),
 }).optional();
@@ -91,16 +92,16 @@ export async function POST(req: NextRequest) {
                 await supabase.from('suppliers').update({ last_sync_at: new Date() }).eq('id', supplier.id);
 
                 results.push({ supplier: supplier.name, status: 'success', count: insertedCount });
-            } catch (e: any) {
+            } catch (e: unknown) {
                 console.error(`Sync failed for ${supplier.name}:`, e);
-                results.push({ supplier: supplier.name, status: 'failed', error: e.message });
+                results.push({ supplier: supplier.name, status: 'failed', error: getErrorMessage(e) });
             }
         }
 
         return NextResponse.json({ success: true, results });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Cron Error:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, TrendingUp, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
+import { getErrorMessage } from '@/lib/errors';
 export function ValueAddedTile() {
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -22,7 +23,7 @@ export function ValueAddedTile() {
                 valueAdded: data.metrics?.valueAdded || 0,
                 year: new Date().getFullYear()
             });
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
         } finally {
             setLoading(false);

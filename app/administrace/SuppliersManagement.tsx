@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Plus, Settings, RefreshCw, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import { SupplierSettingsModal } from '@/components/suppliers/SupplierSettingsModal';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/errors';
 
 export default function SuppliersManagement() {
     const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -50,8 +51,8 @@ export default function SuppliersManagement() {
             if (error) throw error;
             toast.success('Dodavatel odstraněn');
             fetchSuppliers();
-        } catch (e: any) {
-            toast.error('Chyba: ' + e.message);
+        } catch (e: unknown) {
+            toast.error('Chyba: ' + getErrorMessage(e));
         }
     };
 

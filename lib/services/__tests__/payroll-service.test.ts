@@ -202,7 +202,13 @@ describe('PayrollService', () => {
                 return chain;
             });
 
-            vi.mocked(supabase.rpc).mockResolvedValue({ data: mockProfiles, error: null });
+            vi.mocked(supabase.rpc).mockResolvedValue({
+                data: mockProfiles,
+                error: null,
+                count: null,
+                status: 200,
+                statusText: 'OK'
+            });
 
             const result = await PayrollService.getPayrollData(2024, 1, 'office');
 

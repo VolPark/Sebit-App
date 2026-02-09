@@ -9,6 +9,7 @@ import { compressImage } from '@/lib/utils/image-utils';
 import { CatalogBrowser } from '@/components/suppliers/CatalogBrowser';
 import { Package } from 'lucide-react';
 
+import { getErrorMessage } from '@/lib/errors';
 interface AddOfferItemFormProps {
     nabidkaId: number;
     onAdded: () => void;
@@ -85,9 +86,9 @@ export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFor
                 try {
                     const uploadedUrl = await uploadOfferImage(imageFile);
                     if (uploadedUrl) imageUrl = uploadedUrl;
-                } catch (uploadErr: any) {
+                } catch (uploadErr: unknown) {
                     console.error('Image upload failed but continuing item creation', uploadErr);
-                    alert(`Nepodařilo se nahrát obrázek: ${uploadErr.message || JSON.stringify(uploadErr)}`);
+                    alert(`Nepodařilo se nahrát obrázek: ${getErrorMessage(uploadErr)}`);
                 }
             }
 
@@ -117,10 +118,19 @@ export default function AddOfferItemForm({ nabidkaId, onAdded }: AddOfferItemFor
 
             onAdded();
             // Don't close, user might want to add more
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error adding item:', error);
-            console.error('Error details:', error.details, error.hint, error.message, error.code);
-            alert(`Chyba při přidávání položky: ${error.message || JSON.stringify(error)} \nDetails: ${error.details || ''} \nHint: ${error.hint || ''}`);
+            const errorMsg = getErrorMessage(error);
+
+            // Extract additional details if available
+            let details = '';
+            let hint = '';
+            if (error && typeof error === 'object') {
+                if ('details' in error) details = String(error.details);
+                if ('hint' in error) hint = String(error.hint);
+            }
+
+            alert(`Chyba při přidávání položky: ${errorMsg}${details ? ' \nDetails: ' + details : ''}${hint ? ' \nHint: ' + hint : ''}`);
         } finally {
             setLoading(false);
         }

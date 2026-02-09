@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { syncDocumentCurrency } from '@/lib/currency-sync';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 
+import { getErrorMessage } from '@/lib/errors';
 const syncCurrencySchema = z.object({
     docId: z.coerce.number({ message: 'docId must be a number' }),
 });
@@ -28,8 +29,8 @@ export async function POST(req: NextRequest) {
 
         await syncDocumentCurrency(docId);
         return NextResponse.json({ success: true });
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Error syncing currency:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

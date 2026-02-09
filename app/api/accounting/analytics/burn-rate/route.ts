@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { getErrorMessage } from '@/lib/errors';
+// Zod: No user input to validate (calculates from all bank data)
 
 export const dynamic = 'force-dynamic';
 
@@ -77,8 +79,8 @@ export async function GET(req: NextRequest) {
             monthlyBurn,
             runwayMonths: parseFloat(runwayMonths.toFixed(1))
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error calculating burn rate:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
     }
 }

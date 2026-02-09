@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AccountingService } from '@/lib/accounting/service';
 import { createClient } from '@supabase/supabase-js';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { z } from 'zod';
 
+import { getErrorMessage } from '@/lib/errors';
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -16,7 +18,9 @@ export async function GET(req: NextRequest) {
 
     try {
         const { searchParams } = new URL(req.url);
-        const forceRefresh = searchParams.get('refresh') === 'true';
+        const querySchema = z.object({ refresh: z.enum(['true', 'false']).optional() });
+        const parsed = querySchema.safeParse({ refresh: searchParams.get('refresh') || undefined });
+        const forceRefresh = parsed.success && parsed.data.refresh === 'true';
 
         // 1. Check DB first (unless forced refresh)
         if (!forceRefresh) {
@@ -98,8 +102,8 @@ export async function GET(req: NextRequest) {
 
         // Return mostly compatible structure
         return NextResponse.json({ items: accountsWithDetails, source: 'network' });
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Error fetching bank accounts:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

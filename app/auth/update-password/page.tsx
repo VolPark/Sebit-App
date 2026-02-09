@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { getErrorMessage } from '@/lib/errors'
 
 export default function UpdatePasswordPage() {
     const { user: ctxUser, isLoading: authLoading, supabase } = useAuth()
@@ -106,10 +107,11 @@ export default function UpdatePasswordPage() {
                     window.location.href = '/login?success=Heslo+nastaveno';
                 }
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('UpdatePasswordPage: Exception', err);
-            setError('Kritická chyba: ' + err.message)
-            alert('Kritická chyba: ' + err.message);
+            const errMsg = getErrorMessage(err);
+            setError('Kritická chyba: ' + errMsg)
+            alert('Kritická chyba: ' + errMsg);
         } finally {
             setLoading(false)
         }
@@ -129,8 +131,8 @@ export default function UpdatePasswordPage() {
             });
 
             if (error) throw error;
-        } catch (err: any) {
-            setError(err.message || `Chyba při propojení s ${provider}`)
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || `Chyba při propojení s ${provider}`)
             setOauthLoading(false)
         }
     }

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { getFilteredNavigation } from '@/lib/app-navigation';
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { getErrorMessage } from '@/lib/errors';
 
 function LoginForm() {
     const router = useRouter();
@@ -70,8 +71,8 @@ function LoginForm() {
 
             router.push(targetPath);
             router.refresh();
-        } catch (err: any) {
-            setError(err.message || 'Chyba při přihlášení');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Chyba při přihlášení');
         } finally {
             setIsLoading(false);
         }
@@ -99,8 +100,8 @@ function LoginForm() {
 
             setSuccessMsg("Registrace úspěšná! Zkontrolujte svůj email pro potvrzení (pokud je vyžadováno), nebo se zkuste přihlásit.");
             setMode('signin');
-        } catch (err: any) {
-            setError(err.message || 'Chyba při registraci');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Chyba při registraci');
         } finally {
             setIsLoading(false);
         }
@@ -122,8 +123,8 @@ function LoginForm() {
             });
 
             if (error) throw error;
-        } catch (err: any) {
-            setError(err.message || `Chyba při přihlášení přes ${provider}`);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || `Chyba při přihlášení přes ${provider}`);
             setIsLoading(false);
         }
     };
@@ -147,14 +148,15 @@ function LoginForm() {
             if (error) throw error;
 
             setSuccessMsg("Pokud máte účet, poslali jsme vám odkaz na přihlášení na email.");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Magic link error:', err);
             // Security: Don't reveal if user exists or not definitely, but here we can just show generic
             // However, Supabase with shouldCreateUser: false might throw specific error if we want to catch.
-            if (err.message && err.message.includes('Signups not allowed for otp')) {
+            const errMsg = getErrorMessage(err);
+            if (errMsg && errMsg.includes('Signups not allowed for otp')) {
                 setError('Ups, tento email v databázi nemáme. Noví uživatelé se musí napřed registrovat.');
             } else {
-                setError(err.message || 'Chyba při odesílání odkazu');
+                setError(errMsg || 'Chyba při odesílání odkazu');
             }
         } finally {
             setIsLoading(false);

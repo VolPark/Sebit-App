@@ -3,7 +3,9 @@ import { UolClient } from '@/lib/accounting/uol-client';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { verifySession } from '@/lib/api/auth';
+import { yearParamSchema } from '@/lib/api/schemas';
 
+import { getErrorMessage } from '@/lib/errors';
 const log = logger.sync.child('JournalSync');
 
 const supabaseAdmin = createClient(
@@ -44,9 +46,13 @@ export async function POST(req: NextRequest) {
         });
 
         // 2. Determine Date Range
-        const url = new URL(req.url); // Parsing request for year param
-        const yearParam = url.searchParams.get('year');
-        const year = yearParam ? Number(yearParam) : new Date().getFullYear();
+        const url = new URL(req.url);
+        const yearRaw = url.searchParams.get('year') || new Date().getFullYear().toString();
+        const yearResult = yearParamSchema.safeParse(yearRaw);
+        if (!yearResult.success) {
+            return NextResponse.json({ error: 'Invalid year parameter', details: yearResult.error.flatten().fieldErrors }, { status: 400 });
+        }
+        const year = yearResult.data;
 
         const start = `${year}-01-01`;
         const end = `${year}-12-31`;
@@ -130,8 +136,8 @@ export async function POST(req: NextRequest) {
             period: year
         });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         log.error('Error syncing journal:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

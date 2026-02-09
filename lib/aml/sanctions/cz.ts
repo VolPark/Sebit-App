@@ -12,6 +12,7 @@ import { createLogger } from '@/lib/logger';
 import { SANCTION_LISTS, SanctionListConfig } from '../config';
 import { BaseSanctionProvider } from './base';
 
+import { getErrorMessage } from '@/lib/errors';
 const logger = createLogger({ module: 'AML:CZ' });
 
 // Admin client for database operations
@@ -134,12 +135,12 @@ export class CZSanctionsProvider extends BaseSanctionProvider {
             logger.info(`CZ sync complete: ${processed} records processed`);
             return processed;
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             logger.error('CZ Sanctions Update Failed:', error);
             if (logId) {
                 await supabaseAdmin.from('aml_sanction_update_logs').update({
                     status: 'failed',
-                    message: error.message || 'Unknown error',
+                    message: getErrorMessage(error) || 'Unknown error',
                     duration_ms: Date.now() - startTime
                 }).eq('id', logId);
             }

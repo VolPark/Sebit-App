@@ -5,6 +5,7 @@ import { RefreshCw, TrendingUp, TrendingDown, Wallet, Pencil, Check, X } from 'l
 import { toast } from 'sonner';
 import Link from 'next/link';
 
+import { getErrorMessage } from '@/lib/errors';
 export function BankAccountsTile() {
     const [accounts, setAccounts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -26,9 +27,9 @@ export function BankAccountsTile() {
             if (!res.ok) throw new Error(data.error || 'Failed to fetch');
 
             setAccounts(data.items || []);
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            toast.error('Nezdařilo se načíst bankovní účty: ' + e.message);
+            toast.error('Nezdařilo se načíst bankovní účty: ' + getErrorMessage(e));
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -73,8 +74,8 @@ export function BankAccountsTile() {
             toast.success('Název účtu uložen');
             setEditingId(null);
 
-        } catch (e: any) {
-            toast.error('Chyba při ukládání: ' + e.message);
+        } catch (e: unknown) {
+            toast.error('Chyba při ukládání: ' + getErrorMessage(e));
             fetchAccounts(true); // Revert
         } finally {
             setSaving(false);

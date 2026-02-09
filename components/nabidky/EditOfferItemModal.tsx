@@ -6,6 +6,7 @@ import CreatableComboBox, { ComboBoxItem } from '@/components/CreatableCombobox'
 import { NabidkaPolozka } from '@/lib/types/nabidky-types';
 import { compressImage } from '@/lib/utils/image-utils';
 
+import { getErrorMessage } from '@/lib/errors';
 interface EditOfferItemModalProps {
     item: NabidkaPolozka;
     onClose: () => void;
@@ -65,9 +66,9 @@ export default function EditOfferItemModal({ item, onClose, onSaved }: EditOffer
                 try {
                     const uploadedUrl = await uploadOfferImage(imageFile);
                     if (uploadedUrl) imageUrl = uploadedUrl;
-                } catch (uploadErr: any) {
+                } catch (uploadErr: unknown) {
                     console.error('Image upload failed but continuing item update', uploadErr);
-                    alert(`Nepodařilo se nahrát obrázek: ${uploadErr.message || JSON.stringify(uploadErr)}`);
+                    alert(`Nepodařilo se nahrát obrázek: ${getErrorMessage(uploadErr)}`);
                 }
             }
 

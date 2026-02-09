@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AccountingService } from '@/lib/accounting/service';
 import { verifySession } from '@/lib/api/auth';
+import { getErrorMessage } from '@/lib/errors';
+// Zod: No user input to validate (trigger-only endpoint)
 
 // Force dynamic since we use external APIs/DB
 export const dynamic = 'force-dynamic';
@@ -24,8 +26,8 @@ export async function POST(req: NextRequest) {
         const stats = await service.syncAll();
 
         return NextResponse.json({ success: true, stats });
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error(e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

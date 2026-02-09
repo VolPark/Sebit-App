@@ -5,6 +5,7 @@ import { RefreshCw, Book, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
+import { getErrorMessage } from '@/lib/errors';
 export function GeneralLedgerTile() {
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -24,9 +25,9 @@ export function GeneralLedgerTile() {
                 totalAccounts: data.meta?.totalAccounts || 0,
                 year: data.meta?.year || new Date().getFullYear()
             });
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            // toast.error('Nezdařilo se načíst hlavní knihu: ' + e.message);
+            // toast.error('Nezdařilo se načíst hlavní knihu: ' + getErrorMessage(e));
         } finally {
             setLoading(false);
         }

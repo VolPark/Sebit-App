@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { RefreshCw, Settings } from 'lucide-react';
 import { DocumentsTable } from '@/components/accounting/DocumentsTable';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/errors';
 import { ProviderSettingsModal } from '@/components/accounting/ProviderSettingsModal';
 import { AccountingStats } from '@/components/accounting/AccountingStats';
 import { BankAccountsTile } from '@/components/accounting/reports/BankAccountsTile';
@@ -55,8 +56,8 @@ function AccountingContent() {
             if (!res.ok) throw new Error(data.error || 'Sync failed');
             toast.success('Synchronizace dokončena');
             window.location.reload();
-        } catch (e: any) {
-            toast.error('Chyba synchronizace: ' + e.message);
+        } catch (e: unknown) {
+            toast.error('Chyba synchronizace: ' + getErrorMessage(e));
         } finally {
             setIsSyncing(false);
         }

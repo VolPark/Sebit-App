@@ -6,6 +6,7 @@ import { RefreshCw, ArrowRight, TrendingDown, FileText, AlertCircle } from 'luci
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
+import { getErrorMessage } from '@/lib/errors';
 export function ReceivablesTile() {
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -48,7 +49,7 @@ export function ReceivablesTile() {
                 totalOverdue,
                 count
             });
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
         } finally {
             setLoading(false);

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { z } from 'zod';
+import { yearParamSchema, validationErrorResponse } from '@/lib/api/schemas';
 
+import { getErrorMessage } from '@/lib/errors';
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,13 +18,16 @@ export async function GET(req: NextRequest) {
 
     try {
         const { searchParams } = new URL(req.url);
-        const yearParam = searchParams.get('year') || new Date().getFullYear().toString();
-        const account = searchParams.get('account');
-        const year = Number(yearParam);
-
-        if (!account) {
-            return NextResponse.json({ error: 'Account is required' }, { status: 400 });
-        }
+        const detailQuerySchema = z.object({
+            year: yearParamSchema.default(new Date().getFullYear()),
+            account: z.string().min(1, 'Account is required'),
+        });
+        const parsed = detailQuerySchema.safeParse({
+            year: searchParams.get('year') || undefined,
+            account: searchParams.get('account') || undefined,
+        });
+        if (!parsed.success) return validationErrorResponse(parsed.error);
+        const { year, account } = parsed.data;
 
         // 1. Fetch Journal Entries for this account
         // We look for Debit (MD) side for costs (Class 5).
@@ -153,8 +159,8 @@ export async function GET(req: NextRequest) {
             items: resultItems
         });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Error in detail report:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { z } from 'zod';
 
+import { getErrorMessage } from '@/lib/errors';
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,6 +17,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     try {
         const { id } = await params;
+        const idSchema = z.string().min(1, 'ID is required');
+        const idResult = idSchema.safeParse(id);
+        if (!idResult.success) {
+            return NextResponse.json({ error: 'Invalid ID parameter' }, { status: 400 });
+        }
 
         // Fetch from DB Cache
         // This effectively filters by account ID correctly and is instant
@@ -47,8 +54,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         }));
 
         return NextResponse.json({ items: mappedItems });
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Error fetching bank movements from DB:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

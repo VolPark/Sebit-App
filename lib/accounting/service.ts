@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { UolClient, UolSalesInvoiceItem, UolPurchaseInvoiceItem, UolConfig } from './uol-client';
 import { logger } from '@/lib/logger';
 
+import { getErrorMessage } from '@/lib/errors';
 // Use service role key for writing to restricted tables/managing sync
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -92,9 +93,9 @@ export class AccountingService {
                 payables: payablesCount,
                 partial: isPartial
             };
-        } catch (e: any) {
+        } catch (e: unknown) {
             logger.accounting.error('Sync failed', e);
-            await this.completeLog(logId, 'error', e.message);
+            await this.completeLog(logId, 'error', getErrorMessage(e));
             throw e;
         }
     }

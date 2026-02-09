@@ -6,6 +6,7 @@ import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { PdfDownloadButton } from '@/components/accounting/reports/PdfDownloadButton';
 import { BalanceSheetPdf } from '@/components/accounting/reports/BalanceSheetPdf';
+import { getErrorMessage } from '@/lib/errors';
 
 export default function BalanceSheetPage() {
     // State
@@ -26,8 +27,8 @@ export default function BalanceSheetPage() {
             if (!res.ok) throw new Error(json.error || 'Failed to fetch');
 
             setData(json);
-        } catch (e: any) {
-            toast.error(e.message);
+        } catch (e: unknown) {
+            toast.error(getErrorMessage(e));
         } finally {
             setLoading(false);
         }

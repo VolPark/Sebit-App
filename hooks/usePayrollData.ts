@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { PayrollService } from '@/lib/services/payroll-service';
 import { CombinedPayrollRecord, Mzda } from '@/lib/types/payroll-types';
 
+import { getErrorMessage } from '@/lib/errors';
 export function usePayrollData() {
     const [data, setData] = useState<CombinedPayrollRecord[]>([]);
     const [loading, setLoading] = useState(true);
@@ -22,9 +23,9 @@ export function usePayrollData() {
 
             const result = await PayrollService.getPayrollData(year, month, currentUserRole);
             setData(result);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error loading payroll data:', err);
-            setError(err.message || 'Failed to load data');
+            setError(getErrorMessage(err) || 'Failed to load data');
         } finally {
             setLoading(false);
         }
@@ -36,9 +37,9 @@ export function usePayrollData() {
             // Refresh data to show updates
             await fetchData(year, month);
             return { success: true };
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error saving record:', err);
-            return { success: false, error: err.message };
+            return { success: false, error: getErrorMessage(err) };
         }
     };
 
@@ -48,9 +49,9 @@ export function usePayrollData() {
             // Refresh data to show updates
             await fetchData(year, month);
             return { success: true };
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error deleting record:', err);
-            return { success: false, error: err.message };
+            return { success: false, error: getErrorMessage(err) };
         }
     };
 

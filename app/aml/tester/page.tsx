@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/errors';
 
 export default function AMLTesterPage() {
     const [loading, setLoading] = useState(false);
@@ -32,8 +33,8 @@ export default function AMLTesterPage() {
             } else {
                 toast.error(data.error || 'Check failed');
             }
-        } catch (err: any) {
-            toast.error('Error: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Error: ' + getErrorMessage(err));
         } finally {
             setLoading(false);
         }

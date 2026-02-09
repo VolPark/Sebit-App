@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { parseYearParam } from '@/lib/api/schemas';
 
+import { getErrorMessage } from '@/lib/errors';
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,8 +17,9 @@ export async function GET(req: NextRequest) {
 
     try {
         const { searchParams } = new URL(req.url);
-        const yearParam = searchParams.get('year') || new Date().getFullYear().toString();
-        const year = Number(yearParam);
+        const yearResult = parseYearParam(searchParams);
+        if (yearResult instanceof NextResponse) return yearResult;
+        const { year } = yearResult;
 
         // Fetch Provider Config for Custom Names
         const { data: provider } = await supabaseAdmin
@@ -161,8 +164,8 @@ export async function GET(req: NextRequest) {
             costStructure: costStructureArray
         });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Error calculating Value Added Report:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 
+import { getErrorMessage } from '@/lib/errors';
 const updateBankAccountSchema = z.object({
     bank_account_id: z.string().min(1, 'bank_account_id is required'),
     custom_name: z.string().optional(),
@@ -42,8 +43,8 @@ export async function POST(req: NextRequest) {
         if (error) throw error;
 
         return NextResponse.json({ success: true });
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Error updating bank account name:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, Users, Wallet, CreditCard, PieChart } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { getErrorMessage } from '@/lib/errors';
 export function ManagementDashboard() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -20,8 +21,8 @@ export function ManagementDashboard() {
             if (!res.ok) throw new Error('Failed to fetch analytics');
             const json = await res.json();
             setData(json);
-        } catch (e: any) {
-            toast.error(e.message);
+        } catch (e: unknown) {
+            toast.error(getErrorMessage(e));
         } finally {
             setLoading(false);
         }

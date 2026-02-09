@@ -6,6 +6,7 @@ import { SanctionListId, getActiveListIds, logConfigStatus } from '@/lib/aml/con
 import { createLogger } from '@/lib/logger';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 
+import { getErrorMessage } from '@/lib/errors';
 const logger = createLogger({ module: 'API:AML:Sync' });
 
 const syncSchema = z.object({
@@ -88,10 +89,10 @@ export async function POST(req: NextRequest) {
             }
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         logger.error('Sanctions Sync Failed:', error);
         return NextResponse.json({
-            error: error.message || 'Update failed'
+            error: getErrorMessage(error) || 'Update failed'
         }, { status: 500 });
     }
 }

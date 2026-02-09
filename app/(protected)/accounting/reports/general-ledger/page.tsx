@@ -6,6 +6,7 @@ import { ArrowLeft, Search, RefreshCw, Filter, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { PdfDownloadButton } from '@/components/accounting/reports/PdfDownloadButton';
 import { GeneralLedgerPdf } from '@/components/accounting/reports/GeneralLedgerPdf';
+import { getErrorMessage } from '@/lib/errors';
 
 export default function GeneralLedgerPage() {
     const [accounts, setAccounts] = useState<any[]>([]);
@@ -29,8 +30,8 @@ export default function GeneralLedgerPage() {
             if (!res.ok) throw new Error(data.error || 'Failed to fetch');
 
             setAccounts(data.items || []);
-        } catch (e: any) {
-            toast.error(e.message);
+        } catch (e: unknown) {
+            toast.error(getErrorMessage(e));
         } finally {
             setLoading(false);
         }

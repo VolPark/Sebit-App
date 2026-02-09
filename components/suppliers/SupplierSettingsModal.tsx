@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { X, Save, Server, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { getErrorMessage } from '@/lib/errors';
 interface SupplierSettingsModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -82,9 +83,9 @@ export function SupplierSettingsModal({ open, onOpenChange, supplier, onSave }: 
             onOpenChange(false);
             if (onSave) onSave();
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            toast.error('Chyba při ukládání: ' + e.message);
+            toast.error('Chyba při ukládání: ' + getErrorMessage(e));
         } finally {
             setLoading(false);
         }

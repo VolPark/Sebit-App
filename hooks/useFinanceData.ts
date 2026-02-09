@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Transaction, TransactionFilters, Division } from '@/lib/types/finance-types';
 import { TransactionService } from '@/lib/services/transaction-service';
 
+import { getErrorMessage } from '@/lib/errors';
 export function useFinanceData(initialFilters?: TransactionFilters) {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [divisions, setDivisions] = useState<Division[]>([]);
@@ -22,8 +23,8 @@ export function useFinanceData(initialFilters?: TransactionFilters) {
             setDivisions(d);
             setProjects(p);
             setClients(c);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load finance data');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Failed to load finance data');
         } finally {
             setLoading(false);
         }
@@ -39,8 +40,8 @@ export function useFinanceData(initialFilters?: TransactionFilters) {
             await TransactionService.createTransaction(data);
             await loadAll();
             return true;
-        } catch (err: any) {
-            setError(err.message || 'Failed to create transaction');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Failed to create transaction');
             setLoading(false);
             return false;
         }
@@ -52,8 +53,8 @@ export function useFinanceData(initialFilters?: TransactionFilters) {
             await TransactionService.updateTransaction(id, data);
             await loadAll();
             return true;
-        } catch (err: any) {
-            setError(err.message || 'Failed to update transaction');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Failed to update transaction');
             setLoading(false);
             return false;
         }
@@ -66,8 +67,8 @@ export function useFinanceData(initialFilters?: TransactionFilters) {
             await TransactionService.deleteTransaction(id);
             await loadAll();
             return true;
-        } catch (err: any) {
-            setError(err.message || 'Failed to delete transaction');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Failed to delete transaction');
             setLoading(false);
             return false;
         }

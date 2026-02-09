@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { getErrorMessage } from '@/lib/errors';
+// Zod: No user input to validate (fetches current balance across all time)
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -93,8 +95,8 @@ export async function GET(req: NextRequest) {
             }
         });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Error calculating Payables:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

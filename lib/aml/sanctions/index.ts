@@ -13,6 +13,7 @@ import { ofacProvider } from './ofac';
 import { czProvider } from './cz';
 import { amlaProvider } from './amla';
 
+import { getErrorMessage } from '@/lib/errors';
 const logger = createLogger({ module: 'AML:Registry' });
 
 // ═══════════════════════════════════════════════════════════
@@ -98,11 +99,11 @@ export async function updateAllLists(): Promise<{
 
             logger.info(`✓ ${provider.listId} updated: ${count} records`);
 
-        } catch (error: any) {
-            logger.error(`✗ ${provider.listId} failed:`, error.message);
+        } catch (error: unknown) {
+            logger.error(`✗ ${provider.listId} failed:`, getErrorMessage(error));
             result.failed.push({
                 id: provider.listId,
-                error: error.message || 'Unknown error'
+                error: getErrorMessage(error) || 'Unknown error'
             });
         }
     }
@@ -139,9 +140,9 @@ export async function updateList(id: SanctionListId): Promise<{
         const count = await provider.parseAndSave(rawData);
         logger.info(`✓ ${id} updated: ${count} records`);
         return { success: true, records: count };
-    } catch (error: any) {
-        logger.error(`✗ ${id} failed:`, error.message);
-        return { success: false, records: 0, error: error.message };
+    } catch (error: unknown) {
+        logger.error(`✗ ${id} failed:`, getErrorMessage(error));
+        return { success: false, records: 0, error: getErrorMessage(error) };
     }
 }
 

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 
+import { getErrorMessage } from '@/lib/errors';
 const renameSchema = z.object({
     code: z.string().min(1, 'Code is required'),
     name: z.string().min(1, 'Name is required'),
@@ -67,8 +68,8 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ success: true, names: newNames });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Error renaming account:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

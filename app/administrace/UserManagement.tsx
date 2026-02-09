@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { UserData, deleteUser, inviteUser, updateUserRole, updateUserName } from '@/app/actions/user-management';
+import { getErrorMessage } from '@/lib/errors';
 
 export default function UserManagement({ initialUsers }: { initialUsers: UserData[] }) {
     const [users, setUsers] = useState<UserData[]>(initialUsers);
@@ -73,9 +74,9 @@ export default function UserManagement({ initialUsers }: { initialUsers: UserDat
             await inviteUser(inviteEmail, inviteRole);
             setIsInviteModalOpen(false);
             setShowSuccessModal(true);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
-            alert('Chyba při odesílání pozvánky: ' + error.message);
+            alert('Chyba při odesílání pozvánky: ' + getErrorMessage(error));
         } finally {
             setIsLoading(false);
         }

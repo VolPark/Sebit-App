@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2, TrendingUp, TrendingDown, Landmark, Wallet, AlertCircle } from "lucide-react";
+import { getErrorMessage } from '@/lib/errors';
 
 export default function TaxEstimationPage() {
     const [year, setYear] = useState(new Date().getFullYear());
@@ -20,8 +21,8 @@ export default function TaxEstimationPage() {
             if (!res.ok) throw new Error('Failed to fetch tax estimation');
             const json = await res.json();
             setData(json);
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e: unknown) {
+            setError(getErrorMessage(e));
         } finally {
             setLoading(false);
         }

@@ -92,7 +92,7 @@ function setupFromResponses(responses: Array<{ resolvedValue: unknown }>) {
             resolvedValue: resp.resolvedValue,
         };
         callLog.push(record);
-        return createChain(record) as ReturnType<typeof supabase.from>;
+        return createChain(record) as unknown as ReturnType<typeof supabase.from>;
     });
 }
 

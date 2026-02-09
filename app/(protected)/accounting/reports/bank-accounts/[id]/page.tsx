@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Calendar, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/errors';
 
 interface BankMovement {
     bank_movement_id: number;
@@ -42,9 +43,9 @@ export default function BankAccountDetailPage({ params }: { params: Promise<{ id
             } else {
                 setMovements([]);
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            toast.error('Chyba při načítání pohybů: ' + e.message);
+            toast.error('Chyba při načítání pohybů: ' + getErrorMessage(e));
         } finally {
             setLoading(false);
         }

@@ -2,6 +2,7 @@
 import { AccountingService } from '../lib/accounting/service';
 import dotenv from 'dotenv';
 
+import { getErrorMessage } from '@/lib/errors';
 // Load env
 dotenv.config({ path: '.env.local' });
 
@@ -14,7 +15,7 @@ async function main() {
         const count = await service.syncAccountingJournal(Date.now() + 300000); // 5 min deadline
         console.log(`Sync finished. Processed ${count} records.`);
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Sync failed:', e);
     }
 }

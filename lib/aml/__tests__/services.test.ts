@@ -74,7 +74,10 @@ describe('AMLService', () => {
         it('should return clean status when no matches found', async () => {
             vi.mocked(supabase.rpc).mockResolvedValue({
                 data: [],
-                error: null
+                error: null,
+                count: null,
+                status: 200,
+                statusText: 'OK'
             });
 
             const result = await AMLService.checkEntity('John Doe');
@@ -87,19 +90,25 @@ describe('AMLService', () => {
         it('should return error status on RPC error', async () => {
             vi.mocked(supabase.rpc).mockResolvedValue({
                 data: null,
-                error: { message: 'Database error' }
+                error: { message: 'Database error', details: '', hint: '', code: '', name: 'PostgrestError' },
+                count: null,
+                status: 200,
+                statusText: 'OK'
             });
 
             const result = await AMLService.checkEntity('John Doe');
 
             expect(result.status).toBe('error');
-            expect(result.metadata.error).toBe('Database error');
+            expect(result.metadata?.error).toBe('Database error');
         });
 
         it('should detect high-risk keywords in name', async () => {
             vi.mocked(supabase.rpc).mockResolvedValue({
                 data: [],
-                error: null
+                error: null,
+                count: null,
+                status: 200,
+                statusText: 'OK'
             });
 
             const result = await AMLService.checkEntity('Crypto Trading LLC');
@@ -119,7 +128,10 @@ describe('AMLService', () => {
                     external_id: '12345',
                     match_details: { base_score: 0.8, dob_boost: 0, country_boost: 0 }
                 }],
-                error: null
+                error: null,
+                count: null,
+                status: 200,
+                statusText: 'OK'
             });
 
             const result = await AMLService.checkEntity('John Doe');
@@ -139,7 +151,10 @@ describe('AMLService', () => {
                     external_id: 'SDN-001',
                     match_details: { base_score: 0.9, dob_boost: 0, country_boost: 0 }
                 }],
-                error: null
+                error: null,
+                count: null,
+                status: 200,
+                statusText: 'OK'
             });
 
             const result = await AMLService.checkEntity('Sanctioned Entity');
@@ -158,7 +173,10 @@ describe('AMLService', () => {
                     external_id: '99999',
                     match_details: { base_score: 0.6 }
                 }],
-                error: null
+                error: null,
+                count: null,
+                status: 200,
+                statusText: 'OK'
             });
 
             const result = await AMLService.checkEntity('Some Name');
@@ -174,7 +192,10 @@ describe('AMLService', () => {
                     { similarity: 0.90, list_name: 'LIST_B', name: 'Name B', external_id: '2', match_details: {} },
                     { similarity: 0.80, list_name: 'LIST_C', name: 'Name C', external_id: '3', match_details: {} },
                 ],
-                error: null
+                error: null,
+                count: null,
+                status: 200,
+                statusText: 'OK'
             });
 
             const result = await AMLService.checkEntity('Test Name');
@@ -194,7 +215,10 @@ describe('AMLService', () => {
                     external_id: 'EU-123',
                     match_details: {}
                 }],
-                error: null
+                error: null,
+                count: null,
+                status: 200,
+                statusText: 'OK'
             });
 
             const result = await AMLService.checkEntity('Known Alias');
@@ -203,7 +227,7 @@ describe('AMLService', () => {
         });
 
         it('should test all high-risk keywords', async () => {
-            vi.mocked(supabase.rpc).mockResolvedValue({ data: [], error: null });
+            vi.mocked(supabase.rpc).mockResolvedValue({ data: [], error: null, count: null, status: 200, statusText: 'OK' });
 
             const keywords = ['Trading', 'Crypto', 'Gambling', 'Offshore'];
 

@@ -6,6 +6,7 @@ import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { PdfDownloadButton } from '@/components/accounting/reports/PdfDownloadButton';
 import { ProfitLossPdf } from '@/components/accounting/reports/ProfitLossPdf';
+import { getErrorMessage } from '@/lib/errors';
 
 export default function ProfitLossPage() {
     // State
@@ -32,8 +33,8 @@ export default function ProfitLossPage() {
             if (!res.ok) throw new Error(json.error || 'Failed to fetch');
 
             setData(json);
-        } catch (e: any) {
-            toast.error(e.message);
+        } catch (e: unknown) {
+            toast.error(getErrorMessage(e));
         } finally {
             setLoading(false);
         }

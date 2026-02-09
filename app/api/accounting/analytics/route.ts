@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { parseYearParam } from '@/lib/api/schemas';
 
+import { getErrorMessage } from '@/lib/errors';
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -16,8 +18,9 @@ export async function GET(req: NextRequest) {
 
     try {
         const { searchParams } = new URL(req.url);
-        const yearParam = searchParams.get('year') || new Date().getFullYear().toString();
-        const year = Number(yearParam);
+        const yearResult = parseYearParam(searchParams);
+        if (yearResult instanceof NextResponse) return yearResult;
+        const { year } = yearResult;
         const startDate = `${year}-01-01`;
         const endDate = `${year}-12-31`;
 
@@ -57,8 +60,8 @@ export async function GET(req: NextRequest) {
                 .maybeSingle()
         ]);
 
-        if (journalRes.error) throw new Error('Journal Error: ' + journalRes.error.message);
-        if (docsRes.error) throw new Error('Docs Error: ' + docsRes.error.message);
+        if (journalRes.error) throw new Error('Journal Error: ' + journalRes.error);
+        if (docsRes.error) throw new Error('Docs Error: ' + docsRes.error);
 
         // Log errors for range but usually non-fatal
         if (minDateRes.error) console.error('MinDate Error:', minDateRes.error);
@@ -206,8 +209,8 @@ export async function GET(req: NextRequest) {
             expenseStructure
         });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('Analytics error:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

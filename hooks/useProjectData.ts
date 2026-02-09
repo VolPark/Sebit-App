@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Project, ProjectFilters, Client, Division } from '@/lib/types/project-types';
 import { ProjectService } from '@/lib/services/project-service';
 
+import { getErrorMessage } from '@/lib/errors';
 export function useProjectData(initialFilters?: ProjectFilters) {
     const [projects, setProjects] = useState<Project[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
@@ -25,8 +26,8 @@ export function useProjectData(initialFilters?: ProjectFilters) {
             setProjects(pData);
             setClients(cData as unknown as Client[]); // Basic type match
             setDivisions(dData as unknown as Division[]);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load data');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Failed to load data');
             console.error(err);
         } finally {
             setLoading(false);
@@ -50,8 +51,8 @@ export function useProjectData(initialFilters?: ProjectFilters) {
             // Refresh list
             await loadAll();
             return true;
-        } catch (err: any) {
-            setError(err.message || 'Failed to create project');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Failed to create project');
             console.error(err);
             return false;
         } finally {
@@ -70,8 +71,8 @@ export function useProjectData(initialFilters?: ProjectFilters) {
             await ProjectService.updateProject(id, data);
             await loadAll();
             return true;
-        } catch (err: any) {
-            setError(err.message || 'Failed to update project');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Failed to update project');
             console.error(err);
             return false;
         } finally {
@@ -86,8 +87,8 @@ export function useProjectData(initialFilters?: ProjectFilters) {
             await ProjectService.deleteProject(id);
             await loadAll();
             return true;
-        } catch (err: any) {
-            setError(err.message || 'Failed to delete project');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Failed to delete project');
             return false;
         } finally {
             setLoading(false);
@@ -101,8 +102,8 @@ export function useProjectData(initialFilters?: ProjectFilters) {
             // Optimistic update or refresh? Refresh is safer.
             await loadAll();
             return true;
-        } catch (err: any) {
-            setError(err.message || 'Failed to toggle status');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err) || 'Failed to toggle status');
             setLoading(false);
             return false;
         }

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, ArrowRight, TrendingUp, FileText, PieChart } from 'lucide-react';
 import Link from 'next/link';
 
+import { getErrorMessage } from '@/lib/errors';
 export function PayablesTile() {
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -20,7 +21,7 @@ export function PayablesTile() {
                 totalPayables: data.totalPayables,
                 breakdown: data.breakdown
             });
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
         } finally {
             setLoading(false);

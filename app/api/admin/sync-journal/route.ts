@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AccountingService } from '@/lib/accounting/service';
 import { logger } from '@/lib/logger';
+import { getErrorMessage } from '@/lib/errors';
+// Zod: No user input to validate (CRON_SECRET auth only)
 
 const log = logger.sync.child('AdminSync');
 
@@ -24,8 +26,8 @@ export async function GET(req: NextRequest) {
         const count = await service.syncAccountingJournal(Date.now() + 300000);
 
         return NextResponse.json({ success: true, count });
-    } catch (e: any) {
+    } catch (e: unknown) {
         log.error('Sync failed:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

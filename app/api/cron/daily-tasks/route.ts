@@ -6,6 +6,8 @@ import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { SupplierService } from '@/lib/suppliers/service';
 import { DemosTradeProvider } from '@/lib/suppliers/providers/demos-trade';
+import { getErrorMessage } from '@/lib/errors';
+// Zod: No user input to validate (CRON_SECRET auth only)
 
 const log = createLogger({ module: 'Cron:DailyTasks' });
 
@@ -35,8 +37,8 @@ export async function GET(req: NextRequest) {
                     skipped: syncResults.skipped,
                     totalRecords: syncResults.totalRecords,
                 };
-            } catch (e: any) {
-                results.sanctionLists = { status: 'failed', error: e.message };
+            } catch (e: unknown) {
+                results.sanctionLists = { status: 'failed', error: getErrorMessage(e) };
             }
         } else {
             results.sanctionLists = { status: 'skipped', reason: 'AML Disabled' };
@@ -49,9 +51,9 @@ export async function GET(req: NextRequest) {
                 const service = await AccountingService.init();
                 const stats = await service.syncAll();
                 results.accountingSync = { status: 'success', stats };
-            } catch (e: any) {
+            } catch (e: unknown) {
                 log.error('Accounting Sync Failed:', e);
-                results.accountingSync = { status: 'failed', error: e.message };
+                results.accountingSync = { status: 'failed', error: getErrorMessage(e) };
             }
         } else {
             results.accountingSync = { status: 'skipped', reason: 'Accounting Disabled' };
@@ -100,22 +102,22 @@ export async function GET(req: NextRequest) {
 
                         await supabase.from('suppliers').update({ last_sync_at: new Date() }).eq('id', supplier.id);
                         supplierResults.push({ supplier: supplier.name, status: 'success', count: insertedCount });
-                    } catch (e: any) {
-                        supplierResults.push({ supplier: supplier.name, status: 'failed', error: e.message });
+                    } catch (e: unknown) {
+                        supplierResults.push({ supplier: supplier.name, status: 'failed', error: getErrorMessage(e) });
                     }
                 }
                 results.suppliersSync = { status: 'success', suppliers: supplierResults };
-            } catch (e: any) {
+            } catch (e: unknown) {
                 log.error('Suppliers Sync Failed:', e);
-                results.suppliersSync = { status: 'failed', error: e.message };
+                results.suppliersSync = { status: 'failed', error: getErrorMessage(e) };
             }
         } else {
             results.suppliersSync = { status: 'skipped', reason: 'Inventory Disabled' };
         }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         log.error('Daily Task Failed:', error);
-        return NextResponse.json({ error: error.message, partialResults: results }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(error), partialResults: results }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, results });

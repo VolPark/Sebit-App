@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, Scale, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
+import { getErrorMessage } from '@/lib/errors';
 export function BalanceSheetTile() {
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -21,7 +22,7 @@ export function BalanceSheetTile() {
                 totalAssets: data.totals?.assets || 0,
                 year: new Date().getFullYear()
             });
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
         } finally {
             setLoading(false);

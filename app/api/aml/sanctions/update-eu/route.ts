@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { EUSanctionsService } from '@/lib/aml/sanctions/eu';
 import { CompanyConfig } from '@/lib/companyConfig';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { getErrorMessage } from '@/lib/errors';
+// Zod: No user input to validate (trigger-only endpoint)
 
 export async function POST(req: NextRequest) {
     // Auth check
@@ -25,10 +27,10 @@ export async function POST(req: NextRequest) {
             success: true,
             message: `Successfully updated ${count} entities from EU Sanctions List.`
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('EU Sanctions Update Failed:', error);
         return NextResponse.json({
-            error: error.message || 'Update failed'
+            error: getErrorMessage(error) || 'Update failed'
         }, { status: 500 });
     }
 }

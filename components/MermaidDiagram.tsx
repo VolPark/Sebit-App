@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useId } from 'react';
 import mermaid from 'mermaid';
 
+import { getErrorMessage } from '@/lib/errors';
 interface MermaidDiagramProps {
     code: string;
     isLoading?: boolean;
@@ -126,10 +127,11 @@ function MermaidDiagram({ code, isLoading = false }: MermaidDiagramProps) {
 
                 setSvg(svg);
                 setError(null);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 // Auto-recovery for linkStyle
-                if (err?.message?.includes("Cannot set properties of undefined (setting 'style')") ||
-                    err?.message?.includes("Cannot read properties of undefined (reading 'style')")) {
+                const errMsg = getErrorMessage(err);
+                if (errMsg.includes("Cannot set properties of undefined (setting 'style')") ||
+                    errMsg.includes("Cannot read properties of undefined (reading 'style')")) {
                     const recoveredCode = cleanCode.replace(/^.*linkStyle.*$/gm, '').trim();
                     try {
                         const { svg } = await mermaid.render(renderId + 'R', recoveredCode);
@@ -143,7 +145,7 @@ function MermaidDiagram({ code, isLoading = false }: MermaidDiagramProps) {
 
                 // If we fail, only show the error if we don't have a previous valid SVG to show
                 // OR if the code hasn't changed for a while (implying permanent failure)
-                setError({ message: String(err), isPermanent: true });
+                setError({ message: errMsg, isPermanent: true });
             }
         };
 
@@ -171,7 +173,7 @@ function MermaidDiagram({ code, isLoading = false }: MermaidDiagramProps) {
         return (
             <div className="my-6 p-4 border border-red-200 bg-red-50 text-red-700 rounded-lg text-sm font-mono whitespace-pre-wrap">
                 <p className="font-bold mb-2">Nepodařilo se vykreslit diagram:</p>
-                <div className="mb-2 text-xs text-gray-500 opacity-70 truncate">{error.message.substring(0, 100)}...</div>
+                <div className="mb-2 text-xs text-gray-500 opacity-70 truncate">{getErrorMessage(error).substring(0, 100)}...</div>
                 <div className="bg-white p-3 border rounded overflow-auto max-h-32 text-xs text-gray-600">
                     {debouncedCode}
                 </div>

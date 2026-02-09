@@ -15,7 +15,7 @@ describe('Logger', () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
-        process.env.NODE_ENV = originalEnv;
+        vi.unstubAllEnvs();
     });
 
     // Re-import to get fresh module with current NODE_ENV
@@ -77,7 +77,7 @@ describe('Logger', () => {
         });
 
         it('should show debug logs in development', async () => {
-            process.env.NODE_ENV = 'development';
+            vi.stubEnv('NODE_ENV', 'development');
             createLogger = await importLogger();
             const logger = createLogger({ module: 'Test' });
 
@@ -87,7 +87,7 @@ describe('Logger', () => {
         });
 
         it('should hide debug logs in production', async () => {
-            process.env.NODE_ENV = 'production';
+            vi.stubEnv('NODE_ENV', 'production');
             createLogger = await importLogger();
             const logger = createLogger({ module: 'Test' });
 

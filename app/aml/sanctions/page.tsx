@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/errors';
 
 type SyncResult = {
     success: boolean;
@@ -80,8 +81,8 @@ export default function SanctionsPage() {
             }
             fetchLogs();
             fetchStats();
-        } catch (e: any) {
-            toast.error('Chyba při aktualizaci: ' + e.message);
+        } catch (e: unknown) {
+            toast.error('Chyba při aktualizaci: ' + getErrorMessage(e));
         } finally {
             setLoading(false);
         }
@@ -104,8 +105,8 @@ export default function SanctionsPage() {
             }
             fetchLogs();
             fetchStats();
-        } catch (e: any) {
-            toast.error('Chyba při aktualizaci: ' + e.message);
+        } catch (e: unknown) {
+            toast.error('Chyba při aktualizaci: ' + getErrorMessage(e));
         } finally {
             setLoadingList(null);
         }

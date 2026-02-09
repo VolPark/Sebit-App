@@ -105,7 +105,7 @@ export class UolClient {
                 }
 
                 return await res.json() as T;
-            } catch (e: any) {
+            } catch (e: unknown) {
                 // Rethrow normal errors, but retry on network errors if needed? 
                 // For now only retry on 429 handled above. 
                 // If it's the last attempt, allow error to bubble.

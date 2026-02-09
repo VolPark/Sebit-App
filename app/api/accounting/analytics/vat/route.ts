@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
+import { getErrorMessage } from '@/lib/errors';
+// Zod: No user input to validate (uses current month automatically)
 
 export const dynamic = 'force-dynamic';
 
@@ -58,8 +60,8 @@ export async function GET(req: NextRequest) {
             period: { start: startOfMonth, end: endOfMonth }
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error calculating VAT:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
     }
 }

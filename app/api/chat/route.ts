@@ -7,6 +7,7 @@ import { checkRateLimit, getClientIdentifier, rateLimitResponse, RATE_LIMITS } f
 import { verifySession, unauthorizedResponse } from '@/lib/api/auth';
 import { NextRequest } from 'next/server';
 
+import { getErrorMessage } from '@/lib/errors';
 // Allow streaming responses up to 60 seconds for larger context processing
 export const maxDuration = 60;
 
@@ -25,7 +26,21 @@ export async function POST(req: NextRequest) {
     return rateLimitResponse(rateCheck.resetAt);
   }
 
-  const { messages } = await req.json();
+  const body = await req.json();
+  const chatSchema = z.object({
+    messages: z.array(z.object({
+      role: z.enum(['user', 'assistant', 'system']),
+      content: z.string(),
+    }).passthrough()).min(1).max(200),
+  });
+  const parsed = chatSchema.safeParse(body);
+  if (!parsed.success) {
+    return new Response(JSON.stringify({
+      error: 'Validation failed',
+      details: parsed.error.flatten().fieldErrors
+    }), { status: 400 });
+  }
+  const { messages } = parsed.data;
 
   // Use SERVICE_ROLE key to bypass RLS for AI context
   const supabaseInfo = createClient(
@@ -733,16 +748,16 @@ export async function POST(req: NextRequest) {
                   console.error('[(AI Tool] get_detailed_stats FAILED:', error);
                   return {
                     error: "Failed to fetch detailed stats.",
-                    details: error instanceof Error ? error.message : String(error)
+                    details: error instanceof Error ? getErrorMessage(error) : String(error)
                   };
                 }
               }
             })
           }
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Determine if it was our timeout or a real API error
-        if (err.name === 'AbortError' || controller.signal.aborted) {
+        if ((err instanceof Error && err.name === 'AbortError') || controller.signal.aborted) {
           throw new Error(`Connection timed out`);
         }
         throw err;
@@ -756,8 +771,8 @@ export async function POST(req: NextRequest) {
       let firstChunk;
       try {
         firstChunk = await iterator.next();
-      } catch (err: any) {
-        if (err.name === 'AbortError' || controller.signal.aborted) {
+      } catch (err: unknown) {
+        if ((err instanceof Error && err.name === 'AbortError') || controller.signal.aborted) {
           throw new Error(`Connection timed out during stream init`);
         }
         throw err;
@@ -794,12 +809,12 @@ export async function POST(req: NextRequest) {
         }
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Ensure timeout is cleared if error occurs
       if (timeoutId) clearTimeout(timeoutId);
 
       const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? getErrorMessage(error) : String(error);
       const isTimeout = errorMessage.includes("timed out");
 
       // Format log nicely
@@ -811,7 +826,8 @@ export async function POST(req: NextRequest) {
       try {
         const fs = await import('fs');
         const path = await import('path');
-        fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] ${failureLog}\nStack: ${error.stack || 'No stack'}\n\n`);
+        const stack = error instanceof Error ? error.stack : 'No stack';
+        fs.appendFileSync(path.join(process.cwd(), 'chat-error.log'), `[${new Date().toISOString()}] ${failureLog}\nStack: ${stack || 'No stack'}\n\n`);
       } catch (fsError) {
         // ignore logging errors
       }

@@ -5,6 +5,7 @@ import { User } from '@supabase/supabase-js';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
+import { getErrorMessage } from '@/lib/errors';
 type AppRole = 'owner' | 'admin' | 'office' | 'reporter';
 
 interface AuthContextType {
@@ -63,8 +64,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     console.warn('Profile not found, defaulting to reporter');
                     setRole('reporter');
                 }
-            } catch (err: any) {
-                if (err.message === 'Fetch role timeout') {
+            } catch (err: unknown) {
+                if (getErrorMessage(err) === 'Fetch role timeout') {
                     console.warn('Role fetch timed out, defaulting to reporter');
                 } else {
                     console.error('Error fetching role:', err);
