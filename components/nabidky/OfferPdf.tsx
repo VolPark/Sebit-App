@@ -17,6 +17,7 @@ Font.register({
 });
 
 const THEME_COLOR = process.env.NEXT_PUBLIC_PDF_THEME_COLOR || '#E30613'; // Default Horyna Red
+const DEFAULT_INTRO_TEXT = 'Předkládáme Vám orientační cenovou nabídku na výrobu a montáž dle předloženého návrhu. Finální cenová nabídka bude vytvořena po společné schůzce a vyjasnění veškerých detailů, materiálů a provedení.';
 
 const styles = StyleSheet.create({
     page: {
@@ -313,8 +314,7 @@ export default function OfferPdf({ offer, items, imageMap }: OfferPdfProps) {
 
                 {/* Intro */}
                 <Text style={styles.introText}>
-                    Předkládáme Vám orientační cenovou nabídku na výrobu a montáž dle předloženého návrhu.
-                    Finální cenová nabídka bude vytvořena po společné schůzce a vyjasnění veškerých detailů, materiálů a provedení.
+                    {offer.uvodni_text || DEFAULT_INTRO_TEXT}
                 </Text>
 
                 {/* Table Header */}

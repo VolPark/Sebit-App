@@ -26,6 +26,7 @@ export interface Nabidka {
         id: number;
         nazev: string;
     } | null;
+    uvodni_text?: string;
     division_id?: number | null;
     divisions?: {
         id: number;

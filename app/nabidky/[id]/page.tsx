@@ -34,6 +34,7 @@ export default function NabidkaDetailPage() {
     const [action, setAction] = useState<ComboBoxItem | null>(null);
     const [validUntil, setValidUntil] = useState('');
     const [note, setNote] = useState('');
+    const [uvodniText, setUvodniText] = useState('');
     const [statusId, setStatusId] = useState<number | null>(null);
     const [divisionId, setDivisionId] = useState<number | null>(null);
 
@@ -70,6 +71,7 @@ export default function NabidkaDetailPage() {
             setAction(a);
             setValidUntil(data.platnost_do || '');
             setNote(data.poznamka || '');
+            setUvodniText(data.uvodni_text || '');
             setStatusId(data.stav_id || (data.nabidky_stavy?.id || null));
             setDivisionId(data.division_id || null);
 
@@ -121,6 +123,12 @@ export default function NabidkaDetailPage() {
     const handleNoteBlur = () => {
         if (offer && note !== (offer.poznamka || '')) {
             updateField({ poznamka: note });
+        }
+    };
+
+    const handleUvodniTextBlur = () => {
+        if (offer && uvodniText !== (offer.uvodni_text || '')) {
+            updateField({ uvodni_text: uvodniText });
         }
     };
 
@@ -347,6 +355,27 @@ export default function NabidkaDetailPage() {
                         <div className="space-y-4">
                             <OfferItemsList items={items} nabidkaId={id} onRefresh={loadData} />
                             <AddOfferItemForm nabidkaId={id} onAdded={loadData} />
+                        </div>
+                    </div>
+
+                    {/* Intro Text Section (shown in PDF) */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                            Úvodní text nabídky
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Tento text se zobrazí v PDF nabídce pod datem. Pokud necháte prázdné, použije se výchozí text.</p>
+                        <div className="relative group">
+                            <textarea
+                                value={uvodniText}
+                                onChange={e => setUvodniText(e.target.value)}
+                                onBlur={handleUvodniTextBlur}
+                                className="w-full text-sm rounded-xl border-slate-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950/50 p-4 dark:text-gray-300 focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613] min-h-[100px] transition-all resize-y"
+                                placeholder="Předkládáme Vám orientační cenovou nabídku na výrobu a montáž dle předloženého návrhu. Finální cenová nabídka bude vytvořena po společné schůzce a vyjasnění veškerých detailů, materiálů a provedení."
+                            />
+                            <div className="absolute bottom-3 right-3 text-xs text-gray-400 pointer-events-none transition-opacity opacity-50 group-hover:opacity-100">
+                                {saving ? 'Ukládám...' : 'Kliknutím mimo uložíte'}
+                            </div>
                         </div>
                     </div>
 
