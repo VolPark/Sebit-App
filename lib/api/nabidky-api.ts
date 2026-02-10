@@ -185,15 +185,24 @@ export const getOfferItems = async (nabidkaId: number) => {
         .from('polozky_nabidky')
         .select('*')
         .eq('nabidka_id', nabidkaId)
-        .order('id');
+        .order('poradi', { ascending: true });
     return data || [];
 };
 
 export const createOfferItem = async (item: any) => {
+    // Get max poradi for this offer to append new item at end
+    const { data: maxData } = await supabase
+        .from('polozky_nabidky')
+        .select('poradi')
+        .eq('nabidka_id', item.nabidka_id)
+        .order('poradi', { ascending: false })
+        .limit(1);
+    const maxPoradi = maxData?.[0]?.poradi || 0;
+
     log.debug('CreateOfferItem payload:', item);
     const { data, error } = await supabase
         .from('polozky_nabidky')
-        .insert([item])
+        .insert([{ ...item, poradi: maxPoradi + 1 }])
         .select()
         .single();
 
@@ -214,13 +223,23 @@ export const deleteOfferItem = async (id: number, nabidkaId: number) => {
 };
 
 export const updateOfferTotalPrice = async (nabidkaId: number) => {
-    // Calculate new total
-    const { data } = await supabase
+    // Calculate subtotal from all items (including negative discount items)
+    const { data: itemsData } = await supabase
         .from('polozky_nabidky')
         .select('celkem')
         .eq('nabidka_id', nabidkaId);
 
-    const total = data?.reduce((sum, item) => sum + (Number(item.celkem) || 0), 0) || 0;
+    const subtotal = itemsData?.reduce((sum, item) => sum + (Number(item.celkem) || 0), 0) || 0;
+
+    // Fetch global discount percentage
+    const { data: offerData } = await supabase
+        .from('nabidky')
+        .select('sleva_procenta')
+        .eq('id', nabidkaId)
+        .single();
+
+    const slevaProcenta = Number(offerData?.sleva_procenta) || 0;
+    const total = Math.max(0, subtotal * (1 - slevaProcenta / 100));
 
     // Update Offer
     await supabase.from('nabidky').update({ celkova_cena: total }).eq('id', nabidkaId);
@@ -265,4 +284,16 @@ export const updateOfferItem = async (id: number, updates: any) => {
     }
 
     return data;
+};
+
+// --- Reorder Items (Drag & Drop) ---
+
+export const reorderOfferItems = async (items: Array<{ id: number; poradi: number }>) => {
+    const updates = items.map(item =>
+        supabase
+            .from('polozky_nabidky')
+            .update({ poradi: item.poradi })
+            .eq('id', item.id)
+    );
+    await Promise.all(updates);
 };

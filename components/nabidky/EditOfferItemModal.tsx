@@ -15,12 +15,13 @@ interface EditOfferItemModalProps {
 
 export default function EditOfferItemModal({ item, onClose, onSaved }: EditOfferItemModalProps) {
     const [loading, setLoading] = useState(false);
+    const isDiscount = item.je_sleva || item.cena_ks < 0;
 
     const [nazev, setNazev] = useState(item.nazev);
     const [typ, setTyp] = useState<ComboBoxItem | null>({ id: item.typ, name: item.typ });
     const [availableTypes, setAvailableTypes] = useState<ComboBoxItem[]>([]);
     const [mnozstvi, setMnozstvi] = useState(item.mnozstvi);
-    const [cenaKs, setCenaKs] = useState(item.cena_ks.toString());
+    const [cenaKs, setCenaKs] = useState(isDiscount ? Math.abs(item.cena_ks).toString() : item.cena_ks.toString());
     const [popis, setPopis] = useState(item.popis || '');
     const [sazbaDph, setSazbaDph] = useState(item.sazba_dph || 21);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -73,14 +74,15 @@ export default function EditOfferItemModal({ item, onClose, onSaved }: EditOffer
             }
 
 
+            const parsedPrice = parseFloat(cenaKs) || 0;
             await updateOfferItem(item.id, {
                 nazev,
-                typ: typ?.name || 'ostatni',
-                mnozstvi,
-                cena_ks: parseFloat(cenaKs) || 0,
+                typ: isDiscount ? 'sleva' : (typ?.name || 'ostatni'),
+                mnozstvi: isDiscount ? 1 : mnozstvi,
+                cena_ks: isDiscount ? -Math.abs(parsedPrice) : parsedPrice,
                 popis: popis || null,
-                sazba_dph: sazbaDph,
-                obrazek_url: imageUrl
+                sazba_dph: isDiscount ? 0 : sazbaDph,
+                obrazek_url: isDiscount ? null : imageUrl
             });
 
             onSaved();
@@ -96,14 +98,59 @@ export default function EditOfferItemModal({ item, onClose, onSaved }: EditOffer
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
-                <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-slate-800">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Upravit položku</h3>
+                <div className={`flex justify-between items-center p-6 border-b ${isDiscount ? 'border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10' : 'border-gray-100 dark:border-slate-800'}`}>
+                    <h3 className={`text-xl font-bold ${isDiscount ? 'text-red-700 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
+                        {isDiscount ? 'Upravit slevu' : 'Upravit položku'}
+                    </h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {isDiscount ? (
+                        /* Simplified discount form */
+                        <>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Název slevy</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={nazev}
+                                    onChange={e => setNazev(e.target.value)}
+                                    placeholder="např. Sleva za věrnost"
+                                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-300 dark:border-slate-700 rounded-xl px-3 py-2 text-gray-900 dark:text-white focus:ring-red-500 focus:border-red-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Částka slevy (Kč)</label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        required
+                                        value={cenaKs}
+                                        onChange={e => setCenaKs(e.target.value)}
+                                        className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-300 dark:border-slate-700 rounded-xl px-3 py-2 pr-10 text-gray-900 dark:text-white focus:ring-red-500 focus:border-red-500 tabular-nums"
+                                    />
+                                    <span className="absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">Kč</span>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">Zadejte kladnou částku - bude automaticky odečtena od celkové ceny.</p>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Poznámka (volitelné)</label>
+                                <textarea
+                                    value={popis}
+                                    onChange={e => setPopis(e.target.value)}
+                                    rows={2}
+                                    placeholder="Důvod slevy..."
+                                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-300 dark:border-slate-700 rounded-xl px-3 py-2 text-gray-900 dark:text-white focus:ring-red-500 focus:border-red-500"
+                                />
+                            </div>
+                        </>
+                    ) : (
+                        /* Standard item form */
+                        <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Název</label>
@@ -210,6 +257,8 @@ export default function EditOfferItemModal({ item, onClose, onSaved }: EditOffer
                             </button>
                         )}
                     </div>
+                        </>
+                    )}
 
                     <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-slate-800 mt-6">
                         <button
@@ -222,7 +271,7 @@ export default function EditOfferItemModal({ item, onClose, onSaved }: EditOffer
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-6 py-2 bg-[#E30613] hover:bg-[#C00000] text-white font-bold rounded-xl transition-colors shadow-lg shadow-red-500/20"
+                            className={`px-6 py-2 text-white font-bold rounded-xl transition-colors ${isDiscount ? 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20' : 'bg-[#E30613] hover:bg-[#C00000] shadow-lg shadow-red-500/20'}`}
                         >
                             {loading ? 'Ukládám...' : 'Uložit změny'}
                         </button>

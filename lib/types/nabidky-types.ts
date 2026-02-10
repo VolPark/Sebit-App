@@ -16,6 +16,7 @@ export interface Nabidka {
     platnost_do?: string; // New: Validity date
     stav_id?: number | null;
     celkova_cena: number;
+    sleva_procenta?: number;
     created_at: string;
     updated_at: string;
     klienti?: {
@@ -46,4 +47,6 @@ export interface NabidkaPolozka {
     cena_ks: number;
     sazba_dph?: number; // New: VAT Rate (0, 12, 21)
     celkem: number;
+    poradi?: number;
+    je_sleva?: boolean;
 }

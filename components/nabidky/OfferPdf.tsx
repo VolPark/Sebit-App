@@ -248,15 +248,34 @@ interface OfferPdfProps {
 export default function OfferPdf({ offer, items, imageMap }: OfferPdfProps) {
     const currency = new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 });
 
-    const totalWithoutVat = offer.celkova_cena; // Assuming stored price is without VAT? Usually business logic defines this. Let's assume input is without VAT or handle based on sazba_dph.
-    // Actually, items have sazba_dph. 
-    // Let's calculate total VAT and Total w/ VAT.
+    // Separate regular items from discount items
+    const regularItems = items.filter(i => !i.je_sleva && i.cena_ks >= 0);
+    const discountItems = items.filter(i => i.je_sleva || i.cena_ks < 0);
+
+    // Sum of regular items only (positive)
+    const regularTotal = regularItems.reduce((sum, item) => sum + (Number(item.celkem) || 0), 0);
+    // Sum of discount items (negative values)
+    const itemDiscountTotal = discountItems.reduce((sum, item) => sum + (Number(item.celkem) || 0), 0);
+
+    // Subtotal = sum of all items (including negative discount items)
+    const subtotal = regularTotal + itemDiscountTotal;
+
+    // Global discount
+    const slevaProcenta = Number(offer.sleva_procenta) || 0;
+    const globalDiscountAmount = subtotal * (slevaProcenta / 100);
+    const totalWithoutVat = Math.max(0, subtotal - globalDiscountAmount);
+
+    const hasItemDiscounts = discountItems.length > 0;
+
+    // VAT calculated per-item (discount items have sazba_dph=0 so they don't add VAT)
     const totalVat = items.reduce((sum, item) => {
         const itemTotal = Number(item.celkem) || 0;
         const rate = item.sazba_dph || 21;
         return sum + (itemTotal * (rate / 100));
     }, 0);
-    const totalWithVat = totalWithoutVat + totalVat;
+    // If global discount, reduce VAT proportionally
+    const adjustedVat = slevaProcenta > 0 ? totalVat * (1 - slevaProcenta / 100) : totalVat;
+    const totalWithVat = totalWithoutVat + Math.max(0, adjustedVat);
 
 
     return (
@@ -336,7 +355,7 @@ export default function OfferPdf({ offer, items, imageMap }: OfferPdfProps) {
                         <View key={item.id} style={styles.itemContainer} minPresenceAhead={isLast ? 80 : 0}>
                             {/* Top info line */}
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                                <Text style={{ fontSize: 11, fontWeight: 'bold' }}>{item.nazev}</Text>
+                                <Text style={{ fontSize: 11, fontWeight: 'bold', color: item.je_sleva ? '#dc2626' : '#333' }}>{item.je_sleva ? `↓ ${item.nazev}` : item.nazev}</Text>
                                 <View style={{ flexDirection: 'row', width: '50%' }}>
                                     <Text style={{ width: '20%', textAlign: 'center', fontSize: 10 }}>{item.mnozstvi} {item.typ === 'ostatni' ? 'ks' : 'kpl'}</Text>
                                     <Text style={{ width: '40%', textAlign: 'right', fontSize: 10 }}>{currency.format(itemTotal).replace('Kč', '')} Kč</Text>
@@ -368,13 +387,33 @@ export default function OfferPdf({ offer, items, imageMap }: OfferPdfProps) {
 
                 {/* Final Totals */}
                 <View style={styles.finalTotals} wrap={false}>
+                    {(hasItemDiscounts || slevaProcenta > 0) && (
+                        <>
+                            <View style={styles.finalRow}>
+                                <Text style={styles.finalLabel}>Cena za položky:</Text>
+                                <Text style={styles.finalValue}>{currency.format(regularTotal)}</Text>
+                            </View>
+                            {hasItemDiscounts && discountItems.map(di => (
+                                <View key={di.id} style={styles.finalRow}>
+                                    <Text style={[styles.finalLabel, { color: '#dc2626' }]}>{di.nazev}:</Text>
+                                    <Text style={[styles.finalValue, { color: '#dc2626' }]}>{currency.format(Number(di.celkem) || 0)}</Text>
+                                </View>
+                            ))}
+                            {slevaProcenta > 0 && (
+                                <View style={styles.finalRow}>
+                                    <Text style={[styles.finalLabel, { color: '#dc2626' }]}>Sleva {slevaProcenta}%:</Text>
+                                    <Text style={[styles.finalValue, { color: '#dc2626' }]}>-{currency.format(globalDiscountAmount)}</Text>
+                                </View>
+                            )}
+                        </>
+                    )}
                     <View style={styles.finalRow}>
                         <Text style={styles.finalLabel}>Cena celkem bez DPH:</Text>
                         <Text style={styles.finalValue}>{currency.format(totalWithoutVat)}</Text>
                     </View>
                     <View style={styles.finalRow}>
-                        <Text style={styles.finalLabel}>DPH ({items[0]?.sazba_dph || 21}%):</Text>
-                        <Text style={styles.finalValue}>{currency.format(totalVat)}</Text>
+                        <Text style={styles.finalLabel}>DPH:</Text>
+                        <Text style={styles.finalValue}>{currency.format(Math.max(0, adjustedVat))}</Text>
                     </View>
                     <View style={[styles.finalRow, { borderTopWidth: 1, borderTopColor: '#000', paddingTop: 5, marginTop: 5 }]}>
                         <Text style={[styles.finalLabel, { fontSize: 14 }]}>CELKEM S DPH:</Text>

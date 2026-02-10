@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Nabidka } from '@/lib/types/nabidky-types';
-import { getNabidkaById, updateNabidka, getClients, getActions, createClient, createAction, getStatuses, getOfferItems, getDivisionsList } from '@/lib/api/nabidky-api';
+import { getNabidkaById, updateNabidka, getClients, getActions, createClient, createAction, getStatuses, getOfferItems, getDivisionsList, updateOfferTotalPrice, createOfferItem } from '@/lib/api/nabidky-api';
 import { NabidkaPolozka } from '@/lib/types/nabidky-types';
 import Link from 'next/link';
 import CreatableComboBox, { ComboBoxItem } from '@/components/CreatableCombobox';
@@ -35,6 +35,10 @@ export default function NabidkaDetailPage() {
     const [validUntil, setValidUntil] = useState('');
     const [note, setNote] = useState('');
     const [uvodniText, setUvodniText] = useState('');
+    const [slevaProcenta, setSlevaProcenta] = useState(0);
+    const [showDiscountForm, setShowDiscountForm] = useState(false);
+    const [discountName, setDiscountName] = useState('');
+    const [discountAmount, setDiscountAmount] = useState('');
     const [statusId, setStatusId] = useState<number | null>(null);
     const [divisionId, setDivisionId] = useState<number | null>(null);
 
@@ -72,6 +76,7 @@ export default function NabidkaDetailPage() {
             setValidUntil(data.platnost_do || '');
             setNote(data.poznamka || '');
             setUvodniText(data.uvodni_text || '');
+            setSlevaProcenta(Number(data.sleva_procenta) || 0);
             setStatusId(data.stav_id || (data.nabidky_stavy?.id || null));
             setDivisionId(data.division_id || null);
 
@@ -129,6 +134,47 @@ export default function NabidkaDetailPage() {
     const handleUvodniTextBlur = () => {
         if (offer && uvodniText !== (offer.uvodni_text || '')) {
             updateField({ uvodni_text: uvodniText });
+        }
+    };
+
+    const handleSlevaBlur = async () => {
+        if (!offer) return;
+        const val = Math.max(0, Math.min(100, slevaProcenta));
+        setSlevaProcenta(val);
+        if (val !== (Number(offer.sleva_procenta) || 0)) {
+            // Calculate new total locally to avoid full page refresh
+            const subtotal = items.reduce((sum, i) => sum + (Number(i.celkem) || 0), 0);
+            const newTotal = Math.max(0, subtotal * (1 - val / 100));
+            setOffer(prev => prev ? { ...prev, sleva_procenta: val, celkova_cena: newTotal } : null);
+
+            // Persist to DB in background
+            await updateNabidka(offer.id, { sleva_procenta: val });
+            await updateOfferTotalPrice(offer.id);
+        }
+    };
+
+    const handleAddDiscount = async () => {
+        if (!discountName.trim() || !discountAmount) return;
+        setSaving(true);
+        try {
+            await createOfferItem({
+                nabidka_id: id,
+                nazev: discountName.trim(),
+                typ: 'sleva',
+                mnozstvi: 1,
+                cena_ks: -Math.abs(Number(discountAmount)),
+                je_sleva: true,
+                sazba_dph: 0,
+            });
+            setDiscountName('');
+            setDiscountAmount('');
+            setShowDiscountForm(false);
+            await loadData();
+        } catch (e) {
+            console.error(e);
+            alert('Chyba při přidávání slevy');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -353,8 +399,52 @@ export default function NabidkaDetailPage() {
                         </div>
 
                         <div className="space-y-4">
-                            <OfferItemsList items={items} nabidkaId={id} onRefresh={loadData} />
-                            <AddOfferItemForm nabidkaId={id} onAdded={loadData} />
+                            <OfferItemsList items={items} nabidkaId={id} onRefresh={loadData} onItemsReorder={setItems} />
+                            <div className="flex gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <AddOfferItemForm nabidkaId={id} onAdded={loadData} />
+                                </div>
+                                <button
+                                    onClick={() => setShowDiscountForm(v => !v)}
+                                    className="px-6 py-3 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 border border-dashed border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 font-medium rounded-2xl transition-all flex items-center justify-center gap-2"
+                                >
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 7h10v10" strokeLinecap="round" strokeLinejoin="round" /><path d="M7 17L17 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                    Přidat slevu
+                                </button>
+                            </div>
+                            {showDiscountForm && (
+                                <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-4 space-y-3">
+                                    <h4 className="text-sm font-bold text-red-700 dark:text-red-400">Nová slevová položka</h4>
+                                    <div className="flex gap-3">
+                                        <input
+                                            type="text"
+                                            value={discountName}
+                                            onChange={e => setDiscountName(e.target.value)}
+                                            placeholder="Název slevy (např. Sleva za věrnost)"
+                                            className="flex-1 text-sm rounded-lg border-red-200 dark:border-red-800 bg-white dark:bg-slate-900 px-3 py-2 dark:text-gray-300 focus:ring-2 focus:ring-red-300 focus:border-red-400"
+                                        />
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                value={discountAmount}
+                                                onChange={e => setDiscountAmount(e.target.value)}
+                                                placeholder="Částka"
+                                                min="0"
+                                                className="w-36 text-sm rounded-lg border-red-200 dark:border-red-800 bg-white dark:bg-slate-900 px-3 py-2 pr-10 dark:text-gray-300 focus:ring-2 focus:ring-red-300 focus:border-red-400 tabular-nums"
+                                            />
+                                            <span className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-400">Kč</span>
+                                        </div>
+                                        <button
+                                            onClick={handleAddDiscount}
+                                            disabled={!discountName.trim() || !discountAmount || saving}
+                                            className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            Přidat
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-red-500/70">Částka bude odečtena od celkové ceny nabídky. DPH se na slevu neuplatňuje.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -428,11 +518,80 @@ export default function NabidkaDetailPage() {
 
                         {/* Price Summary Card (Integrated in Sidebar) */}
                         <div className="mt-8 pt-8 border-t border-gray-100 dark:border-slate-800">
+                            {/* Global discount */}
+                            <div className="mb-4">
+                                <label className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider block mb-1">Sleva na nabídku</label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.5"
+                                        value={slevaProcenta || ''}
+                                        onChange={e => setSlevaProcenta(parseFloat(e.target.value) || 0)}
+                                        onBlur={handleSlevaBlur}
+                                        placeholder="0"
+                                        className="w-full text-sm rounded-xl border-slate-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950/50 px-3 py-2.5 pr-8 dark:text-gray-300 focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613] tabular-nums"
+                                    />
+                                    <span className="absolute inset-y-0 right-3 flex items-center text-sm text-gray-400 font-medium">%</span>
+                                </div>
+                            </div>
+
+                            {(() => {
+                                const discountItems = items.filter(i => i.je_sleva || i.cena_ks < 0);
+                                const regularTotal = items.filter(i => !i.je_sleva && i.cena_ks >= 0).reduce((sum, i) => sum + (Number(i.celkem) || 0), 0);
+                                const hasDiscounts = discountItems.length > 0 || slevaProcenta > 0;
+                                const subtotal = items.reduce((sum, i) => sum + (Number(i.celkem) || 0), 0);
+                                if (!hasDiscounts) return null;
+                                return (
+                                    <div className="mb-3 text-sm text-gray-500 dark:text-gray-400 space-y-0.5">
+                                        <div className="flex justify-between">
+                                            <span>Položky:</span>
+                                            <span className="tabular-nums">{currency.format(regularTotal)}</span>
+                                        </div>
+                                        {discountItems.map(di => (
+                                            <div key={di.id} className="flex justify-between text-red-500">
+                                                <span className="truncate mr-2">{di.nazev}:</span>
+                                                <span className="tabular-nums shrink-0">{currency.format(Number(di.celkem) || 0)}</span>
+                                            </div>
+                                        ))}
+                                        {slevaProcenta > 0 && (
+                                            <div className="flex justify-between text-red-500">
+                                                <span>Sleva {slevaProcenta}%:</span>
+                                                <span className="tabular-nums">-{currency.format(subtotal * slevaProcenta / 100)}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
                             <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-2">Celková cena nabídky</div>
                             <div className="text-4xl font-black text-[#E30613] tabular-nums tracking-tight">
                                 {currency.format(offer.celkova_cena)}
                             </div>
-                            <div className="text-xs text-gray-400 mt-1">bez DPH (informativní)</div>
+                            <div className="text-xs text-gray-400 mt-1">bez DPH {slevaProcenta > 0 ? '(po slevě)' : '(informativní)'}</div>
+
+                            {(() => {
+                                const totalVat = items.reduce((sum, i) => {
+                                    const celkem = Number(i.celkem) || 0;
+                                    const rate = i.sazba_dph || 21;
+                                    return sum + (celkem * (rate / 100));
+                                }, 0);
+                                const adjustedVat = slevaProcenta > 0 ? totalVat * (1 - slevaProcenta / 100) : totalVat;
+                                const withVat = offer.celkova_cena + Math.max(0, adjustedVat);
+                                return (
+                                    <div className="mt-2 pt-2 border-t border-gray-100 dark:border-slate-800">
+                                        <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+                                            <span>DPH:</span>
+                                            <span className="tabular-nums">{currency.format(Math.max(0, adjustedVat))}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm font-bold text-gray-900 dark:text-white mt-1">
+                                            <span>S DPH:</span>
+                                            <span className="tabular-nums">{currency.format(withVat)}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             <div className="mt-8">
                                 <OfferPdfDownloadButton offer={offer} items={items} />
