@@ -1,21 +1,39 @@
 'use client'
 import { useState, useEffect, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Klient } from '@/lib/types/klient-types'
 
 export default function KlientiPage() {
-  // State for data
-  const [klienti, setKlienti] = useState<any[]>([])
+  const [klienti, setKlienti] = useState<Klient[]>([])
   const [loading, setLoading] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
 
   // State for the main form (creating new clients)
   const [nazev, setNazev] = useState('')
   const [poznamka, setPoznamka] = useState('')
+  const [kontaktniOsoba, setKontaktniOsoba] = useState('')
+  const [telefon, setTelefon] = useState('')
+  const [email, setEmail] = useState('')
+  const [address, setAddress] = useState('')
+  const [web, setWeb] = useState('')
+  const [ico, setIco] = useState('')
+  const [dic, setDic] = useState('')
+  const [showExtended, setShowExtended] = useState(false)
 
   // State for inline editing
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editNazev, setEditNazev] = useState('')
   const [editPoznamka, setEditPoznamka] = useState('')
+  const [editKontaktniOsoba, setEditKontaktniOsoba] = useState('')
+  const [editTelefon, setEditTelefon] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editAddress, setEditAddress] = useState('')
+  const [editWeb, setEditWeb] = useState('')
+  const [editIco, setEditIco] = useState('')
+  const [editDic, setEditDic] = useState('')
+
+  // State for delete confirmation
+  const [deleteId, setDeleteId] = useState<number | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -32,6 +50,19 @@ export default function KlientiPage() {
     setLoading(false)
   }
 
+  function resetForm() {
+    setNazev('')
+    setPoznamka('')
+    setKontaktniOsoba('')
+    setTelefon('')
+    setEmail('')
+    setAddress('')
+    setWeb('')
+    setIco('')
+    setDic('')
+    setShowExtended(false)
+  }
+
   async function pridatKlienta() {
     if (!nazev) return alert('Vyplňte alespoň název klienta.')
     setLoading(true)
@@ -39,13 +70,19 @@ export default function KlientiPage() {
     const { error } = await supabase
       .from('klienti')
       .insert({
-        nazev: nazev,
-        poznamka: poznamka || null
+        nazev,
+        poznamka: poznamka || null,
+        kontaktni_osoba: kontaktniOsoba || null,
+        telefon: telefon || null,
+        email: email || null,
+        address: address || null,
+        web: web || null,
+        ico: ico || null,
+        dic: dic || null,
       })
 
     if (!error) {
-      setNazev('')
-      setPoznamka('')
+      resetForm()
       setStatusMessage('Klient přidán')
       fetchData()
     } else {
@@ -54,10 +91,17 @@ export default function KlientiPage() {
     setLoading(false)
   }
 
-  function startEdit(k: any) {
+  function startEdit(k: Klient) {
     setEditingId(k.id)
     setEditNazev(k.nazev)
     setEditPoznamka(k.poznamka || '')
+    setEditKontaktniOsoba(k.kontaktni_osoba || '')
+    setEditTelefon(k.telefon || '')
+    setEditEmail(k.email || '')
+    setEditAddress(k.address || '')
+    setEditWeb(k.web || '')
+    setEditIco(k.ico || '')
+    setEditDic(k.dic || '')
   }
 
   function cancelEdit() {
@@ -69,7 +113,14 @@ export default function KlientiPage() {
     setLoading(true)
     const { error } = await supabase.from('klienti').update({
       nazev: editNazev,
-      poznamka: editPoznamka || null
+      poznamka: editPoznamka || null,
+      kontaktni_osoba: editKontaktniOsoba || null,
+      telefon: editTelefon || null,
+      email: editEmail || null,
+      address: editAddress || null,
+      web: editWeb || null,
+      ico: editIco || null,
+      dic: editDic || null,
     }).eq('id', editingId)
 
     if (!error) {
@@ -82,10 +133,6 @@ export default function KlientiPage() {
     setLoading(false)
   }
 
-  // State for delete confirmation
-  const [deleteId, setDeleteId] = useState<number | null>(null)
-
-  // Replaced deleteKlient to open modal instead of confirm()
   function openDeleteModal(id: number) {
     setDeleteId(id)
   }
@@ -101,7 +148,6 @@ export default function KlientiPage() {
 
     if (error) {
       console.error('Chyba při mazání klienta', error)
-      // Check for foreign key constraint violation (typical for PostgreSQL)
       if (error.code === '23503') {
         setStatusMessage('Nelze smazat: Klient má přiřazené výkazy nebo akce. Nejdříve promažte související záznamy.')
       } else {
@@ -113,6 +159,20 @@ export default function KlientiPage() {
       closeDeleteModal()
     }
     setLoading(false)
+  }
+
+  const inputClass = "w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
+  const editInputClass = "border dark:border-slate-700 p-2 rounded w-full bg-white dark:bg-slate-950 dark:text-white text-sm"
+
+  /** Helper: zobrazí kontaktní údaje klienta pod názvem */
+  function renderClientMeta(k: Klient) {
+    const parts: string[] = []
+    if (k.ico) parts.push(`IČO: ${k.ico}`)
+    if (k.kontaktni_osoba) parts.push(k.kontaktni_osoba)
+    if (k.telefon) parts.push(k.telefon)
+    if (k.email) parts.push(k.email)
+    if (parts.length === 0) return null
+    return <span className="text-xs text-gray-500 dark:text-gray-400">{parts.join(' · ')}</span>
   }
 
   return (
@@ -129,27 +189,75 @@ export default function KlientiPage() {
 
       {/* Form to add new client */}
       <div className="mb-8">
-        <div className="bg-white/95 dark:bg-slate-900/95 ring-1 ring-slate-200 dark:ring-slate-700 rounded-2xl p-4 md:p-6 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          <div className="md:col-span-1">
-            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Název klienta</label>
-            <input
-              placeholder="Např. Google s.r.o."
-              className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
-              value={nazev}
-              onChange={e => setNazev(e.target.value)}
-            />
+        <div className="bg-white/95 dark:bg-slate-900/95 ring-1 ring-slate-200 dark:ring-slate-700 rounded-2xl p-4 md:p-6 shadow-md">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Název klienta *</label>
+              <input
+                placeholder="Např. Google s.r.o."
+                className={inputClass}
+                value={nazev}
+                onChange={e => setNazev(e.target.value)}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Poznámka</label>
+              <textarea
+                placeholder="Klient vyžaduje reporty..."
+                className={inputClass}
+                value={poznamka}
+                onChange={e => setPoznamka(e.target.value)}
+                rows={1}
+              ></textarea>
+            </div>
           </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Poznámka</label>
-            <textarea
-              placeholder="Klient vyžaduje reporty..."
-              className="w-full rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 transition focus:border-[#E30613] focus:ring-2 focus:ring-[#E30613]/30 dark:text-white"
-              value={poznamka}
-              onChange={e => setPoznamka(e.target.value)}
-              rows={1}
-            ></textarea>
-          </div>
-          <div className="md:col-span-3 flex justify-end">
+
+          {/* Toggle rozšířených údajů */}
+          <button
+            type="button"
+            onClick={() => setShowExtended(!showExtended)}
+            className="mt-4 text-sm text-[#E30613] hover:underline flex items-center gap-1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 transition-transform ${showExtended ? 'rotate-180' : ''}`}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+            {showExtended ? 'Skrýt rozšířené údaje' : 'Zobrazit rozšířené údaje (IČO, DIČ, kontakt, ...)'}
+          </button>
+
+          {showExtended && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Kontaktní osoba</label>
+                <input placeholder="Jan Novák" className={inputClass} value={kontaktniOsoba} onChange={e => setKontaktniOsoba(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Telefon</label>
+                <input placeholder="+420 123 456 789" className={inputClass} value={telefon} onChange={e => setTelefon(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">E-mail</label>
+                <input placeholder="info@firma.cz" className={inputClass} value={email} onChange={e => setEmail(e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Adresa</label>
+                <input placeholder="Ulice 123, 110 00 Praha" className={inputClass} value={address} onChange={e => setAddress(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Web</label>
+                <input placeholder="https://www.firma.cz" className={inputClass} value={web} onChange={e => setWeb(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">IČO</label>
+                <input placeholder="12345678" className={inputClass} value={ico} onChange={e => setIco(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">DIČ</label>
+                <input placeholder="CZ12345678" className={inputClass} value={dic} onChange={e => setDic(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4 flex justify-end">
             <button type="button" onClick={pridatKlienta} className="inline-flex items-center justify-center bg-[#E30613] text-white rounded-full px-8 py-3 text-base shadow-sm hover:bg-[#C00000] transition">
               Uložit nového klienta
             </button>
@@ -166,8 +274,19 @@ export default function KlientiPage() {
           <div key={k.id} className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
             {editingId === k.id ? (
               <div className="space-y-3">
-                <input className="border dark:border-slate-700 p-2 rounded w-full bg-white dark:bg-slate-950 text-lg dark:text-white" value={editNazev} onChange={e => setEditNazev(e.target.value)} placeholder="Název" />
-                <textarea className="border dark:border-slate-700 p-2 rounded w-full bg-white dark:bg-slate-950 dark:text-white" value={editPoznamka} onChange={e => setEditPoznamka(e.target.value)} rows={2} placeholder="Poznámka"></textarea>
+                <input className={editInputClass} value={editNazev} onChange={e => setEditNazev(e.target.value)} placeholder="Název" />
+                <textarea className={editInputClass} value={editPoznamka} onChange={e => setEditPoznamka(e.target.value)} rows={2} placeholder="Poznámka"></textarea>
+                <input className={editInputClass} value={editKontaktniOsoba} onChange={e => setEditKontaktniOsoba(e.target.value)} placeholder="Kontaktní osoba" />
+                <div className="grid grid-cols-2 gap-2">
+                  <input className={editInputClass} value={editTelefon} onChange={e => setEditTelefon(e.target.value)} placeholder="Telefon" />
+                  <input className={editInputClass} value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="E-mail" />
+                </div>
+                <input className={editInputClass} value={editAddress} onChange={e => setEditAddress(e.target.value)} placeholder="Adresa" />
+                <div className="grid grid-cols-3 gap-2">
+                  <input className={editInputClass} value={editWeb} onChange={e => setEditWeb(e.target.value)} placeholder="Web" />
+                  <input className={editInputClass} value={editIco} onChange={e => setEditIco(e.target.value)} placeholder="IČO" />
+                  <input className={editInputClass} value={editDic} onChange={e => setEditDic(e.target.value)} placeholder="DIČ" />
+                </div>
                 <div className="flex gap-2 pt-2">
                   <button onClick={saveEdit} className="flex-1 bg-[#E30613] text-white px-3 py-2 rounded-lg text-sm font-medium">Uložit</button>
                   <button onClick={cancelEdit} className="flex-1 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg text-sm font-medium">Zrušit</button>
@@ -175,11 +294,12 @@ export default function KlientiPage() {
               </div>
             ) : (
               <>
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-start mb-1">
                   <h3 className="font-bold text-lg text-gray-900 dark:text-white">{k.nazev}</h3>
                 </div>
+                {renderClientMeta(k)}
                 {k.poznamka && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-3">{k.poznamka}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-3">{k.poznamka}</p>
                 )}
                 <div className="flex gap-3 mt-4 border-t dark:border-slate-700 pt-3">
                   <button onClick={() => startEdit(k)} className="flex-1 py-2 text-center text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-sm font-medium transition">Upravit</button>
@@ -197,38 +317,62 @@ export default function KlientiPage() {
           <thead className="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-b dark:border-slate-700">
             <tr>
               <th className="p-3">Název</th>
+              <th className="p-3 hidden xl:table-cell">IČO</th>
+              <th className="p-3 hidden lg:table-cell">Kontakt</th>
               <th className="p-3 hidden lg:table-cell">Poznámka</th>
               <th className="p-3 text-right">Akce</th>
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-slate-700">
             {loading && !deleteId && (
-              <tr><td colSpan={3} className="p-4 text-center">Načítám...</td></tr>
+              <tr><td colSpan={5} className="p-4 text-center">Načítám...</td></tr>
             )}
             {!loading && klienti.length === 0 && (
-              <tr><td colSpan={3} className="p-4 text-center text-gray-500 dark:text-gray-400">Žádní klienti nebyli nalezeni.</td></tr>
+              <tr><td colSpan={5} className="p-4 text-center text-gray-500 dark:text-gray-400">Žádní klienti nebyli nalezeni.</td></tr>
             )}
             {klienti.map((k) => (
               <Fragment key={k.id}>
                 {editingId === k.id ? (
-                  /* In-line editing row */
                   <tr className="bg-red-50 dark:bg-red-900/10">
-                    <td className="p-2">
-                      <input className="border dark:border-slate-700 p-2 rounded w-full bg-white dark:bg-slate-950 dark:text-white" value={editNazev} onChange={e => setEditNazev(e.target.value)} />
-                    </td>
-                    <td className="p-2 hidden lg:table-cell">
-                      <textarea className="border dark:border-slate-700 p-2 rounded w-full bg-white dark:bg-slate-950 dark:text-white" value={editPoznamka} onChange={e => setEditPoznamka(e.target.value)} rows={2}></textarea>
-                    </td>
-                    <td className="p-2 text-right">
-                      <button onClick={saveEdit} className="bg-[#E30613] text-white px-3 py-1 rounded-md mr-2 text-sm">Uložit změny</button>
-                      <button onClick={cancelEdit} className="bg-gray-200 dark:bg-slate-700 px-3 py-1 rounded-md text-sm dark:text-white">Zrušit</button>
+                    <td className="p-2" colSpan={5}>
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        <input className={editInputClass} value={editNazev} onChange={e => setEditNazev(e.target.value)} placeholder="Název" />
+                        <input className={editInputClass} value={editKontaktniOsoba} onChange={e => setEditKontaktniOsoba(e.target.value)} placeholder="Kontaktní osoba" />
+                        <input className={editInputClass} value={editTelefon} onChange={e => setEditTelefon(e.target.value)} placeholder="Telefon" />
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 mb-2">
+                        <input className={editInputClass} value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="E-mail" />
+                        <input className={editInputClass} value={editAddress} onChange={e => setEditAddress(e.target.value)} placeholder="Adresa" />
+                        <input className={editInputClass} value={editIco} onChange={e => setEditIco(e.target.value)} placeholder="IČO" />
+                        <input className={editInputClass} value={editDic} onChange={e => setEditDic(e.target.value)} placeholder="DIČ" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        <input className={editInputClass} value={editWeb} onChange={e => setEditWeb(e.target.value)} placeholder="Web" />
+                        <textarea className={editInputClass} value={editPoznamka} onChange={e => setEditPoznamka(e.target.value)} rows={1} placeholder="Poznámka"></textarea>
+                        <div className="flex gap-2 items-center justify-end">
+                          <button onClick={saveEdit} className="bg-[#E30613] text-white px-4 py-2 rounded-md text-sm">Uložit</button>
+                          <button onClick={cancelEdit} className="bg-gray-200 dark:bg-slate-700 px-4 py-2 rounded-md text-sm dark:text-white">Zrušit</button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  /* Standard display row */
                   <tr className="hover:bg-gray-50 dark:hover:bg-slate-800 text-black dark:text-gray-100">
-                    <td className="p-3 font-medium">{k.nazev}</td>
-                    <td className="p-3 text-gray-600 dark:text-gray-400 max-w-sm truncate hidden lg:table-cell" title={k.poznamka}>
+                    <td className="p-3">
+                      <div className="font-medium">{k.nazev}</div>
+                      {k.address && <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{k.address}</div>}
+                    </td>
+                    <td className="p-3 hidden xl:table-cell text-gray-600 dark:text-gray-400 text-sm">
+                      {k.ico || '—'}
+                      {k.dic && <div className="text-xs text-gray-400">{k.dic}</div>}
+                    </td>
+                    <td className="p-3 hidden lg:table-cell text-sm">
+                      {k.kontaktni_osoba && <div className="text-gray-700 dark:text-gray-300">{k.kontaktni_osoba}</div>}
+                      {k.telefon && <div className="text-xs text-gray-500 dark:text-gray-400">{k.telefon}</div>}
+                      {k.email && <div className="text-xs text-gray-500 dark:text-gray-400">{k.email}</div>}
+                      {!k.kontaktni_osoba && !k.telefon && !k.email && <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="p-3 text-gray-600 dark:text-gray-400 max-w-sm truncate hidden lg:table-cell" title={k.poznamka || undefined}>
                       {k.poznamka || '—'}
                     </td>
                     <td className="p-3 text-right">
@@ -282,4 +426,3 @@ export default function KlientiPage() {
     </div>
   )
 }
-// Re-import Fragment for clarity, though it might be available

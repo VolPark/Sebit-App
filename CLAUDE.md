@@ -106,6 +106,7 @@ utils/supabase/           # Supabase client initialization
 |------|---------|
 | `lib/companyConfig.ts` | All environment variables and feature flags |
 | `lib/api/auth.ts` | Session verification helpers |
+| `lib/types/klient-types.ts` | Client interface, display presets for PDF (`ZobrazeniPreset`, `getVisibleFields`) |
 | `lib/dashboard.ts` | Dashboard data aggregation (~2900 lines) |
 | `lib/accounting/service.ts` | Accounting sync engine (~750 lines) |
 | `middleware.ts` | Auth middleware for all routes |
@@ -234,10 +235,10 @@ Key tables (Czech naming):
 
 | Table | Purpose |
 |-------|---------|
-| `klienti` | Clients/customers |
+| `klienti` | Clients/customers (`kontaktni_osoba`, `telefon`, `web`) |
 | `pracovnici` | Employees |
 | `akce` | Projects/jobs |
-| `nabidky` | Price offers (`sleva_procenta`, `uvodni_text`) |
+| `nabidky` | Price offers (`sleva_procenta`, `uvodni_text`, `zobrazeni_klienta`, `zobrazeni_klienta_pole`) |
 | `polozky_nabidky` | Offer line items (`poradi`, `je_sleva`, `celkem` = generated) |
 | `nabidky_stavy` | Offer statuses (with color) |
 | `polozky_typy` | Offer item types (dynamic) |
@@ -276,6 +277,7 @@ Full schema: `db/schema.sql`
 
 - API: `lib/api/nabidky-api.ts`
 - Types: `lib/types/nabidky-types.ts` (`CreateOfferItemPayload`, `UpdateOfferItemPayload`, etc.)
+- Client types: `lib/types/klient-types.ts` (`Klient`, `ZobrazeniPreset`, `KlientField`, `getVisibleFields`)
 - Components: `components/nabidky/`
 - PDF generation: `components/nabidky/OfferPdf.tsx`
 - Detail page: `app/nabidky/[id]/page.tsx`
@@ -284,6 +286,7 @@ Key features:
 - **Drag & drop reordering** via `@dnd-kit` (`poradi` column, `reorderOfferItems()`)
 - **Discount system**: Global % discount (`sleva_procenta`) + discount items (`je_sleva`, negative `cena_ks`)
 - **Custom intro text**: Editable PDF intro (`uvodni_text` column)
+- **Client display presets**: Configurable client info in PDF via `zobrazeni_klienta` column (presets: `zakladni`, `b2b`, `plny`, `vlastni`) and `zobrazeni_klienta_pole` (JSONB array for custom field selection)
 - **Important**: `celkem` in `polozky_nabidky` is a **GENERATED column** (`mnozstvi * cena_ks`) — never pass it in insert/update
 
 ## Important Constraints
@@ -360,4 +363,4 @@ Run with: `npx tsx scripts/your-script.ts`
 
 ---
 
-*Last updated: 2026-02-04*
+*Last updated: 2026-02-11*

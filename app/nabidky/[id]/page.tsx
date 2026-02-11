@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Nabidka, NabidkaPolozka, NabidkaStav, AkceRow, DivisionRow } from '@/lib/types/nabidky-types';
 import { getNabidkaById, updateNabidka, getClients, getActions, createClient, createAction, getStatuses, getOfferItems, getDivisionsList, updateOfferTotalPrice, createOfferItem } from '@/lib/api/nabidky-api';
+import { KlientField, ZobrazeniPreset, PRESET_LABELS, ZOBRAZENI_PRESETS, KLIENT_FIELD_LABELS, getVisibleFields } from '@/lib/types/klient-types';
 import Link from 'next/link';
 import CreatableComboBox, { ComboBoxItem } from '@/components/CreatableCombobox';
 import OfferItemsList from '@/components/nabidky/OfferItemsList';
@@ -40,6 +41,10 @@ export default function NabidkaDetailPage() {
     const [discountAmount, setDiscountAmount] = useState('');
     const [statusId, setStatusId] = useState<number | null>(null);
     const [divisionId, setDivisionId] = useState<number | null>(null);
+
+    // Client display preset for PDF
+    const [zobrazeniPreset, setZobrazeniPreset] = useState<ZobrazeniPreset>('zakladni');
+    const [zobrazeniPole, setZobrazeniPole] = useState<KlientField[]>(['nazev']);
 
     // Options
     const [clients, setClients] = useState<ComboBoxItem[]>([]);
@@ -78,6 +83,11 @@ export default function NabidkaDetailPage() {
             setSlevaProcenta(Number(data.sleva_procenta) || 0);
             setStatusId(data.stav_id || (data.nabidky_stavy?.id || null));
             setDivisionId(data.division_id || null);
+
+            // Client display preset
+            const preset = (data.zobrazeni_klienta as ZobrazeniPreset) || 'zakladni';
+            setZobrazeniPreset(preset);
+            setZobrazeniPole(getVisibleFields(preset, data.zobrazeni_klienta_pole as KlientField[] | null));
 
             // Load items
             const itemsData = await getOfferItems(id);
@@ -326,6 +336,62 @@ export default function NabidkaDetailPage() {
                                 <CreatableComboBox
                                     items={clients} selected={client} setSelected={handleClientChange} onCreate={handleCreateClient} placeholder="Vybrat klienta..."
                                 />
+                            </div>
+
+                            {/* Client Display Preset */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs text-gray-500 font-bold uppercase tracking-wider ml-1">Údaje klienta v PDF</label>
+                                <div className="relative">
+                                    <select
+                                        value={zobrazeniPreset}
+                                        onChange={(e) => {
+                                            const val = e.target.value as ZobrazeniPreset;
+                                            setZobrazeniPreset(val);
+                                            const fields = getVisibleFields(val, zobrazeniPole);
+                                            setZobrazeniPole(fields);
+                                            // Save preset to DB (don't include zobrazeni_klienta_pole for non-custom presets)
+                                            const payload: Record<string, unknown> = { zobrazeni_klienta: val };
+                                            if (val === 'vlastni') {
+                                                payload.zobrazeni_klienta_pole = zobrazeniPole;
+                                            }
+                                            updateField(payload as Partial<Nabidka>);
+                                        }}
+                                        className="w-full appearance-none text-sm rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-3 pl-4 pr-10 dark:text-white focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613] focus:outline-none transition-all cursor-pointer hover:border-gray-300 dark:hover:border-slate-600 shadow-sm"
+                                    >
+                                        {(Object.keys(PRESET_LABELS) as ZobrazeniPreset[]).map(key => (
+                                            <option key={key} value={key}>{PRESET_LABELS[key]}</option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
+                                        <svg className="w-5 h-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fillRule="evenodd" d="M10 3a.75.75 0 01.53.22l3.5 3.5a.75.75 0 01-1.06 1.06L10 4.81 7.03 7.78a.75.75 0 01-1.06-1.06l3.5-3.5A.75.75 0 0110 3zm-5.03 8.22a.75.75 0 011.06 0L10 15.19l2.97-2.97a.75.75 0 111.06 1.06l-3.5 3.5a.75.75 0 01-1.06 0l-3.5-3.5a.75.75 0 010-1.06z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                {zobrazeniPreset === 'vlastni' && (
+                                    <div className="flex flex-wrap gap-2 mt-1">
+                                        {(Object.keys(KLIENT_FIELD_LABELS) as KlientField[]).map(field => (
+                                            <label key={field} className="inline-flex items-center gap-1.5 text-xs cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={zobrazeniPole.includes(field)}
+                                                    onChange={(e) => {
+                                                        const newFields = e.target.checked
+                                                            ? [...zobrazeniPole, field]
+                                                            : zobrazeniPole.filter(f => f !== field);
+                                                        setZobrazeniPole(newFields);
+                                                        updateField({
+                                                            zobrazeni_klienta: 'vlastni',
+                                                            zobrazeni_klienta_pole: newFields,
+                                                        } as Partial<Nabidka>);
+                                                    }}
+                                                    className="rounded border-gray-300 text-[#E30613] focus:ring-[#E30613]"
+                                                />
+                                                <span className="text-gray-600 dark:text-gray-400">{KLIENT_FIELD_LABELS[field]}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Division */}
@@ -593,7 +659,7 @@ export default function NabidkaDetailPage() {
                             })()}
 
                             <div className="mt-8">
-                                <OfferPdfDownloadButton offer={offer} items={items} />
+                                <OfferPdfDownloadButton offer={offer} items={items} visibleClientFields={zobrazeniPole} />
                                 <p className="text-center text-xs text-gray-400 mt-3">
                                     Generování PDF může chvíli trvat.
                                 </p>

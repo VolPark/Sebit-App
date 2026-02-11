@@ -17,7 +17,14 @@ export const getNabidky = async (divisionId?: number | null): Promise<Nabidka[]>
         ),
         klienti (
           id,
-          nazev
+          nazev,
+          kontaktni_osoba,
+          telefon,
+          email,
+          address,
+          web,
+          ico,
+          dic
         ),
         akce (
           id,
@@ -98,7 +105,14 @@ export const getNabidkaById = async (id: number): Promise<Nabidka | null> => {
       ),
       klienti (
         id,
-        nazev
+        nazev,
+        kontaktni_osoba,
+        telefon,
+        email,
+        address,
+        web,
+        ico,
+        dic
       ),
       akce (
         id,
@@ -124,12 +138,12 @@ export const getNabidkaById = async (id: number): Promise<Nabidka | null> => {
 // --- Clients & Actions Helper for Offers ---
 
 export const getClients = async () => {
-    const { data } = await supabase.from('klienti').select('id, nazev').order('nazev');
+    const { data } = await supabase.from('klienti').select('id, nazev, kontaktni_osoba, telefon, email, address, web, ico, dic').order('nazev');
     return data || [];
 };
 
 export const createClient = async (name: string) => {
-    const { data, error } = await supabase.from('klienti').insert([{ nazev: name }]).select('id, nazev').single();
+    const { data, error } = await supabase.from('klienti').insert([{ nazev: name }]).select('id, nazev, kontaktni_osoba, telefon, email, address, web, ico, dic').single();
     if (error) throw error;
     return data;
 };

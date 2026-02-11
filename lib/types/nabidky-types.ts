@@ -22,6 +22,13 @@ export interface Nabidka {
     klienti?: {
         id: number;
         nazev: string;
+        kontaktni_osoba?: string | null;
+        telefon?: string | null;
+        email?: string | null;
+        address?: string | null;
+        web?: string | null;
+        ico?: string | null;
+        dic?: string | null;
     } | null;
     akce?: {
         id: number;
@@ -34,6 +41,8 @@ export interface Nabidka {
         nazev: string;
     } | null;
     nabidky_stavy?: NabidkaStav | null;
+    zobrazeni_klienta?: string | null;
+    zobrazeni_klienta_pole?: string[] | null;
 }
 
 export interface NabidkaPolozka {

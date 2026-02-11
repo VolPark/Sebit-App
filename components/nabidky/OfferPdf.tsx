@@ -5,6 +5,7 @@ import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Font, Image } from '@react-pdf/renderer';
 import { Nabidka, NabidkaPolozka } from '@/lib/types/nabidky-types';
 import { CompanyConfig } from '@/lib/companyConfig';
+import { KlientField } from '@/lib/types/klient-types';
 
 // Register Roboto font for Czech characters
 Font.register({
@@ -243,10 +244,21 @@ interface OfferPdfProps {
     offer: Nabidka;
     items: NabidkaPolozka[];
     imageMap?: Record<string, string>;
+    visibleClientFields?: KlientField[];
 }
 
-export default function OfferPdf({ offer, items, imageMap }: OfferPdfProps) {
+export default function OfferPdf({ offer, items, imageMap, visibleClientFields = ['nazev'] }: OfferPdfProps) {
     const currency = new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 });
+
+    // Safe array reference for field checks (guard against undefined/null)
+    const fields: KlientField[] = Array.isArray(visibleClientFields) ? visibleClientFields : ['nazev'];
+
+    // Pre-compute IČO/DIČ line to avoid rendering empty <Text> elements
+    const icoDicParts = [
+        fields.includes('ico') && offer.klienti?.ico ? `IČO: ${offer.klienti.ico}` : null,
+        fields.includes('dic') && offer.klienti?.dic ? `DIČ: ${offer.klienti.dic}` : null,
+    ].filter(Boolean);
+    const icoDicLine = icoDicParts.length > 0 ? icoDicParts.join(', ') : null;
 
     // Separate regular items from discount items
     const regularItems = items.filter(i => !i.je_sleva && i.cena_ks >= 0);
@@ -305,11 +317,29 @@ export default function OfferPdf({ offer, items, imageMap }: OfferPdfProps) {
                     </View>
                     <View style={styles.customerRight}>
                         <Text style={styles.customerLabel}>Zákazník</Text>
-                        <Text style={styles.customerName}>{offer.klienti?.nazev}</Text>
-                        {/* If we had full address, we would print it here */}
-                        <Text style={[styles.customerAddress, { marginTop: 4 }]}>
-                            {/* Placeholder for ICO/DIC if added later */}
-                        </Text>
+                        {fields.includes('nazev') && offer.klienti?.nazev ? (
+                            <Text style={styles.customerName}>{offer.klienti.nazev}</Text>
+                        ) : null}
+                        {fields.includes('kontaktni_osoba') && offer.klienti?.kontaktni_osoba ? (
+                            <Text style={styles.customerAddress}>{offer.klienti.kontaktni_osoba}</Text>
+                        ) : null}
+                        {fields.includes('address') && offer.klienti?.address ? (
+                            <Text style={styles.customerAddress}>{offer.klienti.address}</Text>
+                        ) : null}
+                        {icoDicLine ? (
+                            <Text style={[styles.customerAddress, { marginTop: 4 }]}>
+                                {icoDicLine}
+                            </Text>
+                        ) : null}
+                        {fields.includes('telefon') && offer.klienti?.telefon ? (
+                            <Text style={styles.customerAddress}>Tel: {offer.klienti.telefon}</Text>
+                        ) : null}
+                        {fields.includes('email') && offer.klienti?.email ? (
+                            <Text style={styles.customerAddress}>{offer.klienti.email}</Text>
+                        ) : null}
+                        {fields.includes('web') && offer.klienti?.web ? (
+                            <Text style={styles.customerAddress}>{offer.klienti.web}</Text>
+                        ) : null}
                     </View>
                 </View>
 

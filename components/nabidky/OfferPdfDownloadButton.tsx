@@ -5,10 +5,12 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import OfferPdf from '@/components/nabidky/OfferPdf';
 import { Nabidka, NabidkaPolozka } from '@/lib/types/nabidky-types';
 import { CompanyConfig } from '@/lib/companyConfig';
+import { KlientField } from '@/lib/types/klient-types';
 
 interface OfferPdfDownloadButtonProps {
     offer: Nabidka;
     items: NabidkaPolozka[];
+    visibleClientFields?: KlientField[];
 }
 
 const sanitizeFilename = (name: string) => {
@@ -49,7 +51,7 @@ async function prefetchImages(items: NabidkaPolozka[]): Promise<Record<string, s
     return imageMap;
 }
 
-export default function OfferPdfDownloadButton({ offer, items }: OfferPdfDownloadButtonProps) {
+export default function OfferPdfDownloadButton({ offer, items, visibleClientFields }: OfferPdfDownloadButtonProps) {
     const [imageMap, setImageMap] = useState<Record<string, string> | null>(null);
 
     useEffect(() => {
@@ -73,9 +75,14 @@ export default function OfferPdfDownloadButton({ offer, items }: OfferPdfDownloa
         );
     }
 
+    // Force remount when fields change to avoid react-pdf reconciler crash
+    // Create a copy before sorting to avoid mutating props/constants
+    const remountKey = visibleClientFields ? [...visibleClientFields].sort().join(',') : 'default';
+
     return (
         <PDFDownloadLink
-            document={<OfferPdf offer={offer} items={items} imageMap={imageMap} />}
+            key={remountKey}
+            document={<OfferPdf offer={offer} items={items} imageMap={imageMap} visibleClientFields={visibleClientFields} />}
             fileName={fileName}
             className="inline-flex items-center gap-2 bg-brand-primary hover:brightness-110 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
         >

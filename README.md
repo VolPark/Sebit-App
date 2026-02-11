@@ -249,11 +249,13 @@ public/                       # Static assets & images
 - **Drag & Drop Reordering**: Reorder offer items via drag & drop (`@dnd-kit`), reflected in exported PDF.
 - **Discount System**: Global percentage discount (`sleva_procenta`) on entire offer + individual discount items (`je_sleva`) with custom text.
 - **Custom Intro Text**: Editable introductory text (`uvodni_text`) displayed in PDF output.
+- **Client Display Presets**: Choose which client details appear in PDF -- basic (name only), B2B (ICO, DIC, address, contact), full (all fields), or custom selection.
 - **PDF Generation**: Professional PDF offers including images, discounts, and VAT summary.
 - **Validity Tracking**: Set and track offer validity dates (default 30 days).
 
 ### Client Management (Klienti)
-- **Centralized Database**: Store and manage all client contact details and billing information (ICO, DIC, address).
+- **Centralized Database**: Store and manage all client contact details and billing information (ICO, DIC, address, contact person, phone, web).
+- **Extended Client Fields**: Collapsible section for detailed client data (kontaktni_osoba, telefon, web, ICO, DIC).
 - **Project Tracking**: Link specific projects and actions to individual clients.
 
 ### Workforce Management (Pracovnici & Mzdy)
@@ -500,6 +502,9 @@ erDiagram
     text ico
     text dic
     text address
+    text kontaktni_osoba
+    text telefon
+    text web
   }
 
   AKCE {
@@ -540,6 +545,8 @@ erDiagram
     int8 division_id FK
     numeric sleva_procenta
     text uvodni_text
+    text zobrazeni_klienta
+    jsonb zobrazeni_klienta_pole
   }
 
   POLOZKY_NABIDKY {
@@ -835,9 +842,9 @@ erDiagram
 ### Core Tables
 
 - **`akce`**: Projects/Events linked to clients and divisions.
-- **`nabidky`**: Price offers with status, validity, total price, global discount (`sleva_procenta`), and custom intro text (`uvodni_text`).
+- **`nabidky`**: Price offers with status, validity, total price, global discount (`sleva_procenta`), custom intro text (`uvodni_text`), and client display preset (`zobrazeni_klienta`, `zobrazeni_klienta_pole`).
 - **`polozky_nabidky`**: Individual items within an offer (with `poradi` for ordering, `je_sleva` for discount items, `celkem` as generated column).
-- **`klienti`**: Customer database with billing info (ICO, DIC, address).
+- **`klienti`**: Customer database with billing info (ICO, DIC, address) and extended contact fields (kontaktni_osoba, telefon, web).
 - **`pracovnici`**: Employee database with roles and hourly rates.
 - **`prace`**: Work logs linked to employees, clients, and projects.
 - **`mzdy`**: Monthly salary records/calculations.
