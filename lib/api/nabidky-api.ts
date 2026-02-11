@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { Nabidka } from '@/lib/types/nabidky-types';
+import { Nabidka, CreateOfferItemPayload, UpdateOfferItemPayload, CreateActionPayload } from '@/lib/types/nabidky-types';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger({ module: 'Nabidky' });
@@ -139,9 +139,8 @@ export const getActions = async () => {
     return data || [];
 };
 
-export const createAction = async (action: any) => {
-    // action: { nazev, klient_id, cena_klient, ... }
-    const payload: any = {
+export const createAction = async (action: CreateActionPayload) => {
+    const payload: Record<string, unknown> = {
         nazev: action.nazev,
         is_completed: false,
         datum: new Date().toISOString(),
@@ -189,7 +188,7 @@ export const getOfferItems = async (nabidkaId: number) => {
     return data || [];
 };
 
-export const createOfferItem = async (item: any) => {
+export const createOfferItem = async (item: CreateOfferItemPayload) => {
     // Get max poradi for this offer to append new item at end
     const { data: maxData } = await supabase
         .from('polozky_nabidky')
@@ -242,7 +241,11 @@ export const updateOfferTotalPrice = async (nabidkaId: number) => {
     const total = Math.max(0, subtotal * (1 - slevaProcenta / 100));
 
     // Update Offer
-    await supabase.from('nabidky').update({ celkova_cena: total }).eq('id', nabidkaId);
+    const { error: updateError } = await supabase.from('nabidky').update({ celkova_cena: total }).eq('id', nabidkaId);
+    if (updateError) {
+        log.error('Error updating offer total price:', updateError);
+        throw updateError;
+    }
 };
 
 export const uploadOfferImage = async (file: File): Promise<string | null> => {
@@ -266,7 +269,7 @@ export const uploadOfferImage = async (file: File): Promise<string | null> => {
     return data.publicUrl;
 };
 
-export const updateOfferItem = async (id: number, updates: any) => {
+export const updateOfferItem = async (id: number, updates: UpdateOfferItemPayload) => {
     const { data, error } = await supabase
         .from('polozky_nabidky')
         .update(updates)

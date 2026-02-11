@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Nabidka } from '@/lib/types/nabidky-types';
+import { Nabidka, NabidkaPolozka, NabidkaStav, AkceRow, DivisionRow } from '@/lib/types/nabidky-types';
 import { getNabidkaById, updateNabidka, getClients, getActions, createClient, createAction, getStatuses, getOfferItems, getDivisionsList, updateOfferTotalPrice, createOfferItem } from '@/lib/api/nabidky-api';
-import { NabidkaPolozka } from '@/lib/types/nabidky-types';
 import Link from 'next/link';
 import CreatableComboBox, { ComboBoxItem } from '@/components/CreatableCombobox';
 import OfferItemsList from '@/components/nabidky/OfferItemsList';
@@ -44,10 +43,10 @@ export default function NabidkaDetailPage() {
 
     // Options
     const [clients, setClients] = useState<ComboBoxItem[]>([]);
-    const [allActions, setAllActions] = useState<any[]>([]);
-    const [divisions, setDivisions] = useState<any[]>([]);
+    const [allActions, setAllActions] = useState<AkceRow[]>([]);
+    const [divisions, setDivisions] = useState<DivisionRow[]>([]);
 
-    const [statuses, setStatuses] = useState<any[]>([]);
+    const [statuses, setStatuses] = useState<NabidkaStav[]>([]);
 
     useEffect(() => {
         if (!id) return;

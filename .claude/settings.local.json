@@ -32,7 +32,8 @@
       "Bash(tee:*)",
       "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && grep -E \"\"\\(import.*getErrorMessage|catch.*: unknown\\)\"\" {} | head -3')",
       "Bash(cut:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(npx jest --passWithNoTests)"
     ]
   }
 }
