@@ -150,9 +150,12 @@ Systém používá systém rolí pro řízení přístupu k jednotlivým modulů
 - **Interactive Charts**: Dynamic data visualization for monthly performance.
 
 ### 💰 Offers (Nabídky)
-- **Create & Manage**: Create price offers for clients.
+- **Create & Manage**: Create price offers for clients with division support.
 - **Itemized Lists**: Add items, services, and custom descriptions using a "shopping cart" style interface.
-- **PDF Generation**: Automatically generate professional PDF offers including images.
+- **Drag & Drop Reordering**: Reorder offer items via drag & drop, reflected in exported PDF.
+- **Discount System**: Global percentage discount on entire offer + individual discount items with custom text.
+- **Custom Intro Text**: Editable introductory text displayed in PDF output.
+- **PDF Generation**: Automatically generate professional PDF offers including images, discounts, and VAT summary.
 - **Validity Tracking**: Set and track offer validity dates (default 30 days).
 
 ### 👥 Client Management (Klienti)
@@ -566,8 +569,8 @@ erDiagram
 ### Core Tables
 
 - **`akce`**: Projects/Events linked to clients.
-- **`nabidky`**: Price offers with status, validity, and total price.
-- **`polozky_nabidky`**: Individual items within an offer.
+- **`nabidky`**: Price offers with status, validity, total price, global discount (`sleva_procenta`), and custom intro text (`uvodni_text`).
+- **`polozky_nabidky`**: Individual items within an offer (with `poradi` for ordering, `je_sleva` for discount items, `celkem` as generated column).
 - **`klienti`**: Customer database.
 - **`pracovnici`**: Employee database.
 - **`prace`**: Work logs linked to employees and projects.

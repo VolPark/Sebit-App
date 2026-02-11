@@ -2515,7 +2515,9 @@ CREATE TABLE public.nabidky (
     stav_id bigint,
     cislo text,
     platnost_do date,
-    division_id bigint
+    division_id bigint,
+    sleva_procenta numeric DEFAULT 0,
+    uvodni_text text
 );
 
 
@@ -2607,7 +2609,9 @@ CREATE TABLE public.polozky_nabidky (
     celkem numeric GENERATED ALWAYS AS ((COALESCE(mnozstvi, (0)::numeric) * COALESCE(cena_ks, (0)::numeric))) STORED,
     popis text,
     obrazek_url text,
-    sazba_dph numeric DEFAULT 21
+    sazba_dph numeric DEFAULT 21,
+    poradi integer DEFAULT 0,
+    je_sleva boolean DEFAULT false
 );
 
 

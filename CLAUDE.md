@@ -29,6 +29,7 @@ This document provides essential context for AI assistants working with this cod
 | Database | Supabase (PostgreSQL) | Latest |
 | Auth | Supabase Auth (JWT) | - |
 | PDF | @react-pdf/renderer | 4.x |
+| Drag & Drop | @dnd-kit/core + sortable | 6.x / 10.x |
 | AI | Vercel AI SDK + Google Generative AI | Latest |
 
 ## Quick Commands
@@ -236,8 +237,10 @@ Key tables (Czech naming):
 | `klienti` | Clients/customers |
 | `pracovnici` | Employees |
 | `akce` | Projects/jobs |
-| `nabidky` | Price offers |
-| `polozky_nabidky` | Offer line items |
+| `nabidky` | Price offers (`sleva_procenta`, `uvodni_text`) |
+| `polozky_nabidky` | Offer line items (`poradi`, `je_sleva`, `celkem` = generated) |
+| `nabidky_stavy` | Offer statuses (with color) |
+| `polozky_typy` | Offer item types (dynamic) |
 | `prace` | Work logs |
 | `mzdy` | Payroll records |
 | `finance` | Income/expense transactions |
@@ -272,8 +275,16 @@ Full schema: `db/schema.sql`
 ### Working with Offers (Nabidky)
 
 - API: `lib/api/nabidky-api.ts`
+- Types: `lib/types/nabidky-types.ts` (`CreateOfferItemPayload`, `UpdateOfferItemPayload`, etc.)
 - Components: `components/nabidky/`
-- PDF generation: `components/nabidky/NabidkaPDF.tsx`
+- PDF generation: `components/nabidky/OfferPdf.tsx`
+- Detail page: `app/nabidky/[id]/page.tsx`
+
+Key features:
+- **Drag & drop reordering** via `@dnd-kit` (`poradi` column, `reorderOfferItems()`)
+- **Discount system**: Global % discount (`sleva_procenta`) + discount items (`je_sleva`, negative `cena_ks`)
+- **Custom intro text**: Editable PDF intro (`uvodni_text` column)
+- **Important**: `celkem` in `polozky_nabidky` is a **GENERATED column** (`mnozstvi * cena_ks`) — never pass it in insert/update
 
 ## Important Constraints
 
