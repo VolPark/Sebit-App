@@ -24,12 +24,16 @@ Proveď bezpečný refactoring v SEBIT-app.
    - `npx tsc --noEmit` — typy OK
    - Zkontroluj že se nezměnilo chování
 
+5. **Validace**: Spusť agenta `validation-agent` — ověří že refactoring nezlomil testy a doplní chybějící validace
+6. **Dokumentace**: Spusť agenta `docs-agent` — aktualizuje dokumentaci pokud se změnila struktura souborů nebo API
+
 ## Pravidla
 - NIKDY neměň DB schema při refactoringu
 - NIKDY neměň API kontrakty (request/response formát)
 - Zachovej zpětnou kompatibilitu
 - Pokud soubor > 500 řádků, zvažuj rozdělení
 - Extrahuj opakující se logiku do lib/services/
+- **Po dokončení refactoringu VŽDY spusť validation-agent a docs-agent**
 
 ## Co refaktorovat
 $ARGUMENTS
