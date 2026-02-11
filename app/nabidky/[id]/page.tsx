@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Nabidka, NabidkaPolozka, NabidkaStav, AkceRow, DivisionRow } from '@/lib/types/nabidky-types';
 import { getNabidkaById, updateNabidka, getClients, getActions, createClient, createAction, getStatuses, getOfferItems, getDivisionsList, updateOfferTotalPrice, createOfferItem } from '@/lib/api/nabidky-api';
@@ -53,12 +53,9 @@ export default function NabidkaDetailPage() {
 
     const [statuses, setStatuses] = useState<NabidkaStav[]>([]);
 
-    useEffect(() => {
-        if (!id) return;
-        loadData();
-    }, [id]);
 
-    const loadData = async () => {
+
+    const loadData = useCallback(async () => {
         setLoading(true);
         try {
             const data = await getNabidkaById(id);
@@ -104,7 +101,12 @@ export default function NabidkaDetailPage() {
             console.error(e);
         }
         setLoading(false);
-    };
+    }, [id]);
+
+    useEffect(() => {
+        if (!id) return;
+        loadData();
+    }, [id, loadData]);
 
     const updateField = async (payload: Partial<Nabidka>) => {
         if (!offer) return;

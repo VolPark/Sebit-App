@@ -235,7 +235,7 @@ Key tables (Czech naming):
 
 | Table | Purpose |
 |-------|---------|
-| `klienti` | Clients/customers (`kontaktni_osoba`, `telefon`, `web`) |
+| `klienti` | Clients/customers (`kontaktni_osoba`, `telefon`, `web`, `ico`, `dic`, `address`, `email`) |
 | `pracovnici` | Employees |
 | `akce` | Projects/jobs |
 | `nabidky` | Price offers (`sleva_procenta`, `uvodni_text`, `zobrazeni_klienta`, `zobrazeni_klienta_pole`) |

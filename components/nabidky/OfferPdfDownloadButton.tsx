@@ -55,14 +55,33 @@ export default function OfferPdfDownloadButton({ offer, items, visibleClientFiel
     const [imageMap, setImageMap] = useState<Record<string, string> | null>(null);
 
     useEffect(() => {
-        const hasImages = items.some(item => item.obrazek_url);
-        if (!hasImages) {
-            setImageMap({});
-            return;
-        }
+        let mounted = true;
 
-        setImageMap(null);
-        prefetchImages(items).then(setImageMap);
+        const load = async () => {
+            // Defer execution to next tick to avoid synchronous setState warning
+            await Promise.resolve();
+            if (!mounted) return;
+
+            const hasImages = items.some(item => item.obrazek_url);
+
+            if (!hasImages) {
+                setImageMap({});
+                return;
+            }
+
+            setImageMap(null);
+
+            try {
+                const map = await prefetchImages(items);
+                if (mounted) setImageMap(map);
+            } catch (e) {
+                if (mounted) setImageMap({});
+            }
+        };
+
+        load();
+
+        return () => { mounted = false; };
     }, [items]);
 
     const fileName = `${CompanyConfig.shortName} - ${sanitizeFilename(offer.nazev)} (${sanitizeFilename(offer.cislo || offer.id.toString())}).pdf`;
