@@ -4,7 +4,7 @@ This document provides essential context for AI assistants working with this cod
 
 ## Project Overview
 
-**Sebit-App** is a white-label internal management system for Czech service companies (Interiéry Horyna and SEBIT Solutions). It handles:
+**Sebit-App** is a white-label internal management system for Czech service companies (Interiery Horyna and SEBIT Solutions). It handles:
 
 - Client and project management
 - Price offers/quotes with PDF generation
@@ -324,11 +324,20 @@ See `ARCHITECTURE.md` for details.
 6. **Don't add RLS policies** - App uses service role key intentionally
 7. **Don't create unnecessary abstractions** - Keep it simple
 
+## Post-Change Agents (MANDATORY)
+
+After every code change, run these two agents **in parallel** before considering the task complete:
+
+1. **validation-agent** — Ensures test coverage, Zod schemas, security patterns, and coding standards. Adds or updates tests for any modified/new code.
+2. **docs-agent** — Updates CLAUDE.md, README.md, ARCHITECTURE.md, and all project documentation to reflect the changes.
+
+This is a **blocking requirement** — no task is done until both agents have run and their output is clean.
+
 ## External Integrations
 
 ### UOL (Accounting System)
 
-- Configuration: `lib/companyConfig.ts` → `api.uol`
+- Configuration: `lib/companyConfig.ts` -> `api.uol`
 - Client: `lib/accounting/uol-client.ts`
 - Sync service: `lib/accounting/service.ts`
 
@@ -363,4 +372,4 @@ Run with: `npx tsx scripts/your-script.ts`
 
 ---
 
-*Last updated: 2026-02-11*
+*Last updated: 2026-02-12*
