@@ -13,7 +13,9 @@
       "Bash(del \"c:\\\\Users\\\\Sebek\\\\sebit-app\\\\nul\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npx next build:*)",
+      "Bash(node scripts/fix-ts-directives.js:*)"
     ],
     "deny": [
       "Bash(rm -rf /)",
