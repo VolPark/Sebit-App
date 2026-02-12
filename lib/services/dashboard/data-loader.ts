@@ -71,7 +71,7 @@ export const DashboardLoader = {
 
         let accountingQuery = Promise.resolve({ data: [] });
         if (CompanyConfig.features.enableAccounting) {
-            // @ts-expect-error
+            // @ts-ignore
             accountingQuery = client.from('accounting_documents')
                 .select('id, type, amount, issue_date, tax_date, currency, amount_czk, description, provider_id, mappings:accounting_mappings(id, akce_id, pracovnik_id, division_id, cost_category, amount, amount_czk)')
                 .gte('issue_date', start)
@@ -95,7 +95,7 @@ export const DashboardLoader = {
         }
 
         // Execute Queries
-        // @ts-expect-error
+        // @ts-ignore
         const [akceRes, praceRes, mzdyRes, fixedCostsRes, workersRes, allPraceRes, financeRes, accountingQueryRes] = await Promise.all([
             akceQuery,
             praceQuery,

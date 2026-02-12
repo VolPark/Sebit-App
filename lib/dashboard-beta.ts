@@ -79,7 +79,7 @@ export async function getDashboardDataBeta(
   let accountingQuery = Promise.resolve({ data: [] });
   if (CompanyConfig.features.enableAccounting) {
     // Fetch documents with mappings for the period
-    // @ts-expect-error
+    // @ts-ignore
     accountingQuery = client.from('accounting_documents')
       .select('id, type, amount, issue_date, tax_date, currency, amount_czk, description, provider_id, mappings:accounting_mappings(id, akce_id, pracovnik_id, division_id, cost_category, amount, amount_czk, akce:akce_id(klient_id, klienti(nazev)))')
       .gte('tax_date', start)
@@ -122,7 +122,7 @@ export async function getDashboardDataBeta(
   }
 
   // 3. Execute Parallel Queries
-  // @ts-expect-error
+  // @ts-ignore
   const [akceRes, praceRes, mzdyRes, fixedCostsRes, workersRes, allPraceRes, financeRes, accountingQueryRes] = await Promise.all([
     akceQuery,
     praceQuery,
@@ -162,7 +162,7 @@ export async function getDashboardDataBeta(
   const fixedCostsData = filteredFixedCosts;
   const workersData = workersRes.data || [];
   const financeData = financeRes.data || [];
-  // @ts-expect-error
+  // @ts-ignore
   const accountingDocs = (accountingQueryRes?.data || []) as any[];
 
   // --- PRE-PROCESS: Mapped Labor Costs ---
@@ -275,7 +275,7 @@ export async function getDashboardDataBeta(
     if (a.klient_id && a.klienti) {
       if (!monthlyClientStats.has(key)) monthlyClientStats.set(key, new Map());
       const cMap = monthlyClientStats.get(key)!;
-      // @ts-expect-error
+      // @ts-ignore
       const cName = Array.isArray(a.klienti) ? a.klienti[0]?.nazev : a.klienti?.nazev;
       const currC = cMap.get(a.klient_id) || { name: cName || 'Neznámý', total: 0 };
       if ((a.project_type || 'STANDARD') === 'STANDARD') {
@@ -705,7 +705,7 @@ export async function getDashboardDataBeta(
       if (p.pracovnik_id && p.pracovnici) {
         if (!monthlyWorkerStats.has(key)) monthlyWorkerStats.set(key, new Map());
         const wMap = monthlyWorkerStats.get(key)!;
-        // @ts-expect-error
+        // @ts-ignore
         const wName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
         const currW = wMap.get(p.pracovnik_id) || { name: wName || 'Neznámý', total: 0 };
         currW.total += (p.pocet_hodin || 0);
@@ -751,7 +751,7 @@ export async function getDashboardDataBeta(
       if (p.pracovnik_id && p.pracovnici) {
         if (!monthlyWorkerStats.has(key)) monthlyWorkerStats.set(key, new Map());
         const wMap = monthlyWorkerStats.get(key)!;
-        // @ts-expect-error
+        // @ts-ignore
         const wName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
         const currW = wMap.get(p.pracovnik_id) || { name: wName || 'Neznámý', total: 0 };
         currW.total += (p.pocet_hodin || 0);
@@ -869,7 +869,7 @@ export async function getDashboardDataBeta(
     // So if filtering by worker, 'praceData' only contains that worker. Safe.
 
     if (p.pracovnik_id && p.pracovnici) {
-      // @ts-expect-error
+      // @ts-ignore
       const wName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
       const curr = workerMap.get(p.pracovnik_id) || { name: wName || 'Neznámý', total: 0 };
       curr.total += (p.pocet_hodin || 0);
@@ -993,7 +993,7 @@ export async function getDetailedStatsBeta(
   // Accounting Query
   let accountingQuery = Promise.resolve({ data: [] });
   if (CompanyConfig.features.enableAccounting) {
-    // @ts-expect-error
+    // @ts-ignore
     accountingQuery = client.from('accounting_documents')
       .select('id, type, amount, issue_date, mappings:accounting_mappings(id, akce_id, pracovnik_id, cost_category, amount)')
       .gte('tax_date', start)
@@ -1045,9 +1045,9 @@ export async function getDetailedStatsBeta(
 
   const fixedCosts = filteredFixedCosts;
   const globalPrace = globalHoursRes.data || [];
-  // @ts-expect-error
+  // @ts-ignore
   const financeData = (financeRes?.data || []) as any[];
-  // @ts-expect-error
+  // @ts-ignore
   const accountingDocs = (accountingQueryRes?.data || []) as any[];
 
   // --- PRE-PROCESS: Mapped Labor Costs ---

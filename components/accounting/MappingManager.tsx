@@ -214,7 +214,6 @@ export function MappingManager({ document, overrideTotalAmount }: MappingManager
                                         <div className="min-w-0">
                                             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Divize</span>
                                             <div className="text-slate-700 dark:text-slate-300 truncate">
-                                                {/* @ts-expect-error */}
                                                 {division?.nazev || <span className="text-slate-400 italic">-- Neuvedeno --</span>}
                                             </div>
                                         </div>
