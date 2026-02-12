@@ -36,9 +36,7 @@ const CompanyActionsTable = ({ data, onActionClick }: { data: ActionStats[], onA
                 }
 
                 // Handle numbers
-                // @ts-expect-error - we know these are numbers or can be compared
                 if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-                // @ts-expect-error
                 if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
                 return 0;
             });
