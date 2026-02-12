@@ -701,7 +701,6 @@ export async function POST(req: NextRequest) {
           maxSteps: 5,
           maxRetries: 0,
           abortSignal: controller.signal,
-          // @ts-expect-error
           tools: {
             get_dashboard_stats: tool({
               description: 'Získá souhrnné statistiky (tržby, náklady, zisk) za určité období.',
