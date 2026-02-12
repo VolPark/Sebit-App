@@ -10,7 +10,10 @@
       "Bash(node -e:*)",
       "Bash(findstr:*)",
       "Read(//c/**)",
-      "Bash(del \"c:\\\\Users\\\\Sebek\\\\sebit-app\\\\nul\")"
+      "Bash(del \"c:\\\\Users\\\\Sebek\\\\sebit-app\\\\nul\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [
       "Bash(rm -rf /)",
