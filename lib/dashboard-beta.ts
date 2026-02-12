@@ -73,13 +73,13 @@ export async function getDashboardDataBeta(
   // 2. Prepare Queries (Bulk Fetch)
   let akceQuery = client.from('akce').select('id, datum, cena_klient, material_my, material_klient, odhad_hodin, klient_id, division_id, project_type, klienti(nazev)').gte('datum', start).lte('datum', end);
   let praceQuery = client.from('prace').select('id, datum, pocet_hodin, pracovnik_id, klient_id, akce_id, division_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
-  let financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
+  const financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
 
   // Accounting Query (if enabled)
   let accountingQuery = Promise.resolve({ data: [] });
   if (CompanyConfig.features.enableAccounting) {
     // Fetch documents with mappings for the period
-    // @ts-ignore
+    // @ts-expect-error
     accountingQuery = client.from('accounting_documents')
       .select('id, type, amount, issue_date, tax_date, currency, amount_czk, description, provider_id, mappings:accounting_mappings(id, akce_id, pracovnik_id, division_id, cost_category, amount, amount_czk, akce:akce_id(klient_id, klienti(nazev)))')
       .gte('tax_date', start)
@@ -122,7 +122,7 @@ export async function getDashboardDataBeta(
   }
 
   // 3. Execute Parallel Queries
-  // @ts-ignore
+  // @ts-expect-error
   const [akceRes, praceRes, mzdyRes, fixedCostsRes, workersRes, allPraceRes, financeRes, accountingQueryRes] = await Promise.all([
     akceQuery,
     praceQuery,
@@ -162,7 +162,7 @@ export async function getDashboardDataBeta(
   const fixedCostsData = filteredFixedCosts;
   const workersData = workersRes.data || [];
   const financeData = financeRes.data || [];
-  // @ts-ignore
+  // @ts-expect-error
   const accountingDocs = (accountingQueryRes?.data || []) as any[];
 
   // --- PRE-PROCESS: Mapped Labor Costs ---
@@ -210,7 +210,7 @@ export async function getDashboardDataBeta(
 
   // Pre-fill buckets
   if (isLast12Months) {
-    let curr = new Date(startDate);
+    const curr = new Date(startDate);
     while (curr <= endDate) {
       const key = getMonthKey(curr);
       if (!monthlyBuckets.has(key)) {
@@ -275,7 +275,7 @@ export async function getDashboardDataBeta(
     if (a.klient_id && a.klienti) {
       if (!monthlyClientStats.has(key)) monthlyClientStats.set(key, new Map());
       const cMap = monthlyClientStats.get(key)!;
-      // @ts-ignore
+      // @ts-expect-error
       const cName = Array.isArray(a.klienti) ? a.klienti[0]?.nazev : a.klienti?.nazev;
       const currC = cMap.get(a.klient_id) || { name: cName || 'Neznámý', total: 0 };
       if ((a.project_type || 'STANDARD') === 'STANDARD') {
@@ -688,7 +688,7 @@ export async function getDashboardDataBeta(
 
       const bucket = monthlyBuckets.get(key);
       if (bucket) {
-        let finalLaborCost = laborCost;
+        const finalLaborCost = laborCost;
         // Fallback checks (Cap Logic)
 
         bucket.totalLaborCost += finalLaborCost;
@@ -705,7 +705,7 @@ export async function getDashboardDataBeta(
       if (p.pracovnik_id && p.pracovnici) {
         if (!monthlyWorkerStats.has(key)) monthlyWorkerStats.set(key, new Map());
         const wMap = monthlyWorkerStats.get(key)!;
-        // @ts-ignore
+        // @ts-expect-error
         const wName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
         const currW = wMap.get(p.pracovnik_id) || { name: wName || 'Neznámý', total: 0 };
         currW.total += (p.pocet_hodin || 0);
@@ -751,7 +751,7 @@ export async function getDashboardDataBeta(
       if (p.pracovnik_id && p.pracovnici) {
         if (!monthlyWorkerStats.has(key)) monthlyWorkerStats.set(key, new Map());
         const wMap = monthlyWorkerStats.get(key)!;
-        // @ts-ignore
+        // @ts-expect-error
         const wName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
         const currW = wMap.get(p.pracovnik_id) || { name: wName || 'Neznámý', total: 0 };
         currW.total += (p.pocet_hodin || 0);
@@ -869,7 +869,7 @@ export async function getDashboardDataBeta(
     // So if filtering by worker, 'praceData' only contains that worker. Safe.
 
     if (p.pracovnik_id && p.pracovnici) {
-      // @ts-ignore
+      // @ts-expect-error
       const wName = Array.isArray(p.pracovnici) ? p.pracovnici[0]?.jmeno : p.pracovnici?.jmeno;
       const curr = workerMap.get(p.pracovnik_id) || { name: wName || 'Neznámý', total: 0 };
       curr.total += (p.pocet_hodin || 0);
@@ -988,12 +988,12 @@ export async function getDetailedStatsBeta(
     .select('*')
     .gte('rok', startDate.getFullYear())
     .lte('rok', endDate.getFullYear());
-  let financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
+  const financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
 
   // Accounting Query
   let accountingQuery = Promise.resolve({ data: [] });
   if (CompanyConfig.features.enableAccounting) {
-    // @ts-ignore
+    // @ts-expect-error
     accountingQuery = client.from('accounting_documents')
       .select('id, type, amount, issue_date, mappings:accounting_mappings(id, akce_id, pracovnik_id, cost_category, amount)')
       .gte('tax_date', start)
@@ -1013,7 +1013,7 @@ export async function getDetailedStatsBeta(
 
   // Mzdy query with wider range (year-1 to year+1) for rate calculation context
   // Fetch mzdy with wider range for rate calculation (year-1 to year+1)
-  let mzdyQuery = client.from('mzdy')
+  const mzdyQuery = client.from('mzdy')
     .select('*')
     .gte('rok', startDate.getFullYear() - 1)
     .lte('rok', endDate.getFullYear() + 1);
@@ -1045,9 +1045,9 @@ export async function getDetailedStatsBeta(
 
   const fixedCosts = filteredFixedCosts;
   const globalPrace = globalHoursRes.data || [];
-  // @ts-ignore
+  // @ts-expect-error
   const financeData = (financeRes?.data || []) as any[];
-  // @ts-ignore
+  // @ts-expect-error
   const accountingDocs = (accountingQueryRes?.data || []) as any[];
 
   // --- PRE-PROCESS: Mapped Labor Costs ---
@@ -1718,7 +1718,7 @@ export async function getExperimentalStats(filters: { divisionId?: number | null
     const totalCost = laborCost + materialCost; // This is WIP Value (Cost based)
 
     // Budget Usage Logic
-    let budgetUsage = totalEstimated > 0 ? totalActualHours / totalEstimated : 0;
+    const budgetUsage = totalEstimated > 0 ? totalActualHours / totalEstimated : 0;
 
     // Revenue Potential Calculation
     let revenuePotential = 0;

@@ -25,7 +25,7 @@ export const FixedCostService = {
         const divisions = (divData || []) as Division[];
 
         // 3. Accounting Imports
-        let mappedData: FixedCost[] = [];
+        const mappedData: FixedCost[] = [];
         if (CompanyConfig.features.enableAccounting) {
             const dateStart = `${year}-${String(month).padStart(2, '0')}-01`;
             const endD = new Date(year, month, 0);

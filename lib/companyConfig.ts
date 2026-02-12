@@ -59,6 +59,10 @@ export const CompanyConfig = {
         uol: {
             email: process.env.UOL_EMAIL || '',
             apiKey: process.env.UOL_API_KEY || ''
+        },
+        czechVehicleRegistry: {
+            apiKey: process.env.CZECH_GOV_API_KEY || '',
+            baseUrl: 'https://api.dataovozidlech.cz'
         }
     }
 };

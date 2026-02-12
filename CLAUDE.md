@@ -45,12 +45,13 @@ npm start        # Start production server
 
 ```
 app/                      # Next.js App Router pages
-├── api/                  # API routes (29 endpoints)
+├── api/                  # API routes (30 endpoints)
 │   ├── accounting/       # Accounting sync and reports
 │   ├── aml/              # AML compliance endpoints
 │   ├── chat/             # AI assistant streaming
 │   ├── cron/             # Scheduled jobs (daily-tasks)
-│   └── proxy-image/      # SSRF-protected image proxy
+│   ├── proxy-image/      # SSRF-protected image proxy
+│   └── vehicles/         # Vehicle registry lookup (VIN)
 ├── (protected)/          # Auth-guarded routes (accounting, management)
 ├── dashboard/            # Main analytics dashboard
 ├── nabidky/              # Offers/quotes module
@@ -71,8 +72,9 @@ components/               # React components (64 files)
 └── AiChat.tsx            # AI assistant UI
 
 lib/                      # Business logic and utilities
-├── api/                  # API helpers (auth.ts, nabidky-api.ts)
+├── api/                  # API helpers (auth.ts, nabidky-api.ts, flotila-api.ts)
 ├── accounting/           # Accounting service (UOL integration)
+├── vehicles/             # Czech Vehicle Registry API client (RSV Datova kostka)
 ├── services/             # Domain services (payroll, timesheet, etc.)
 ├── types/                # TypeScript interfaces
 ├── aml/                  # AML compliance logic
@@ -109,6 +111,7 @@ utils/supabase/           # Supabase client initialization
 | `lib/types/klient-types.ts` | Client interface, display presets for PDF (`ZobrazeniPreset`, `getVisibleFields`) |
 | `lib/dashboard.ts` | Dashboard data aggregation (~2900 lines) |
 | `lib/accounting/service.ts` | Accounting sync engine (~750 lines) |
+| `lib/vehicles/czech-vehicle-api.ts` | Czech Vehicle Registry (RSV) API client with rate limiter |
 | `middleware.ts` | Auth middleware for all routes |
 | `db/schema.sql` | Complete database schema |
 | `ARCHITECTURE.md` | Security patterns and API guidelines |
@@ -250,6 +253,10 @@ Key tables (Czech naming):
 | `accounting_mappings` | Invoice-to-project links |
 | `divisions` | Business divisions |
 | `organizations` | Multi-tenant support |
+| `vozidla` | Company vehicles (`vin`, `spz`, `znacka`, `model`, `vin_data` JSONB, `vin_data_fetched_at`, BMW CarData fields) |
+| `vozidla_udrzba` | Vehicle maintenance/service records |
+| `vozidla_palivo` | Fuel log entries |
+| `bmw_oauth_states` | CSRF tokens for BMW OAuth flow |
 
 Full schema: `db/schema.sql`
 
@@ -288,6 +295,13 @@ Key features:
 - **Custom intro text**: Editable PDF intro (`uvodni_text` column)
 - **Client display presets**: Configurable client info in PDF via `zobrazeni_klienta` column (presets: `zakladni`, `b2b`, `plny`, `vlastni`) and `zobrazeni_klienta_pole` (JSONB array for custom field selection)
 - **Important**: `celkem` in `polozky_nabidky` is a **GENERATED column** (`mnozstvi * cena_ks`) — never pass it in insert/update
+
+### VIN Decoder (Hybrid, 3-tier)
+- **Primary**: **Czech Vehicle Registry (RSV Datova kostka)** via `lib/vehicles/czech-vehicle-api.ts` -- official CZ government data (brand, model, fuel, STK, emissions, 70+ fields). Requires `CZECH_GOV_API_KEY`. Rate limited to 27 req/min.
+- **Secondary**: **Local Decoder** (`lib/vin-decoder.ts` & `lib/vin-data/`) -- supports Skoda, VW, Hyundai, Kia, BMW, Renault.
+- **Fallback**: **NHTSA API** (Global/US) -- free, no API key needed.
+- **API Endpoint**: `POST /api/vehicles/vin-lookup` -- Zod-validated, saves raw RSV data to `vozidla.vin_data` JSONB column.
+- **UI Flow**: `VehicleModal.tsx` tries RSV first, falls back to Local/NHTSA if RSV unavailable.
 
 ## Important Constraints
 
@@ -346,6 +360,16 @@ This is a **blocking requirement** — no task is done until both agents have ru
 - Currency rates sync: `lib/currency-sync.ts`
 - Daily rates stored in `currency_rates` table
 
+### Czech Vehicle Registry (RSV Datova kostka)
+
+- API client: `lib/vehicles/czech-vehicle-api.ts`
+- Endpoint: `POST /api/vehicles/vin-lookup`
+- Configuration: `lib/companyConfig.ts` -> `api.czechVehicleRegistry`
+- Environment variable: `CZECH_GOV_API_KEY`
+- Rate limit: 27 requests/minute (sliding window)
+- Returns 70+ fields: brand, model, fuel, STK, emissions, dimensions, registration history
+- Raw response cached in `vozidla.vin_data` (JSONB)
+
 ## Debugging
 
 Utility scripts are in `/scripts/` directory:
@@ -372,4 +396,4 @@ Run with: `npx tsx scripts/your-script.ts`
 
 ---
 
-*Last updated: 2026-02-12*
+*Last updated: 2026-02-12* (Czech Vehicle Registry integration)

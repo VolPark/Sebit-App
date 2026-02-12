@@ -1,39 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep:*)",
-      "Bash(npm run lint:*)",
-      "Bash(npx tsc:*)",
-      "Bash(find:*)",
-      "Bash(ls \"c:\\\\Users\\\\Sebek\\\\sebit-app\\\\components\\\\dashboard\"\" 2>/dev/null || echo \"Directory does not exist \")",
-      "Bash(npx next build:*)",
+      "WebFetch(domain:api.dataovozidlech.cz)",
+      "WebFetch(domain:exceltown.com)",
       "Bash(npm run build:*)",
-      "Bash(npm run test:run:*)",
-      "Bash(wc -l \"c:\\\\Users\\\\Sebek\\\\sebit-app\"lib__tests__*.ts)",
-      "Bash(wc -l \"c:\\\\Users\\\\Sebek\\\\sebit-app\"libapi__tests__*.ts)",
-      "Bash(dir:*)",
-      "Bash(npm install:*)",
-      "Bash(curl:*)",
-      "Bash(ls:*)",
-      "Bash(npx vitest run:*)",
-      "Bash(npm ls:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx eslint:*)",
+      "Bash(python3:*)",
       "Bash(node -e:*)",
-      "Bash(npx vitest:*)",
-      "Bash(node --version:*)",
-      "Bash(echo:*)",
-      "Bash(npx tsx:*)",
-      "Bash(DEBUG=vitest:*)",
-      "WebFetch(domain:vitest.dev)",
-      "Bash(del:*)",
       "Bash(findstr:*)",
-      "WebFetch(domain:github.com)",
-      "Bash(if not exist \"c:\\\\Users\\\\Sebek\\\\sebit-app\\\\lib\\\\accounting\\\\__tests__\" mkdir \"c:\\\\Users\\\\Sebek\\\\sebit-app\\\\lib\\\\accounting\\\\__tests__\")",
-      "Bash(python:*)",
-      "Bash(tee:*)",
-      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && grep -E \"\"\\(import.*getErrorMessage|catch.*: unknown\\)\"\" {} | head -3')",
-      "Bash(cut:*)",
-      "Bash(npm test:*)",
-      "Bash(npx jest --passWithNoTests)"
-    ]
+      "Read(//c/**)",
+      "Bash(del \"c:\\\\Users\\\\Sebek\\\\sebit-app\\\\nul\")"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(sudo rm -rf /)"
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }

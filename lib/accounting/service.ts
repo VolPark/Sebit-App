@@ -200,7 +200,7 @@ export class AccountingService {
         let supplierName = null;
         let supplierIco = null;
         let supplierDic = null;
-        let description = detail.description || (detail.items?.length > 0 ? detail.items[0].description : null);
+        const description = detail.description || (detail.items?.length > 0 ? detail.items[0].description : null);
 
         if (type === 'purchase_invoice') {
             // It's from a seller

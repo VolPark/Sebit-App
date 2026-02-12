@@ -5,6 +5,21 @@ import { createVozidlo, updateVozidlo, type VozidloSRelacemi, type VozidloFormDa
 import { supabase } from '@/lib/supabase';
 import { decodeVIN, isValidVIN, isBMW } from '@/lib/vin-decoder';
 
+interface RsvLookupResponse {
+  success: boolean;
+  data: Record<string, unknown>;
+  mapped: {
+    znacka: string | null;
+    model: string | null;
+    barva: string | null;
+    typ_paliva: string | null;
+    stk_do: string | null;
+    datum_prvni_registrace: string | null;
+    status: string | null;
+  };
+  error?: string;
+}
+
 interface VehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -22,6 +37,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
   const [vinLoading, setVinLoading] = useState(false);
   const [vinMessage, setVinMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [pracovnici, setPracovnici] = useState<Pracovnik[]>([]);
+  const [vinData, setVinData] = useState<Record<string, unknown> | null>(null);
   const [formData, setFormData] = useState<VozidloFormData>({
     vin: '',
     spz: '',
@@ -82,6 +98,8 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
         najezd_km: 0,
       });
     }
+    setVinData(null);
+    setVinMessage(null);
   }, [vehicle, isOpen]);
 
   const handleDecodeVIN = async () => {
@@ -97,45 +115,86 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
 
     setVinLoading(true);
     setVinMessage(null);
+    setVinData(null);
 
+    // 1. Try Czech Vehicle Registry (RSV) first — most accurate for CZ vehicles
+    let rsvSuccess = false;
     try {
-      const result = await decodeVIN(formData.vin);
+      const rsvResponse = await fetch('/api/vehicles/vin-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vin: formData.vin,
+          vehicleId: vehicle?.id,
+        }),
+      });
 
-      if (result.success && result.data) {
-        // Auto-fill form with decoded data
-        setFormData(prev => ({
-          ...prev,
-          znacka: result.data!.znacka,
-          model: result.data!.model,
-          rok_vyroby: result.data!.rok_vyroby,
-          ...(result.data!.typ_paliva && { typ_paliva: result.data!.typ_paliva as TypPaliva }),
-        }));
+      if (rsvResponse.ok) {
+        const rsvResult: RsvLookupResponse = await rsvResponse.json();
+        if (rsvResult.success && rsvResult.mapped) {
+          const m = rsvResult.mapped;
+          setFormData(prev => ({
+            ...prev,
+            ...(m.znacka && { znacka: m.znacka }),
+            ...(m.model && { model: m.model }),
+            ...(m.barva && { barva: m.barva }),
+            ...(m.typ_paliva && { typ_paliva: m.typ_paliva as TypPaliva }),
+            ...(m.stk_do && { stk_do: m.stk_do }),
+          }));
+          setVinData(rsvResult.data);
+          rsvSuccess = true;
 
-        // Check if data is complete or partial
-        const isPartial = result.data.model === 'Neuvedeno' || !result.data.typ_paliva;
-        const isGenericModel = result.data.model === 'PASSENGER CAR' || result.data.model === 'TRUCK';
-        const bmwInfo = isBMW(formData.vin) ? ' (BMW - můžete aktivovat CarData)' : '';
-        const verifyInfo = ' ⚠️ Zkontrolujte a upřesněte údaje (zejména model a rok).';
-
-        setVinMessage({
-          type: 'success',
-          text: `✓ VIN dekódován${bmwInfo}${verifyInfo}`
-        });
-      } else {
-        setVinMessage({
-          type: 'error',
-          text: result.error || 'Nepodařilo se dekódovat VIN'
-        });
+          const bmwInfo = isBMW(formData.vin) ? ' (BMW - CarData ready)' : '';
+          setVinMessage({
+            type: 'success',
+            text: `✓ Data načtena z Registru silničních vozidel ČR${bmwInfo}`
+          });
+        }
       }
     } catch (error) {
-      console.error('VIN decode error:', error);
-      setVinMessage({
-        type: 'error',
-        text: 'Chyba při komunikaci s VIN dekodérem'
-      });
-    } finally {
-      setVinLoading(false);
+      console.error('RSV lookup error:', error);
+      // Non-blocking — fall through to NHTSA
     }
+
+    // 2. Fallback to NHTSA if RSV failed (non-CZ vehicles, API down, etc.)
+    if (!rsvSuccess) {
+      try {
+        const result = await decodeVIN(formData.vin);
+
+        if (result.success && result.data) {
+          setFormData(prev => ({
+            ...prev,
+            znacka: result.data!.znacka,
+            model: result.data!.model,
+            ...(result.data!.rok_vyroby > 0 && { rok_vyroby: result.data!.rok_vyroby }),
+            ...(result.data!.typ_paliva && { typ_paliva: result.data!.typ_paliva as TypPaliva }),
+          }));
+
+          const source = result.data.source === 'Local' ? 'Lokální DB' : (result.data.source === 'NHTSA' ? 'NHTSA API' : 'Neznámý zdroj');
+          const isGenericModel = result.data.model === 'PASSENGER CAR' || result.data.model === 'TRUCK';
+          const bmwInfo = isBMW(formData.vin) ? ' (BMW - CarData ready)' : '';
+          const verifyInfo = isGenericModel || !result.data.rok_vyroby ? ' ⚠️ Údaje mohou být neúplné.' : '';
+
+          setVinMessage({
+            type: 'success',
+            text: `✓ VIN dekódován (${source})${bmwInfo}${verifyInfo}`
+          });
+        } else {
+          setVinMessage({
+            type: 'error',
+            text: result.error || 'Nepodařilo se dekódovat VIN'
+          });
+        }
+      } catch (error) {
+        console.error('VIN decode error:', error);
+        setVinMessage({
+          type: 'error',
+          text: 'Chyba při komunikaci s VIN dekodérem'
+        });
+      }
+    }
+
+    setVinLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,13 +202,21 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
     setLoading(true);
 
     try {
+      const dataToSave = {
+        ...formData,
+        ...(vinData && {
+          vin_data: vinData,
+          vin_data_fetched_at: new Date().toISOString(),
+        }),
+      };
+
       if (vehicle) {
-        await updateVozidlo(vehicle.id, formData);
+        await updateVozidlo(vehicle.id, dataToSave);
       } else {
-        await createVozidlo(formData);
+        await createVozidlo(dataToSave);
       }
       onSuccess();
-    } catch (e) {
+    } catch (e: unknown) {
       console.error('Error saving vehicle:', e);
       alert('Chyba při ukládání vozidla');
     } finally {
@@ -176,7 +243,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
                   type="text"
                   value={formData.vin}
                   onChange={(e) => {
-                    setFormData({...formData, vin: e.target.value.toUpperCase()});
+                    setFormData({ ...formData, vin: e.target.value.toUpperCase() });
                     setVinMessage(null);
                   }}
                   required
@@ -226,7 +293,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <input
                 type="text"
                 value={formData.spz}
-                onChange={(e) => setFormData({...formData, spz: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, spz: e.target.value })}
                 required
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
               />
@@ -237,7 +304,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <input
                 type="text"
                 value={formData.znacka}
-                onChange={(e) => setFormData({...formData, znacka: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, znacka: e.target.value })}
                 required
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
               />
@@ -248,7 +315,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <input
                 type="text"
                 value={formData.model}
-                onChange={(e) => setFormData({...formData, model: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                 required
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
               />
@@ -259,7 +326,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <input
                 type="number"
                 value={formData.rok_vyroby}
-                onChange={(e) => setFormData({...formData, rok_vyroby: parseInt(e.target.value) || 0})}
+                onChange={(e) => setFormData({ ...formData, rok_vyroby: parseInt(e.target.value) || 0 })}
                 required
                 min={1900}
                 max={new Date().getFullYear() + 1}
@@ -272,7 +339,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <input
                 type="text"
                 value={formData.barva || ''}
-                onChange={(e) => setFormData({...formData, barva: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, barva: e.target.value })}
                 placeholder="např. Černá"
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
               />
@@ -282,7 +349,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <label className="block text-sm font-medium mb-1">Typ paliva *</label>
               <select
                 value={formData.typ_paliva}
-                onChange={(e) => setFormData({...formData, typ_paliva: e.target.value as TypPaliva})}
+                onChange={(e) => setFormData({ ...formData, typ_paliva: e.target.value as TypPaliva })}
                 required
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
               >
@@ -301,7 +368,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <input
                 type="number"
                 value={formData.najezd_km}
-                onChange={(e) => setFormData({...formData, najezd_km: parseInt(e.target.value) || 0})}
+                onChange={(e) => setFormData({ ...formData, najezd_km: parseInt(e.target.value) || 0 })}
                 required
                 min={0}
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
@@ -313,7 +380,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <label className="block text-sm font-medium mb-1">Přidělený pracovník</label>
               <select
                 value={formData.prideleny_pracovnik_id || ''}
-                onChange={(e) => setFormData({...formData, prideleny_pracovnik_id: e.target.value ? parseInt(e.target.value) : undefined})}
+                onChange={(e) => setFormData({ ...formData, prideleny_pracovnik_id: e.target.value ? parseInt(e.target.value) : undefined })}
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
               >
                 <option value="">-- Nepřiděleno --</option>
@@ -329,7 +396,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <input
                 type="date"
                 value={formData.stk_do || ''}
-                onChange={(e) => setFormData({...formData, stk_do: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, stk_do: e.target.value })}
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
               />
             </div>
@@ -339,7 +406,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <input
                 type="date"
                 value={formData.pojisteni_do || ''}
-                onChange={(e) => setFormData({...formData, pojisteni_do: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, pojisteni_do: e.target.value })}
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
               />
             </div>
@@ -349,7 +416,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <input
                 type="text"
                 value={formData.pojistovna || ''}
-                onChange={(e) => setFormData({...formData, pojistovna: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, pojistovna: e.target.value })}
                 placeholder="např. Allianz"
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
               />
@@ -361,7 +428,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <input
                 type="date"
                 value={formData.datum_porizeni || ''}
-                onChange={(e) => setFormData({...formData, datum_porizeni: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, datum_porizeni: e.target.value })}
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
               />
             </div>
@@ -371,7 +438,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
               <input
                 type="number"
                 value={formData.kupni_cena || ''}
-                onChange={(e) => setFormData({...formData, kupni_cena: e.target.value ? parseFloat(e.target.value) : undefined})}
+                onChange={(e) => setFormData({ ...formData, kupni_cena: e.target.value ? parseFloat(e.target.value) : undefined })}
                 min={0}
                 step="0.01"
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
@@ -383,7 +450,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
                 <input
                   type="checkbox"
                   checked={formData.leasing || false}
-                  onChange={(e) => setFormData({...formData, leasing: e.target.checked})}
+                  onChange={(e) => setFormData({ ...formData, leasing: e.target.checked })}
                   className="rounded border-gray-300 dark:border-gray-600"
                 />
                 <span className="text-sm font-medium">Vozidlo je v leasingu</span>
@@ -395,7 +462,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
             <label className="block text-sm font-medium mb-1">Poznámka</label>
             <textarea
               value={formData.poznamka || ''}
-              onChange={(e) => setFormData({...formData, poznamka: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, poznamka: e.target.value })}
               rows={3}
               className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
             />

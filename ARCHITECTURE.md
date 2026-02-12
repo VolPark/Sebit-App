@@ -97,7 +97,8 @@ app/api/
 ├── aml/                 # AML module (auth: verifySession or CRON_SECRET)
 ├── chat/                # AI chat (POST, auth: verifySession + rate limit)
 ├── cron/                # Scheduled jobs (auth: CRON_SECRET only)
-└── proxy-image/         # Image proxy (GET, public but with SSRF protection)
+├── proxy-image/         # Image proxy (GET, public but with SSRF protection)
+└── vehicles/            # Vehicle registry lookup (POST, auth: verifySession, Zod validated)
 ```
 
 ---
@@ -125,5 +126,5 @@ Before adding a new API endpoint, verify:
 
 ---
 
-*Last updated: 2026-02-03*
+*Last updated: 2026-02-12*
 

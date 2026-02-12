@@ -67,11 +67,11 @@ export const DashboardLoader = {
         // 2. Data Fetching
         let akceQuery = client.from('akce').select('id, datum, cena_klient, material_my, material_klient, odhad_hodin, klient_id, division_id, project_type, klienti(nazev)').gte('datum', start).lte('datum', end);
         let praceQuery = client.from('prace').select('id, datum, pocet_hodin, pracovnik_id, klient_id, akce_id, division_id, pracovnici(jmeno)').gte('datum', start).lte('datum', end);
-        let financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
+        const financeQuery = client.from('finance').select('id, datum, castka, akce_id, typ, division_id, akce:akce_id(klient_id, project_type, klienti(nazev))').eq('typ', 'Příjem').gte('datum', start).lte('datum', end).not('akce_id', 'is', null);
 
         let accountingQuery = Promise.resolve({ data: [] });
         if (CompanyConfig.features.enableAccounting) {
-            // @ts-ignore
+            // @ts-expect-error
             accountingQuery = client.from('accounting_documents')
                 .select('id, type, amount, issue_date, tax_date, currency, amount_czk, description, provider_id, mappings:accounting_mappings(id, akce_id, pracovnik_id, division_id, cost_category, amount, amount_czk)')
                 .gte('issue_date', start)
@@ -95,7 +95,7 @@ export const DashboardLoader = {
         }
 
         // Execute Queries
-        // @ts-ignore
+        // @ts-expect-error
         const [akceRes, praceRes, mzdyRes, fixedCostsRes, workersRes, allPraceRes, financeRes, accountingQueryRes] = await Promise.all([
             akceQuery,
             praceQuery,

@@ -697,11 +697,11 @@ export async function POST(req: NextRequest) {
           model: google(userModelName),
           messages,
           system: systemPrompt,
-          // @ts-ignore
+          // @ts-expect-error
           maxSteps: 5,
           maxRetries: 0,
           abortSignal: controller.signal,
-          // @ts-ignore
+          // @ts-expect-error
           tools: {
             get_dashboard_stats: tool({
               description: 'Získá souhrnné statistiky (tržby, náklady, zisk) za určité období.',
@@ -711,7 +711,7 @@ export async function POST(req: NextRequest) {
                 klientId: z.number().optional().describe('ID klienta pro filtrování.'),
                 pracovnikId: z.number().optional().describe('ID pracovníka pro filtrování.')
               }),
-              // @ts-ignore - AI SDK complex generics
+              // @ts-expect-error - AI SDK complex generics
               execute: async ({ period, divisionId, klientId, pracovnikId }: { period?: 'last12months' | 'thisYear' | 'lastYear', divisionId?: number, klientId?: number, pracovnikId?: number }) => {
                 console.log('[AI Tool] get_dashboard_stats calling...', { period, divisionId, klientId, pracovnikId });
                 const currentYear = new Date().getFullYear();
@@ -731,7 +731,7 @@ export async function POST(req: NextRequest) {
                 klientId: z.number().optional().describe('ID klienta pro filtrování.'),
                 pracovnikId: z.number().optional().describe('ID pracovníka pro filtrování.')
               }),
-              // @ts-ignore - AI SDK complex generics
+              // @ts-expect-error - AI SDK complex generics
               execute: async ({ period, divisionId, klientId, pracovnikId }: { period?: 'last12months' | 'thisYear' | 'lastYear', divisionId?: number, klientId?: number, pracovnikId?: number }) => {
                 console.log('[AI Tool] get_detailed_stats calling...', { period, divisionId, klientId, pracovnikId });
                 try {

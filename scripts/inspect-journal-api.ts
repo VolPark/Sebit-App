@@ -6,7 +6,7 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 async function inspect() {
-    // @ts-ignore - Debug script, config would be loaded from env in real usage
+    // @ts-expect-error - Debug script, config would be loaded from env in real usage
     const client = new UolClient({
         baseUrl: process.env.UOL_API_BASE_URL || '',
         email: process.env.UOL_API_EMAIL || '',

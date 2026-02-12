@@ -54,6 +54,10 @@ export interface Vozidlo {
   bmw_access_token: string | null;
   bmw_token_expiry: string | null;
 
+  // Czech Vehicle Registry data (RSV Datová kostka)
+  vin_data: Record<string, unknown> | null;
+  vin_data_fetched_at: string | null;
+
   // Metadata
   poznamka: string | null;
   created_at: string;
@@ -143,6 +147,8 @@ export interface VozidloFormData {
   kupni_cena?: number;
   leasing?: boolean;
   poznamka?: string;
+  vin_data?: Record<string, unknown>;
+  vin_data_fetched_at?: string;
 }
 
 // ============================================================================
@@ -241,6 +247,8 @@ export const getVozidlo = async (id: number): Promise<VozidloSRelacemi | null> =
       leasing_mesicni_splatka,
       leasing_do,
       bmw_cardata_aktivni,
+      vin_data,
+      vin_data_fetched_at,
       poznamka,
       created_at,
       updated_at,

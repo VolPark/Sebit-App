@@ -123,14 +123,15 @@ npm start             # Start production server
 
 ```
 app/                          # Next.js App Router pages
-├── api/                      # API routes (29+ endpoints)
+├── api/                      # API routes (30 endpoints)
 │   ├── accounting/           # Accounting sync, reports, analytics (18 endpoints)
 │   ├── admin/                # Admin sync endpoints
 │   ├── aml/                  # AML compliance (check, sanctions sync)
 │   ├── bmw/                  # BMW CarData OAuth & sync
 │   ├── chat/                 # AI assistant streaming
 │   ├── cron/                 # Scheduled jobs (daily-tasks, suppliers-sync)
-│   └── proxy-image/          # SSRF-protected image proxy
+│   ├── proxy-image/          # SSRF-protected image proxy
+│   └── vehicles/             # Vehicle registry VIN lookup (RSV)
 ├── (protected)/              # Auth-guarded routes
 │   ├── management/           # Management dashboard
 │   └── accounting/           # Accounting module (reports, analytics)
@@ -182,9 +183,10 @@ lib/                          # Business logic and utilities
 ├── suppliers/                # Supplier catalog sync (Demos Trade, SFTP)
 ├── types/                    # TypeScript interfaces
 ├── utils/                    # Image utilities
+├── vehicles/                 # Czech Vehicle Registry API client (RSV)
 ├── bmw-cardata.ts            # BMW CarData API client
 ├── bmw-oauth-state.ts        # BMW OAuth CSRF protection
-├── vin-decoder.ts            # NHTSA VIN decoder
+├── vin-decoder.ts            # NHTSA VIN decoder (fallback)
 ├── companyConfig.ts          # Environment-based configuration
 ├── dashboard.ts              # Dashboard calculations (~2900 lines)
 ├── dashboard-beta.ts         # Beta dashboard logic
@@ -307,7 +309,8 @@ public/                       # Static assets & images
 
 ### Fleet Management (Flotila)
 - **Vehicle Registry**: Full CRUD for company vehicles (VIN, SPZ, brand, model, fuel type).
-- **VIN Decoder**: Automatic vehicle data lookup via NHTSA API (free, no API key).
+- **Czech Vehicle Registry (RSV)**: Primary VIN data source via official government API (Datova kostka). Returns 70+ fields including brand, model, fuel type, STK dates, emissions, dimensions, registration history. Requires `CZECH_GOV_API_KEY`. Rate limited (27 req/min).
+- **VIN Decoder Fallback**: **Hybrid Decoder** combining Local DB (Skoda, VW, Hyundai, Kia, BMW, Renault) + NHTSA API fallback for non-CZ vehicles.
 - **BMW CarData Integration**: Real-time telemetry (mileage, fuel, GPS) via OAuth 2.0.
 - **Worker Assignment**: Assign vehicles to employees.
 - **Maintenance Tracking**: Service records, STK dates, insurance expiry.
@@ -415,6 +418,7 @@ Control the visibility of application sections. Modules default to enabled (`!==
 | `BMW_CLIENT_SECRET` | BMW CarData OAuth Client Secret (optional) |
 | `BMW_REDIRECT_URI` | BMW OAuth callback URL (optional) |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Google AI API key for AI Assistant |
+| `CZECH_GOV_API_KEY` | Czech Vehicle Registry API key (dataovozidlech.cz, optional) |
 
 ---
 
@@ -763,6 +767,8 @@ erDiagram
     numeric kupni_cena
     bool leasing
     bool bmw_cardata_aktivni
+    jsonb vin_data
+    timestamptz vin_data_fetched_at
   }
 
   VOZIDLA_UDRZBA {
@@ -867,7 +873,7 @@ erDiagram
 
 ### Fleet Tables
 
-- **`vozidla`**: Company vehicles with VIN, SPZ, insurance, STK, and BMW CarData integration.
+- **`vozidla`**: Company vehicles with VIN, SPZ, insurance, STK, BMW CarData integration, and Czech Vehicle Registry data (`vin_data` JSONB, `vin_data_fetched_at`).
 - **`vozidla_udrzba`**: Vehicle maintenance and service records.
 - **`vozidla_palivo`**: Fuel log entries.
 - **`bmw_oauth_states`**: CSRF protection tokens for BMW OAuth flow (auto-cleanup).
@@ -918,6 +924,11 @@ erDiagram
 |----------|--------|------|-------------|
 | `/cron/daily-tasks` | POST | CRON_SECRET | Daily scheduled tasks |
 | `/cron/suppliers-sync` | POST | CRON_SECRET | Supplier catalog sync |
+
+### Vehicles (`/api/vehicles/`)
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/vehicles/vin-lookup` | POST | Session | Czech Vehicle Registry (RSV) VIN lookup |
 
 ### Other
 | Endpoint | Method | Auth | Description |
@@ -1006,4 +1017,4 @@ Categories: `debug-*`, `inspect-*`, `check-*`, `test-*`, `probe_*`, migration sc
 
 **Developed for Interiery Horyna & SEBIT Solutions**
 
-*Last updated: 2026-02-11*
+*Last updated: 2026-02-12*

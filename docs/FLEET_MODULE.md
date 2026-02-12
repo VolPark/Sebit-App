@@ -13,15 +13,23 @@ Kompletní modul pro správu vozového parku s automatickým načítáním dat v
 - **Přidělení pracovníkům** - dropdown se seznamem zaměstnanců
 - **Kompletní data** - pojištění, STK, nákupní cena, leasing, barva
 
-### 🔍 Automatické načítání dat z VIN (zdarma)
-- **NHTSA VIN Decoder API** - zdarma, bez API klíče
-- Funguje pro vozidla z **EU i USA**
-- Automaticky načte:
-  - Značku (Make)
-  - Model
-  - Rok výroby
-  - Typ paliva
-- Podporované značky: BMW, Mercedes, VW, Audi, Škoda, Seat, Renault, Peugeot, Citroën, Fiat, Alfa Romeo a další
+### 🔍 Automatické načítání dat z VIN (3-úrovňový systém)
+
+**1. Czech Vehicle Registry (RSV Datová kostka)** -- primární zdroj
+- Oficiální databáze Registru silničních vozidel ČR (`api.dataovozidlech.cz`)
+- 70+ polí: značka, model, palivo, STK, emise, rozměry, hmotnosti, historie registrace
+- Rate limit: 27 požadavků/minutu (sliding window)
+- Vyžaduje `CZECH_GOV_API_KEY`
+- Raw data se ukládají do `vozidla.vin_data` (JSONB)
+
+**2. Lokální VIN Decoder** -- sekundární
+- Podporované značky: Škoda, VW, Hyundai, Kia, BMW, Renault
+- Přesné rozpoznání modelu z WMI/VDS kódů
+
+**3. NHTSA API** -- fallback
+- Zdarma, bez API klíče
+- Funguje pro vozidla z EU i USA
+- Automaticky načte značku, model, rok výroby, typ paliva
 
 ### 🚗 BMW CarData Integration (pro BMW vozidla)
 - **Real-time telemetrie** z BMW Connected Drive
@@ -237,12 +245,15 @@ db/migrations/
 lib/
   api/flotila-api.ts               # Types + CRUD functions (~450 lines, client-safe)
   api/schemas.ts                   # Zod validation schemas (vehicleIdSchema, bmwOAuthStateSchema)
-  vin-decoder.ts                   # NHTSA VIN Decoder (zdarma, type-safe)
+  vehicles/czech-vehicle-api.ts    # Czech Vehicle Registry (RSV) API client + rate limiter
+  vin-decoder.ts                   # Local + NHTSA VIN Decoder (fallback)
   bmw-cardata.ts                   # BMW CarData API client
   bmw-oauth-state.ts               # CSRF token generation/validation
 
 app/
   flotila/page.tsx                 # Main fleet page (structured logging)
+  api/vehicles/
+    vin-lookup/route.ts            # RSV VIN lookup endpoint (POST, Zod validated)
   api/bmw/
     initiate-auth/route.ts         # Generate secure OAuth URL
     callback/route.ts              # OAuth callback with CSRF validation
@@ -258,8 +269,16 @@ components/flotila/
 
 ## 🔒 Bezpečnost
 
-### VIN Decoder
-- ✅ Žádný API klíč není potřeba
+### Czech Vehicle Registry (RSV)
+- ✅ Oficiální API Registru silničních vozidel ČR
+- ✅ Rate limiter (27 req/min, sliding window) v `czech-vehicle-api.ts`
+- ✅ Request timeout (10s) s AbortController
+- ✅ Zod validace VIN formátu na API endpointu
+- ✅ Strukturované logování (bez citlivých dat)
+- ⚠️ Vyžaduje `CZECH_GOV_API_KEY` (placená služba)
+
+### VIN Decoder (Fallback)
+- ✅ Žádný API klíč není potřeba (NHTSA)
 - ✅ Veřejné NHTSA API (US Government)
 - ✅ Bez rate limitů pro běžné použití
 - ✅ Strukturované logování (bez citlivých dat)
@@ -297,6 +316,8 @@ components/flotila/
 - datum_porizeni, kupni_cena, leasing
 - bmw_cardata_aktivni (boolean)
 - bmw_access_token, bmw_refresh_token, bmw_token_expiry (NEVER sent to client)
+- vin_data (JSONB) -- raw RSV response (70+ fields)
+- vin_data_fetched_at (timestamptz)
 ```
 
 ### Tabulka `bmw_oauth_states`

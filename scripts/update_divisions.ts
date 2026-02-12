@@ -29,7 +29,7 @@ async function run() {
 
     // 1. Get or Create Division
     let divisionId: number | null = null;
-    let { data: divisions, error: divError } = await supabase.from('divisions').select('*').eq('nazev', TARGET_DIVISION_NAME);
+    const { data: divisions, error: divError } = await supabase.from('divisions').select('*').eq('nazev', TARGET_DIVISION_NAME);
 
     if (divError) {
         console.error("Error fetching divisions:", divError);

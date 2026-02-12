@@ -14,11 +14,11 @@ const CompanyActionsTable = ({ data, onActionClick }: { data: ActionStats[], onA
     };
 
     const sortedData = useMemo(() => {
-        let sortableItems = [...data];
+        const sortableItems = [...data];
         if (sortConfig !== null) {
             sortableItems.sort((a, b) => {
-                let aValue = a[sortConfig.key];
-                let bValue = b[sortConfig.key];
+                const aValue = a[sortConfig.key];
+                const bValue = b[sortConfig.key];
 
                 // Handle string comparisons
                 if (typeof aValue === 'string' && typeof bValue === 'string') {
@@ -36,9 +36,9 @@ const CompanyActionsTable = ({ data, onActionClick }: { data: ActionStats[], onA
                 }
 
                 // Handle numbers
-                // @ts-ignore - we know these are numbers or can be compared
+                // @ts-expect-error - we know these are numbers or can be compared
                 if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-                // @ts-ignore
+                // @ts-expect-error
                 if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
                 return 0;
             });

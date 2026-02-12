@@ -219,8 +219,8 @@ export class CZSanctionsProvider extends BaseSanctionProvider {
 
         // Extract primary name from transliterations (first part before /)
         // Also handle notes like "Zápis byl zrušen..."
-        let surname = rawSurname.split('/')[0].trim();
-        let firstName = rawFirstName.split('/')[0].trim();
+        const surname = rawSurname.split('/')[0].trim();
+        const firstName = rawFirstName.split('/')[0].trim();
 
         // Check if entry was cancelled (contains "Zápis byl zrušen")
         const isCancelled = rawSurname.includes('Zápis byl zrušen') ||

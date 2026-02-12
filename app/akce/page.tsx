@@ -67,7 +67,7 @@ export default function AkcePage() {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
 
   const sortedProjects = useMemo(() => {
-    let items = [...projects];
+    const items = [...projects];
     if (sortConfig !== null) {
       items.sort((a, b) => {
         let aValue: any = a[sortConfig.key as keyof typeof a];

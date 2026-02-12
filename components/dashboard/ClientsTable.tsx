@@ -32,11 +32,11 @@ export function ClientsTable({ data, onActionClick }: ClientsTableProps) {
     };
 
     const sortedData = useMemo(() => {
-        let sortableItems = [...data];
+        const sortableItems = [...data];
         if (sortConfig !== null) {
             sortableItems.sort((a, b) => {
-                let aValue = a[sortConfig.key];
-                let bValue = b[sortConfig.key];
+                const aValue = a[sortConfig.key];
+                const bValue = b[sortConfig.key];
 
                 if (typeof aValue === 'string' && typeof bValue === 'string') {
                     return sortConfig.direction === 'asc'
