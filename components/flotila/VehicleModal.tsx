@@ -4,6 +4,17 @@ import { useState, useEffect } from 'react';
 import { createVozidlo, updateVozidlo, type VozidloSRelacemi, type VozidloFormData, type TypPaliva } from '@/lib/api/flotila-api';
 import { supabase } from '@/lib/supabase';
 import { decodeVIN, isValidVIN, isBMW } from '@/lib/vin-decoder';
+import { createLogger } from '@/lib/logger';
+import { getErrorMessage } from '@/lib/errors';
+import type { CzechVehicleData } from '@/lib/vehicles/czech-vehicle-api';
+import VehicleBasicTab from './tabs/VehicleBasicTab';
+import VehicleEngineTab from './tabs/VehicleEngineTab';
+import VehicleBodyTab from './tabs/VehicleBodyTab';
+import VehicleEmissionsTab from './tabs/VehicleEmissionsTab';
+import VehicleRegistrationTab from './tabs/VehicleRegistrationTab';
+import VehicleOperationsTab from './tabs/VehicleOperationsTab';
+
+const logger = createLogger({ module: 'VehicleModal' });
 
 interface RsvLookupResponse {
   success: boolean;
@@ -32,12 +43,24 @@ interface Pracovnik {
   jmeno: string;
 }
 
+type TabId = 'basic' | 'engine' | 'body' | 'emissions' | 'registration' | 'operations';
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'basic', label: 'Základní údaje' },
+  { id: 'engine', label: 'Motor a pohon' },
+  { id: 'body', label: 'Karoserie a rozměry' },
+  { id: 'emissions', label: 'Emise' },
+  { id: 'registration', label: 'Registrace a doklady' },
+  { id: 'operations', label: 'Provoz a náklady' },
+];
+
 export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: VehicleModalProps) {
   const [loading, setLoading] = useState(false);
   const [vinLoading, setVinLoading] = useState(false);
-  const [vinMessage, setVinMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [vinMessage, setVinMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [pracovnici, setPracovnici] = useState<Pracovnik[]>([]);
   const [vinData, setVinData] = useState<Record<string, unknown> | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>('basic');
   const [formData, setFormData] = useState<VozidloFormData>({
     vin: '',
     spz: '',
@@ -47,6 +70,9 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
     typ_paliva: 'benzin',
     najezd_km: 0,
   });
+
+  // RSV data — from fresh decode or saved in DB
+  const rsvData = (vinData || vehicle?.vin_data) as CzechVehicleData | null;
 
   // Load pracovnici list
   useEffect(() => {
@@ -58,7 +84,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
           .order('jmeno', { ascending: true });
 
         if (error) {
-          console.error('Error loading pracovnici:', error);
+          logger.error('Error loading pracovnici', { error: error.message });
         } else {
           setPracovnici(data || []);
         }
@@ -100,6 +126,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
     }
     setVinData(null);
     setVinMessage(null);
+    setActiveTab('basic');
   }, [vehicle, isOpen]);
 
   const handleDecodeVIN = async () => {
@@ -117,7 +144,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
     setVinMessage(null);
     setVinData(null);
 
-    // 1. Try Czech Vehicle Registry (RSV) first — most accurate for CZ vehicles
+    // 1. Try Czech Vehicle Registry (RSV) first
     let rsvSuccess = false;
     try {
       const rsvResponse = await fetch('/api/vehicles/vin-lookup', {
@@ -147,16 +174,15 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
           const bmwInfo = isBMW(formData.vin) ? ' (BMW - CarData ready)' : '';
           setVinMessage({
             type: 'success',
-            text: `✓ Data načtena z Registru silničních vozidel ČR${bmwInfo}`
+            text: `Data načtena z Registru silničních vozidel ČR${bmwInfo}`
           });
         }
       }
-    } catch (error) {
-      console.error('RSV lookup error:', error);
-      // Non-blocking — fall through to NHTSA
+    } catch (error: unknown) {
+      logger.error('RSV lookup error', { error: getErrorMessage(error) });
     }
 
-    // 2. Fallback to NHTSA if RSV failed (non-CZ vehicles, API down, etc.)
+    // 2. Fallback to NHTSA if RSV failed
     if (!rsvSuccess) {
       try {
         const result = await decodeVIN(formData.vin);
@@ -173,11 +199,11 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
           const source = result.data.source === 'Local' ? 'Lokální DB' : (result.data.source === 'NHTSA' ? 'NHTSA API' : 'Neznámý zdroj');
           const isGenericModel = result.data.model === 'PASSENGER CAR' || result.data.model === 'TRUCK';
           const bmwInfo = isBMW(formData.vin) ? ' (BMW - CarData ready)' : '';
-          const verifyInfo = isGenericModel || !result.data.rok_vyroby ? ' ⚠️ Údaje mohou být neúplné.' : '';
+          const verifyInfo = isGenericModel || !result.data.rok_vyroby ? ' Údaje mohou být neúplné.' : '';
 
           setVinMessage({
             type: 'success',
-            text: `✓ VIN dekódován (${source})${bmwInfo}${verifyInfo}`
+            text: `VIN dekódován (${source})${bmwInfo}${verifyInfo}`
           });
         } else {
           setVinMessage({
@@ -185,8 +211,8 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
             text: result.error || 'Nepodařilo se dekódovat VIN'
           });
         }
-      } catch (error) {
-        console.error('VIN decode error:', error);
+      } catch (error: unknown) {
+        logger.error('VIN decode error', { error: getErrorMessage(error) });
         setVinMessage({
           type: 'error',
           text: 'Chyba při komunikaci s VIN dekodérem'
@@ -217,7 +243,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
       }
       onSuccess();
     } catch (e: unknown) {
-      console.error('Error saving vehicle:', e);
+      logger.error('Error saving vehicle', { error: getErrorMessage(e) });
       alert('Chyba při ukládání vozidla');
     } finally {
       setLoading(false);
@@ -228,247 +254,73 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">
-          {vehicle ? 'Upravit vozidlo' : 'Nové vozidlo'}
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* VIN Decoder Section */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-start gap-3">
-              <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">VIN *</label>
-                <input
-                  type="text"
-                  value={formData.vin}
-                  onChange={(e) => {
-                    setFormData({ ...formData, vin: e.target.value.toUpperCase() });
-                    setVinMessage(null);
-                  }}
-                  required
-                  maxLength={17}
-                  placeholder="Např. WBAXXXXXXXXXXXXXX"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 font-mono"
-                />
-              </div>
-              <div className="pt-6">
-                <button
-                  type="button"
-                  onClick={handleDecodeVIN}
-                  disabled={vinLoading || !formData.vin || formData.vin.length !== 17}
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-sm font-medium"
-                >
-                  {vinLoading ? 'Dekóduji...' : '🔍 Načíst z VIN'}
-                </button>
-              </div>
-            </div>
-            {vinMessage && (
-              <div className={`mt-2 text-sm ${vinMessage.type === 'success' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
-                {vinMessage.text}
-              </div>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl flex flex-col max-w-7xl w-[95vw] h-[90vh] mx-4">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
+          <h2 className="text-xl font-bold">
+            {vehicle ? 'Upravit vozidlo' : 'Nové vozidlo'}
+            {vehicle && (
+              <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">
+                {vehicle.znacka} {vehicle.model} ({vehicle.spz})
+              </span>
             )}
-            {formData.vin && isBMW(formData.vin) && (
-              <div className="mt-2 p-3 bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-900/10 border border-blue-300 dark:border-blue-700 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <span className="text-xl">🚗</span>
-                  <div>
-                    <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">BMW vozidlo detekováno!</p>
-                    <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
-                      Po uložení můžete aktivovat BMW CarData pro automatickou synchronizaci nájezdu, paliva a polohy vozidla.
-                    </p>
-                  </div>
-                </div>
-              </div>
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="border-b border-slate-200 dark:border-slate-700 px-6 shrink-0">
+          <nav className="-mb-px flex space-x-4 md:space-x-6 overflow-x-auto no-scrollbar">
+            {TABS.map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`${
+                  activeTab === tab.id
+                    ? 'border-slate-900 text-slate-900 dark:border-white dark:text-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:hover:text-slate-300'
+                } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto p-6">
+            {activeTab === 'basic' && (
+              <VehicleBasicTab
+                formData={formData}
+                setFormData={setFormData}
+                pracovnici={pracovnici}
+                vinLoading={vinLoading}
+                vinMessage={vinMessage}
+                onDecodeVIN={handleDecodeVIN}
+                onVinMessageClear={() => setVinMessage(null)}
+              />
             )}
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              💡 VIN se automaticky dekóduje pomocí NHTSA databáze (zdarma, funguje pro EU/US výrobce)
-            </p>
+            {activeTab === 'engine' && <VehicleEngineTab rsvData={rsvData} />}
+            {activeTab === 'body' && <VehicleBodyTab rsvData={rsvData} />}
+            {activeTab === 'emissions' && <VehicleEmissionsTab rsvData={rsvData} />}
+            {activeTab === 'registration' && <VehicleRegistrationTab rsvData={rsvData} />}
+            {activeTab === 'operations' && (
+              <VehicleOperationsTab formData={formData} setFormData={setFormData} />
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-
-            <div>
-              <label className="block text-sm font-medium mb-1">SPZ *</label>
-              <input
-                type="text"
-                value={formData.spz}
-                onChange={(e) => setFormData({ ...formData, spz: e.target.value })}
-                required
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Značka *</label>
-              <input
-                type="text"
-                value={formData.znacka}
-                onChange={(e) => setFormData({ ...formData, znacka: e.target.value })}
-                required
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Model *</label>
-              <input
-                type="text"
-                value={formData.model}
-                onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                required
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Rok výroby *</label>
-              <input
-                type="number"
-                value={formData.rok_vyroby}
-                onChange={(e) => setFormData({ ...formData, rok_vyroby: parseInt(e.target.value) || 0 })}
-                required
-                min={1900}
-                max={new Date().getFullYear() + 1}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Barva</label>
-              <input
-                type="text"
-                value={formData.barva || ''}
-                onChange={(e) => setFormData({ ...formData, barva: e.target.value })}
-                placeholder="např. Černá"
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Typ paliva *</label>
-              <select
-                value={formData.typ_paliva}
-                onChange={(e) => setFormData({ ...formData, typ_paliva: e.target.value as TypPaliva })}
-                required
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              >
-                <option value="benzin">Benzín</option>
-                <option value="diesel">Diesel</option>
-                <option value="elektro">Elektro</option>
-                <option value="hybrid_plugin">Hybrid Plugin</option>
-                <option value="hybrid">Hybrid</option>
-                <option value="cng">CNG</option>
-                <option value="lpg">LPG</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Nájezd (km) *</label>
-              <input
-                type="number"
-                value={formData.najezd_km}
-                onChange={(e) => setFormData({ ...formData, najezd_km: parseInt(e.target.value) || 0 })}
-                required
-                min={0}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            {/* Assignment */}
-            <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1">Přidělený pracovník</label>
-              <select
-                value={formData.prideleny_pracovnik_id || ''}
-                onChange={(e) => setFormData({ ...formData, prideleny_pracovnik_id: e.target.value ? parseInt(e.target.value) : undefined })}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              >
-                <option value="">-- Nepřiděleno --</option>
-                {pracovnici.map(p => (
-                  <option key={p.id} value={p.id}>{p.jmeno}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Inspections & Insurance */}
-            <div>
-              <label className="block text-sm font-medium mb-1">STK do</label>
-              <input
-                type="date"
-                value={formData.stk_do || ''}
-                onChange={(e) => setFormData({ ...formData, stk_do: e.target.value })}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Pojištění do</label>
-              <input
-                type="date"
-                value={formData.pojisteni_do || ''}
-                onChange={(e) => setFormData({ ...formData, pojisteni_do: e.target.value })}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1">Pojišťovna</label>
-              <input
-                type="text"
-                value={formData.pojistovna || ''}
-                onChange={(e) => setFormData({ ...formData, pojistovna: e.target.value })}
-                placeholder="např. Allianz"
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            {/* Purchase Info */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Datum pořízení</label>
-              <input
-                type="date"
-                value={formData.datum_porizeni || ''}
-                onChange={(e) => setFormData({ ...formData, datum_porizeni: e.target.value })}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Kupní cena (Kč)</label>
-              <input
-                type="number"
-                value={formData.kupni_cena || ''}
-                onChange={(e) => setFormData({ ...formData, kupni_cena: e.target.value ? parseFloat(e.target.value) : undefined })}
-                min={0}
-                step="0.01"
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            <div className="col-span-2">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={formData.leasing || false}
-                  onChange={(e) => setFormData({ ...formData, leasing: e.target.checked })}
-                  className="rounded border-gray-300 dark:border-gray-600"
-                />
-                <span className="text-sm font-medium">Vozidlo je v leasingu</span>
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Poznámka</label>
-            <textarea
-              value={formData.poznamka || ''}
-              onChange={(e) => setFormData({ ...formData, poznamka: e.target.value })}
-              rows={3}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-4">
+          {/* Footer */}
+          <div className="flex gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700 shrink-0">
             <button
               type="button"
               onClick={onClose}

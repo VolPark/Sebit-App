@@ -153,12 +153,13 @@ app/                          # Next.js App Router pages
 ├── login/                    # Authentication
 └── auth/                     # Auth callbacks & password update
 
-components/                   # React components (73 files)
+components/                   # React components (80 files)
 ├── accounting/               # Accounting UI (28 files: reports, analytics)
 ├── dashboard/                # Dashboard components (5 files, incl. beta)
 ├── nabidky/                  # Offer-specific (form, PDF, table)
 ├── finance/                  # Finance components
-├── flotila/                  # Fleet components (stats, table, modal)
+├── flotila/                  # Fleet components (10 files: stats, table, modal, RSV grid, 6 tabs)
+│   └── tabs/                 # Vehicle detail tabs (basic, engine, body, emissions, registration, operations)
 ├── inventory/                # Inventory (table, scanner, transfer modal)
 ├── suppliers/                # Supplier catalog browser
 ├── timesheets/               # Timesheet components
@@ -309,7 +310,14 @@ public/                       # Static assets & images
 
 ### Fleet Management (Flotila)
 - **Vehicle Registry**: Full CRUD for company vehicles (VIN, SPZ, brand, model, fuel type).
-- **Czech Vehicle Registry (RSV)**: Primary VIN data source via official government API (Datova kostka). Returns 70+ fields including brand, model, fuel type, STK dates, emissions, dimensions, registration history. Requires `CZECH_GOV_API_KEY`. Rate limited (27 req/min).
+- **Full-Screen Vehicle Detail**: Modal (95vw x 90vh) with 6 tabs for comprehensive vehicle data:
+  - **Zakladni udaje** -- editable basic info (SPZ, brand, model, worker assignment, insurance, STK) + VIN decoder
+  - **Motor a pohon** -- engine specifications from RSV (read-only)
+  - **Karoserie a rozmery** -- body type, dimensions, weights from RSV (read-only)
+  - **Emise** -- emission data from RSV (read-only)
+  - **Registrace a doklady** -- registration history, documents from RSV (read-only)
+  - **Provoz a naklady** -- operations and costs (editable)
+- **Czech Vehicle Registry (RSV)**: Primary VIN data source via official government API (Datova kostka). Returns 70+ fields displayed across dedicated tabs. Requires `CZECH_GOV_API_KEY`. Rate limited (27 req/min).
 - **VIN Decoder Fallback**: **Hybrid Decoder** combining Local DB (Skoda, VW, Hyundai, Kia, BMW, Renault) + NHTSA API fallback for non-CZ vehicles.
 - **BMW CarData Integration**: Real-time telemetry (mileage, fuel, GPS) via OAuth 2.0.
 - **Worker Assignment**: Assign vehicles to employees.

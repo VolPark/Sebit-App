@@ -143,9 +143,16 @@ BMW_REDIRECT_URI="https://vase-domena.com/api/bmw/callback"
 
 ### Editace vozidla
 
-1. Klikněte "Detail" u vozidla
-2. Upravte pole
-3. Uložte
+1. Klikněte "Detail" u vozidla -- otevře se full-screen modal
+2. Modal obsahuje 6 záložek:
+   - **Základní údaje** -- editovatelné pole (SPZ, značka, model, pracovník, pojištění, STK, atd.) + VIN dekodér
+   - **Motor a pohon** -- read-only data z RSV (objem motoru, výkon, palivo, převodovka)
+   - **Karoserie a rozměry** -- read-only data z RSV (typ karoserie, rozměry, hmotnosti)
+   - **Emise** -- read-only data z RSV (emisní třída, CO2, spotřeba)
+   - **Registrace a doklady** -- read-only data z RSV (datum registrace, STK historie, doklady)
+   - **Provoz a náklady** -- editovatelné provozní údaje a náklady
+3. Upravte pole v editovatelných záložkách
+4. Uložte
 
 ### Mazání vozidla
 
@@ -261,8 +268,16 @@ app/
 
 components/flotila/
   FleetStats.tsx                   # Statistics cards
-  FleetTable.tsx                   # Data table
-  VehicleModal.tsx                 # Create/Edit modal (with VIN decoder)
+  FleetTable.tsx                   # Data table with filters
+  VehicleModal.tsx                 # Full-screen modal (95vw x 90vh) with 6 tabs
+  RsvDataGrid.tsx                  # Shared read-only definition-list grid for RSV data
+  tabs/
+    VehicleBasicTab.tsx            # Editable basic info + VIN decoder
+    VehicleEngineTab.tsx           # Engine & drivetrain (RSV read-only)
+    VehicleBodyTab.tsx             # Body & dimensions (RSV read-only)
+    VehicleEmissionsTab.tsx        # Emissions (RSV read-only)
+    VehicleRegistrationTab.tsx     # Registration & documents (RSV read-only)
+    VehicleOperationsTab.tsx       # Operations & costs (editable)
 ```
 
 ---
@@ -389,5 +404,5 @@ Logování tankov (datum, litry, cena, nájezd)
 ---
 
 **Implementováno**: 2026-02-09
-**Verze**: 1.1.0
-**Status**: ✅ Production Ready (security-hardened, BMW CarData requires configuration)
+**Verze**: 1.2.0
+**Status**: ✅ Production Ready (security-hardened, full-screen tabbed UI, BMW CarData requires configuration)

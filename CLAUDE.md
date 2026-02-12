@@ -63,10 +63,22 @@ app/                      # Next.js App Router pages
 ├── aml/                  # AML compliance module
 └── inventory/            # Inventory management
 
-components/               # React components (64 files)
+components/               # React components (80 files)
 ├── nabidky/              # Offer-specific (form, PDF, table)
 ├── accounting/           # Accounting UI components
 ├── finance/              # Finance components
+├── flotila/              # Fleet components (10 files)
+│   ├── FleetStats.tsx    # Statistics cards
+│   ├── FleetTable.tsx    # Data table with filters
+│   ├── VehicleModal.tsx  # Full-screen modal (95vw x 90vh) with 6 tabs
+│   ├── RsvDataGrid.tsx   # Shared read-only definition-list grid for RSV data
+│   └── tabs/             # Vehicle detail tabs
+│       ├── VehicleBasicTab.tsx         # Editable basic info + VIN decoder
+│       ├── VehicleEngineTab.tsx        # Engine & drivetrain (RSV read-only)
+│       ├── VehicleBodyTab.tsx          # Body & dimensions (RSV read-only)
+│       ├── VehicleEmissionsTab.tsx     # Emissions (RSV read-only)
+│       ├── VehicleRegistrationTab.tsx  # Registration & documents (RSV read-only)
+│       └── VehicleOperationsTab.tsx    # Operations & costs (editable)
 ├── AppSidebar.tsx        # Main navigation
 ├── AppShell.tsx          # Layout wrapper
 └── AiChat.tsx            # AI assistant UI
@@ -301,7 +313,9 @@ Key features:
 - **Secondary**: **Local Decoder** (`lib/vin-decoder.ts` & `lib/vin-data/`) -- supports Skoda, VW, Hyundai, Kia, BMW, Renault.
 - **Fallback**: **NHTSA API** (Global/US) -- free, no API key needed.
 - **API Endpoint**: `POST /api/vehicles/vin-lookup` -- Zod-validated, saves raw RSV data to `vozidla.vin_data` JSONB column.
-- **UI Flow**: `VehicleModal.tsx` tries RSV first, falls back to Local/NHTSA if RSV unavailable.
+- **UI Flow**: `VehicleModal.tsx` is a full-screen modal (95vw x 90vh) with 6 tabs displaying all RSV data. VIN decoder in the Basic tab tries RSV first, falls back to Local/NHTSA if unavailable.
+- **Tabs**: Zakladni udaje (editable) | Motor a pohon | Karoserie a rozmery | Emise | Registrace a doklady | Provoz a naklady (editable)
+- **Shared component**: `RsvDataGrid.tsx` renders read-only definition-list grids for RSV data across tabs.
 
 ## Important Constraints
 
@@ -396,4 +410,4 @@ Run with: `npx tsx scripts/your-script.ts`
 
 ---
 
-*Last updated: 2026-02-12* (Czech Vehicle Registry integration)
+*Last updated: 2026-02-12* (VehicleModal full-screen tabs for RSV data)
