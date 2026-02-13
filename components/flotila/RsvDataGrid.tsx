@@ -2,6 +2,8 @@ export interface RsvField {
   label: string;
   value: unknown;
   unit?: string;
+  /** Render ;\n separated values as a list */
+  multiline?: boolean;
 }
 
 export interface RsvSection {
@@ -42,6 +44,76 @@ export function formatValue(value: unknown, unit?: string): string {
   return unit ? `${str} ${unit}` : str;
 }
 
+/** Split ;\n separated values into a list of non-empty lines. Exported for testing. */
+export function parseMultilineValue(value: string): string[] {
+  return value
+    .split(/;\s*\n|;\s*$/)
+    .map(line => line.trim())
+    .filter(line => line && line !== '/');
+}
+
+/**
+ * Parse DalsiZaznamy pipe-separated string into structured records.
+ * Records are separated by " | " (space-pipe-space). Pipes within values
+ * (e.g. "*N.1/N.2|245/45") are kept together by re-joining fragments
+ * that don't look like a new record start.
+ * Exported for testing.
+ */
+export function parseDalsiZaznamy(raw: string): string[] {
+  if (!raw || !raw.trim()) return [];
+
+  // Split by pipe
+  const fragments = raw.split('|');
+  const records: string[] = [];
+  let current = '';
+
+  for (const fragment of fragments) {
+    const trimmed = fragment.trim();
+    if (!trimmed) continue;
+
+    // A new record starts with: "Key:" / "Multi Word Key:" or "*X.N:" pattern
+    const isNewRecord =
+      /^[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽa-záčďéěíňóřšťúůýž][A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽa-záčďéěíňóřšťúůýž\s]+:/.test(trimmed) ||
+      /^\*[A-Z]/.test(trimmed);
+
+    if (isNewRecord && current) {
+      records.push(current.trim());
+      current = trimmed;
+    } else if (current) {
+      current += ' ' + trimmed;
+    } else {
+      current = trimmed;
+    }
+  }
+
+  if (current.trim()) {
+    records.push(current.trim());
+  }
+
+  return records;
+}
+
+function MultilineValue({ value }: { value: string }) {
+  const lines = parseMultilineValue(value);
+  if (lines.length <= 1) {
+    return <>{lines[0] || '—'}</>;
+  }
+  return (
+    <ul className="list-disc list-inside space-y-0.5">
+      {lines.map((line, i) => (
+        <li key={i}>{line}</li>
+      ))}
+    </ul>
+  );
+}
+
+function FieldValue({ field }: { field: RsvField }) {
+  if (field.multiline && typeof field.value === 'string' && field.value.includes(';')) {
+    return <MultilineValue value={field.value} />;
+  }
+  return <>{formatValue(field.value, field.unit)}</>;
+}
+
 function SectionBlock({ section }: { section: RsvSection }) {
   return (
     <div>
@@ -53,7 +125,7 @@ function SectionBlock({ section }: { section: RsvSection }) {
           <div key={i} className="grid grid-cols-[minmax(120px,auto)_1fr] gap-x-3 text-sm">
             <dt className="text-slate-500 dark:text-slate-400 truncate">{field.label}</dt>
             <dd className="text-slate-900 dark:text-slate-100 font-medium break-words">
-              {formatValue(field.value, field.unit)}
+              <FieldValue field={field} />
             </dd>
           </div>
         ))}

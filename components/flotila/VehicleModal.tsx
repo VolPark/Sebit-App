@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createVozidlo, updateVozidlo, type VozidloSRelacemi, type VozidloFormData, type TypPaliva } from '@/lib/api/flotila-api';
+import { createVozidlo, updateVozidlo, getVozidlo, type VozidloSRelacemi, type VozidloFormData, type TypPaliva } from '@/lib/api/flotila-api';
 import { supabase } from '@/lib/supabase';
 import { decodeVIN, isValidVIN, isBMW } from '@/lib/vin-decoder';
 import { createLogger } from '@/lib/logger';
@@ -60,6 +60,7 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
   const [vinMessage, setVinMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [pracovnici, setPracovnici] = useState<Pracovnik[]>([]);
   const [vinData, setVinData] = useState<Record<string, unknown> | null>(null);
+  const [fullVehicle, setFullVehicle] = useState<VozidloSRelacemi | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('basic');
   const [formData, setFormData] = useState<VozidloFormData>({
     vin: '',
@@ -71,8 +72,21 @@ export default function VehicleModal({ isOpen, onClose, vehicle, onSuccess }: Ve
     najezd_km: 0,
   });
 
-  // RSV data — from fresh decode or saved in DB
-  const rsvData = (vinData || vehicle?.vin_data) as CzechVehicleData | null;
+  // RSV data — from fresh decode or saved in DB (fullVehicle has vin_data from detail fetch)
+  const rsvData = (vinData || fullVehicle?.vin_data || vehicle?.vin_data) as CzechVehicleData | null;
+
+  // Load full vehicle detail (with vin_data) when editing
+  useEffect(() => {
+    if (isOpen && vehicle?.id) {
+      getVozidlo(vehicle.id)
+        .then(detail => {
+          if (detail) setFullVehicle(detail);
+        })
+        .catch(err => logger.error('Failed to load vehicle detail', { error: getErrorMessage(err) }));
+    } else {
+      setFullVehicle(null);
+    }
+  }, [isOpen, vehicle?.id]);
 
   // Load pracovnici list
   useEffect(() => {

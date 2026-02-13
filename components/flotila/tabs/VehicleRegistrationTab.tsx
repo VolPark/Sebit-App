@@ -1,7 +1,29 @@
-import RsvDataGrid, { EmptyRsvState, type CzechVehicleData, type RsvSection } from '../RsvDataGrid';
+import RsvDataGrid, { EmptyRsvState, parseDalsiZaznamy, type CzechVehicleData, type RsvSection } from '../RsvDataGrid';
 
 interface VehicleRegistrationTabProps {
   rsvData: CzechVehicleData | null;
+}
+
+function DalsiZaznamySection({ raw }: { raw: string | null }) {
+  if (!raw) return null;
+
+  const records = parseDalsiZaznamy(raw);
+  if (records.length === 0) return null;
+
+  return (
+    <div>
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 border-b border-slate-200 dark:border-slate-700 pb-1">
+        Další záznamy
+      </h4>
+      <ul className="space-y-2">
+        {records.map((record, i) => (
+          <li key={i} className="text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800/50 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700">
+            {record}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 export default function VehicleRegistrationTab({ rsvData }: VehicleRegistrationTabProps) {
@@ -24,7 +46,7 @@ export default function VehicleRegistrationTab({ rsvData }: VehicleRegistrationT
         { label: 'Stupeň dokončení', value: rsvData.StupenDokonceni },
         { label: 'Spojovací zařízení', value: rsvData.VozidloSpojZarizNazev },
         { label: 'Alternativní provedení', value: rsvData.AlternativniProvedeni },
-        { label: 'Další záznamy', value: rsvData.DalsiZaznamy },
+        { label: 'Autonomní řízení', value: rsvData.VozidloAutonomniStupen },
       ],
     },
     {
@@ -58,6 +80,7 @@ export default function VehicleRegistrationTab({ rsvData }: VehicleRegistrationT
         { label: 'ORV ke skartaci', value: rsvData.OrvKeSkartaci },
         { label: 'ORV odevzdáno', value: rsvData.OrvOdevzdano },
         { label: 'Druh RZ', value: rsvData.RzDruh },
+        { label: 'Varianta RZ', value: rsvData.RzVarianta },
         { label: 'RZ vydána', value: rsvData.RzJkVydana },
         { label: 'RZ ke skartaci', value: rsvData.RzKeSkartaci },
         { label: 'RZ odevzdána', value: rsvData.RzOdevzdano },
@@ -66,5 +89,10 @@ export default function VehicleRegistrationTab({ rsvData }: VehicleRegistrationT
     },
   ];
 
-  return <RsvDataGrid sections={sections} />;
+  return (
+    <div className="space-y-6">
+      <RsvDataGrid sections={sections} />
+      <DalsiZaznamySection raw={rsvData.DalsiZaznamy as string | null} />
+    </div>
+  );
 }

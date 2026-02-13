@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatValue } from '../RsvDataGrid';
+import { formatValue, parseMultilineValue, parseDalsiZaznamy } from '../RsvDataGrid';
 
 describe('RsvDataGrid: formatValue', () => {
   // Null/undefined/empty handling
@@ -88,5 +88,119 @@ describe('RsvDataGrid: formatValue', () => {
 
   it('should handle number with unit and zero value', () => {
     expect(formatValue(0, 'kg')).toBe('\u2014');
+  });
+});
+
+describe('RsvDataGrid: parseMultilineValue', () => {
+  it('should split semicolon-newline separated values', () => {
+    const input = 'Value 1;\nValue 2;\nValue 3';
+    const result = parseMultilineValue(input);
+    expect(result).toEqual(['Value 1', 'Value 2', 'Value 3']);
+  });
+
+  it('should handle trailing semicolon', () => {
+    const input = 'Value 1;\nValue 2;';
+    const result = parseMultilineValue(input);
+    expect(result).toEqual(['Value 1', 'Value 2']);
+  });
+
+  it('should filter out empty lines', () => {
+    const input = 'Value 1;\n;\nValue 2;\n';
+    const result = parseMultilineValue(input);
+    expect(result).toEqual(['Value 1', 'Value 2']);
+  });
+
+  it('should filter out "/" placeholder', () => {
+    const input = 'Value 1;\n/;\nValue 2';
+    const result = parseMultilineValue(input);
+    expect(result).toEqual(['Value 1', 'Value 2']);
+  });
+
+  it('should trim whitespace from each value', () => {
+    const input = '  Value 1  ;\n  Value 2  ';
+    const result = parseMultilineValue(input);
+    expect(result).toEqual(['Value 1', 'Value 2']);
+  });
+
+  it('should return empty array for empty string', () => {
+    expect(parseMultilineValue('')).toEqual([]);
+  });
+
+  it('should handle single value without semicolon', () => {
+    const result = parseMultilineValue('Single Value');
+    expect(result).toEqual(['Single Value']);
+  });
+
+  it('should handle real RSV tire data', () => {
+    const input = '*N.1/N.2|245/45 R 19 102 V;\n*O.1/O.2|245/45 R 19 102 V';
+    const result = parseMultilineValue(input);
+    expect(result).toEqual(['*N.1/N.2|245/45 R 19 102 V', '*O.1/O.2|245/45 R 19 102 V']);
+  });
+});
+
+describe('RsvDataGrid: parseDalsiZaznamy', () => {
+  it('should parse pipe-separated records', () => {
+    const input = 'Rozchod: 1570-1620 mm | Hmotnost: 2000 kg';
+    const result = parseDalsiZaznamy(input);
+    expect(result).toEqual(['Rozchod: 1570-1620 mm', 'Hmotnost: 2000 kg']);
+  });
+
+  it('should handle records with *X.N: pattern', () => {
+    const input = '*F.2: hodnota1 | *U.1: hodnota2';
+    const result = parseDalsiZaznamy(input);
+    expect(result).toEqual(['*F.2: hodnota1', '*U.1: hodnota2']);
+  });
+
+  it('should join pipe-separated fragments within values', () => {
+    const input = '*N.1/N.2|245/45 R 19 102 V | *O.1/O.2|245/45 R 19 102 V';
+    const result = parseDalsiZaznamy(input);
+    // Internal pipes become spaces since fragments are joined
+    expect(result).toEqual(['*N.1/N.2 245/45 R 19 102 V', '*O.1/O.2 245/45 R 19 102 V']);
+  });
+
+  it('should handle Czech characters in keys', () => {
+    const input = 'Variabilní provedení: Ano | Rozchod: 1570 mm';
+    const result = parseDalsiZaznamy(input);
+    expect(result).toEqual(['Variabilní provedení: Ano', 'Rozchod: 1570 mm']);
+  });
+
+  it('should return empty array for null', () => {
+    expect(parseDalsiZaznamy(null as unknown as string)).toEqual([]);
+  });
+
+  it('should return empty array for empty string', () => {
+    expect(parseDalsiZaznamy('')).toEqual([]);
+  });
+
+  it('should return empty array for whitespace-only string', () => {
+    expect(parseDalsiZaznamy('   ')).toEqual([]);
+  });
+
+  it('should handle single record without pipe', () => {
+    const result = parseDalsiZaznamy('Rozchod: 1570 mm');
+    expect(result).toEqual(['Rozchod: 1570 mm']);
+  });
+
+  it('should filter out empty fragments', () => {
+    const input = 'Rozchod: 1570 mm | | Hmotnost: 2000 kg';
+    const result = parseDalsiZaznamy(input);
+    expect(result).toEqual(['Rozchod: 1570 mm', 'Hmotnost: 2000 kg']);
+  });
+
+  it('should handle complex real-world RSV data', () => {
+    const input = 'Rozchod: 1570-1620 mm | *F.2: 2510-2590 kg | *N.1/N.2|245/45 R 19 102 V | Variabilní provedení: Ano';
+    const result = parseDalsiZaznamy(input);
+    expect(result).toEqual([
+      'Rozchod: 1570-1620 mm',
+      '*F.2: 2510-2590 kg',
+      '*N.1/N.2 245/45 R 19 102 V',
+      'Variabilní provedení: Ano',
+    ]);
+  });
+
+  it('should handle multi-word keys before colon', () => {
+    const input = 'Multi Word Key: value | Another Key: value2';
+    const result = parseDalsiZaznamy(input);
+    expect(result).toEqual(['Multi Word Key: value', 'Another Key: value2']);
   });
 });

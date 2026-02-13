@@ -13,8 +13,9 @@ export default function VehicleEngineTab({ rsvData }: VehicleEngineTabProps) {
       fields: [
         { label: 'Palivo', value: rsvData.Palivo },
         { label: 'Zdvihový objem', value: rsvData.MotorZdvihObjem, unit: 'cm³' },
-        { label: 'Max. výkon', value: rsvData.MotorMaxVykon },
+        { label: 'Max. výkon (kW / ot.)', value: rsvData.MotorMaxVykon },
         { label: 'Typ motoru', value: rsvData.MotorTyp },
+        { label: 'Číslo motoru', value: rsvData.MotorCislo },
         { label: 'Výrobce motoru', value: rsvData.MotorVyrobce },
         { label: 'Elektrické vozidlo', value: rsvData.VozidloElektricke },
         { label: 'Hybridní vozidlo', value: rsvData.VozidloHybridni },

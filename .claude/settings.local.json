@@ -16,7 +16,11 @@
       "Bash(git push:*)",
       "Bash(npx next build:*)",
       "Bash(node scripts/fix-ts-directives.js:*)",
-      "WebFetch(domain:www.kontrola-vin.cz)"
+      "WebFetch(domain:www.kontrola-vin.cz)",
+      "WebFetch(domain:dataovozidlech.cz)",
+      "WebFetch(domain:download.dataovozidlech.cz)",
+      "WebFetch(domain:www.kurzy.cz)",
+      "Bash(npx vitest run:*)"
     ],
     "deny": [
       "Bash(rm -rf /)",

@@ -37,6 +37,7 @@ export interface CzechVehicleData {
   // Výrobce
   VozidloVyrobce: string | null;
   MotorVyrobce: string | null;
+  MotorCislo: string | null;
   VyrobceKaroserie: string | null;
 
   // Motor
@@ -87,12 +88,19 @@ export interface CzechVehicleData {
   VozidloKaroserieBarva: string | null;
   VozidloKaroserieBarvaDoplnkova: string | null;
   VozidloKaroserieMist: string | null;
+  VozidloKaroserieMistSezeniPozn: string | null;
+  VozidloKaroserieMistStaniPozn: string | null;
 
   // Rozměry a hmotnosti
   Rozmery: string | null;
+  RozmeryDelkaDo: string | null;
+  RozmeryVyskaDo: string | null;
+  RozmeryLoznaDelka: string | null;
+  RozmeryLoznaSirka: string | null;
   RozmeryRozvor: string | null;
   Rozchod: string | null;
   HmotnostiProvozni: number;
+  HmotnostiProvozniDo: string | null;
   HmotnostiPripPov: string | null;
   HmotnostiPripPovN: string | null;
   HmotnostiPripPovBrzdenePV: string | null;
@@ -100,6 +108,8 @@ export interface CzechVehicleData {
   HmotnostiPripPovJS: string | null;
   HmotnostiTestWltp: string | null;
   HmotnostUzitecneZatizeniPrumer: string | null;
+  HmotnostiZatizeniSZ: string | null;
+  HmotnostiZatizeniSZTyp: string | null;
 
   // Nápravy a pneumatiky
   NapravyPocetDruh: string | null;
@@ -130,10 +140,14 @@ export interface CzechVehicleData {
   OrvKeSkartaci: string | null;
   OrvOdevzdano: string | null;
   RzDruh: string | null;
+  RzVarianta: number | null;
   RzJkVydana: string | null;
   RzKeSkartaci: string | null;
   RzOdevzdano: string | null;
   RzZadrzena: boolean;
+
+  // Autonomní řízení
+  VozidloAutonomniStupen: string | null;
 
   // Index signature for any additional fields
   [key: string]: unknown;

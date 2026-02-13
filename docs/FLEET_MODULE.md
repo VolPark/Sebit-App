@@ -21,6 +21,7 @@ Kompletní modul pro správu vozového parku s automatickým načítáním dat v
 - Rate limit: 27 požadavků/minutu (sliding window)
 - Vyžaduje `CZECH_GOV_API_KEY`
 - Raw data se ukládají do `vozidla.vin_data` (JSONB)
+- **Data persistence**: Modal při otevření načte kompletní detail vozidla (včetně `vin_data`), takže RSV záložky zobrazí uložená data bez nutnosti znovu dekódovat VIN
 
 **2. Lokální VIN Decoder** -- sekundární
 - Podporované značky: Škoda, VW, Hyundai, Kia, BMW, Renault
@@ -143,16 +144,19 @@ BMW_REDIRECT_URI="https://vase-domena.com/api/bmw/callback"
 
 ### Editace vozidla
 
-1. Klikněte "Detail" u vozidla -- otevře se full-screen modal
-2. Modal obsahuje 6 záložek:
+1. Klikněte "Detail" u vozidla -- otevře se full-screen modal (95vw x 90vh)
+2. Modal automaticky načte kompletní data včetně uložených RSV dat (`vin_data`)
+3. Modal obsahuje 6 záložek:
    - **Základní údaje** -- editovatelné pole (SPZ, značka, model, pracovník, pojištění, STK, atd.) + VIN dekodér
    - **Motor a pohon** -- read-only data z RSV (objem motoru, výkon, palivo, převodovka)
    - **Karoserie a rozměry** -- read-only data z RSV (typ karoserie, rozměry, hmotnosti)
    - **Emise** -- read-only data z RSV (emisní třída, CO2, spotřeba)
-   - **Registrace a doklady** -- read-only data z RSV (datum registrace, STK historie, doklady)
+   - **Registrace a doklady** -- read-only data z RSV (datum registrace, STK historie, doklady, "Další záznamy")
    - **Provoz a náklady** -- editovatelné provozní údaje a náklady
-3. Upravte pole v editovatelných záložkách
-4. Uložte
+4. **Multi-value fieldy** (pneumatiky, hmotnosti) se zobrazují jako odrážkový seznam
+5. **DalsiZaznamy** se parsují do strukturovaných záznamů místo jednoho dlouhého stringu
+6. Upravte pole v editovatelných záložkách
+7. Uložte
 
 ### Mazání vozidla
 
@@ -269,14 +273,14 @@ app/
 components/flotila/
   FleetStats.tsx                   # Statistics cards
   FleetTable.tsx                   # Data table with filters
-  VehicleModal.tsx                 # Full-screen modal (95vw x 90vh) with 6 tabs
-  RsvDataGrid.tsx                  # Shared read-only definition-list grid for RSV data
+  VehicleModal.tsx                 # Full-screen modal (95vw x 90vh) with 6 tabs, loads full vehicle detail (incl. vin_data) on open
+  RsvDataGrid.tsx                  # Shared read-only grid for RSV data, multi-value support (;\n lists), DalsiZaznamy parser
   tabs/
     VehicleBasicTab.tsx            # Editable basic info + VIN decoder
     VehicleEngineTab.tsx           # Engine & drivetrain (RSV read-only)
-    VehicleBodyTab.tsx             # Body & dimensions (RSV read-only)
+    VehicleBodyTab.tsx             # Body & dimensions (RSV read-only, multi-value weights)
     VehicleEmissionsTab.tsx        # Emissions (RSV read-only)
-    VehicleRegistrationTab.tsx     # Registration & documents (RSV read-only)
+    VehicleRegistrationTab.tsx     # Registration & documents (RSV read-only, structured DalsiZaznamy)
     VehicleOperationsTab.tsx       # Operations & costs (editable)
 ```
 
@@ -331,7 +335,7 @@ components/flotila/
 - datum_porizeni, kupni_cena, leasing
 - bmw_cardata_aktivni (boolean)
 - bmw_access_token, bmw_refresh_token, bmw_token_expiry (NEVER sent to client)
-- vin_data (JSONB) -- raw RSV response (70+ fields)
+- vin_data (JSONB) -- raw RSV response (70+ fields: MotorCislo, RozmeryDelkaDo, VozidloAutonomniStupen, RzVarianta, multi-value tire/weight fields, DalsiZaznamy)
 - vin_data_fetched_at (timestamptz)
 ```
 
@@ -404,5 +408,27 @@ Logování tankov (datum, litry, cena, nájezd)
 ---
 
 **Implementováno**: 2026-02-09
-**Verze**: 1.2.0
-**Status**: ✅ Production Ready (security-hardened, full-screen tabbed UI, BMW CarData requires configuration)
+**Verze**: 1.3.0
+**Status**: ✅ Production Ready (security-hardened, full-screen tabbed UI, RSV data persistence, multi-value fields, BMW CarData requires configuration)
+
+---
+
+## 📋 Changelog
+
+### v1.3.0 (2026-02-13)
+- ✅ **RSV Data Persistence**: VehicleModal now fetches full vehicle detail (including `vin_data`) on open, so RSV tabs show saved data without re-decoding VIN
+- ✅ **Multi-Value Fields**: Fields with `;\n` separators (tires, weights) now displayed as bulleted lists
+- ✅ **DalsiZaznamy Parsing**: "Further Records" field parsed into structured records instead of one long string
+- ✅ **New RSV Fields**: Added missing fields to `CzechVehicleData` interface (MotorCislo, RozmeryDelkaDo, VozidloAutonomniStupen, RzVarianta, etc.)
+- ✅ **UI Improvements**: Better readability of complex RSV data in tabs
+
+### v1.2.0 (2026-02-12)
+- ✅ Full-screen modal (95vw x 90vh) with 6 tabs
+- ✅ Dedicated tabs for RSV data (Engine, Body, Emissions, Registration, Operations)
+
+### v1.1.0 (2026-02-09)
+- ✅ Security hardening (CSRF protection, Zod validation, structured logging)
+- ✅ BMW CarData integration
+
+### v1.0.0 (2026-02-09)
+- ✅ Initial release (CRUD, VIN decoder, basic UI)

@@ -313,9 +313,9 @@ Key features:
 - **Secondary**: **Local Decoder** (`lib/vin-decoder.ts` & `lib/vin-data/`) -- supports Skoda, VW, Hyundai, Kia, BMW, Renault.
 - **Fallback**: **NHTSA API** (Global/US) -- free, no API key needed.
 - **API Endpoint**: `POST /api/vehicles/vin-lookup` -- Zod-validated, saves raw RSV data to `vozidla.vin_data` JSONB column.
-- **UI Flow**: `VehicleModal.tsx` is a full-screen modal (95vw x 90vh) with 6 tabs displaying all RSV data. VIN decoder in the Basic tab tries RSV first, falls back to Local/NHTSA if unavailable.
+- **UI Flow**: `VehicleModal.tsx` is a full-screen modal (95vw x 90vh) with 6 tabs displaying all RSV data. Modal fetches full vehicle detail (including `vin_data`) on open, so RSV tabs show saved data without re-decoding VIN.
 - **Tabs**: Zakladni udaje (editable) | Motor a pohon | Karoserie a rozmery | Emise | Registrace a doklady | Provoz a naklady (editable)
-- **Shared component**: `RsvDataGrid.tsx` renders read-only definition-list grids for RSV data across tabs.
+- **Shared component**: `RsvDataGrid.tsx` renders read-only definition-list grids for RSV data. Supports multi-value fields (rendered as bulleted lists) and structured DalsiZaznamy records.
 
 ## Important Constraints
 
@@ -381,8 +381,9 @@ This is a **blocking requirement** — no task is done until both agents have ru
 - Configuration: `lib/companyConfig.ts` -> `api.czechVehicleRegistry`
 - Environment variable: `CZECH_GOV_API_KEY`
 - Rate limit: 27 requests/minute (sliding window)
-- Returns 70+ fields: brand, model, fuel, STK, emissions, dimensions, registration history
+- Returns 70+ fields: brand, model, fuel, STK, emissions, dimensions, registration history, multi-value fields (tires, weights)
 - Raw response cached in `vozidla.vin_data` (JSONB)
+- `CzechVehicleData` interface includes all RSV fields (MotorCislo, RozmeryDelkaDo, VozidloAutonomniStupen, RzVarianta, etc.)
 
 ## Debugging
 
@@ -410,4 +411,4 @@ Run with: `npx tsx scripts/your-script.ts`
 
 ---
 
-*Last updated: 2026-02-12* (VehicleModal full-screen tabs for RSV data)
+*Last updated: 2026-02-13* (RSV data persistence, multi-value fields as lists, DalsiZaznamy structured parsing)

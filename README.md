@@ -317,7 +317,10 @@ public/                       # Static assets & images
   - **Emise** -- emission data from RSV (read-only)
   - **Registrace a doklady** -- registration history, documents from RSV (read-only)
   - **Provoz a naklady** -- operations and costs (editable)
+- **RSV Data Persistence**: Modal fetches full vehicle detail (including `vin_data`) on open, so RSV tabs show saved data without re-decoding VIN.
 - **Czech Vehicle Registry (RSV)**: Primary VIN data source via official government API (Datova kostka). Returns 70+ fields displayed across dedicated tabs. Requires `CZECH_GOV_API_KEY`. Rate limited (27 req/min).
+- **Multi-Value Field Rendering**: Fields with `;\n` separators (tires, weights) displayed as bulleted lists for better readability.
+- **Structured DalsiZaznamy**: "Further Records" field parsed into individual structured records instead of one long string.
 - **VIN Decoder Fallback**: **Hybrid Decoder** combining Local DB (Skoda, VW, Hyundai, Kia, BMW, Renault) + NHTSA API fallback for non-CZ vehicles.
 - **BMW CarData Integration**: Real-time telemetry (mileage, fuel, GPS) via OAuth 2.0.
 - **Worker Assignment**: Assign vehicles to employees.
@@ -1025,4 +1028,4 @@ Categories: `debug-*`, `inspect-*`, `check-*`, `test-*`, `probe_*`, migration sc
 
 **Developed for Interiery Horyna & SEBIT Solutions**
 
-*Last updated: 2026-02-12*
+*Last updated: 2026-02-13*
